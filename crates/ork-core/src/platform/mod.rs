@@ -7,7 +7,8 @@
 //! cross-platform crate already covers it), both delegate to [`common`] --
 //! the seam stays, the duplication does not.
 
-mod common;
+pub(crate) mod common;
+mod services;
 
 #[cfg(target_os = "linux")]
 mod linux;
@@ -322,6 +323,16 @@ pub trait Platform: Send + Sync + 'static {
         self.locate_tool(tool).is_some()
     }
 
+    /// Whether a system service is running.
+    ///
+    /// Asked after a service is restarted, to find out whether the restart
+    /// actually took. A service reporting itself running is the only evidence
+    /// that counts: an exit code of zero from the restart command says the
+    /// command ran, not that the service came up and stayed up.
+    fn service_status(&self, name: &str) -> ServiceStatus {
+        services::status(name)
+    }
+
     /// Where an executable lives, if it is installed.
     ///
     /// Probes that need to *run* something go through this rather than
@@ -329,6 +340,35 @@ pub trait Platform: Send + Sync + 'static {
     /// platform-aware implementation instead of one per probe.
     fn locate_tool(&self, tool: &str) -> Option<std::path::PathBuf> {
         common::which(tool)
+    }
+}
+
+/// What a system service is doing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "kebab-case")]
+pub enum ServiceStatus {
+    Running,
+    Stopped,
+    /// No service by that name exists here.
+    NotFound,
+    /// Could not be determined. Never treated as either good or bad news.
+    Unknown {
+        detail: String,
+    },
+}
+
+impl ServiceStatus {
+    pub fn is_running(&self) -> bool {
+        matches!(self, ServiceStatus::Running)
+    }
+
+    pub fn describe(&self) -> String {
+        match self {
+            ServiceStatus::Running => "running".to_string(),
+            ServiceStatus::Stopped => "stopped".to_string(),
+            ServiceStatus::NotFound => "no service by that name".to_string(),
+            ServiceStatus::Unknown { detail } => format!("could not tell: {detail}"),
+        }
     }
 }
 

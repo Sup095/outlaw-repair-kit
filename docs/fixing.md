@@ -122,6 +122,7 @@ describes them, and it grows as verifiers are written.
 | Problem | How it is re-tested |
 | --- | --- |
 | A stale lock or cache file | The file is gone |
+| A service that should be running is not | The service manager is asked again |
 | Steam will not start | Steam is started, and watched |
 
 **Every verifier re-runs the same test that found the problem.** That sounds
@@ -130,6 +131,21 @@ that declares it repaired are different tests, then "fixed" quietly comes to
 mean something other than "not found any more". The launch test lives in the
 core for exactly this reason, shared by the scan that reports Steam broken and
 the verifier that later says it works.
+
+### Services, in detail
+
+A stopped service is only worth reporting if it was *meant* to be running. On
+Windows the scan asks for services set to start automatically that are not
+running **and exited with a non-zero code** -- without that last condition a
+perfectly healthy machine reports a handful of services that stopped on purpose
+and stayed stopped, which teaches you to ignore the list. On Linux the scan
+reads systemd's own failed-unit list, which already carries that judgement.
+
+Re-testing is a matter of asking the service manager again. The one subtlety is
+what to do with an answer that is neither running nor stopped: a service that is
+still starting has not arrived yet, and calling that fixed would be believing a
+promise instead of an outcome. Those states are read as "cannot tell", and the
+change is rolled back like any other untestable one.
 
 ### The Steam case, in detail
 

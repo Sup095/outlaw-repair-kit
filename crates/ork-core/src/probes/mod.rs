@@ -12,6 +12,7 @@ pub mod launchers;
 pub mod logs;
 pub mod memory;
 pub mod processes;
+pub mod services;
 
 use crate::probe::{Probe, ProbeMeta};
 
@@ -26,6 +27,7 @@ pub fn default_registry() -> Vec<Box<dyn Probe>> {
         Box::new(memory::MemoryPressureProbe),
         Box::new(processes::ProcessesProbe),
         Box::new(devices::DeviceHealthProbe),
+        Box::new(services::FailedServicesProbe),
         // Launch tests start real programs, so they go after everything
         // that only observes.
         Box::new(apps::AppLaunchProbe),

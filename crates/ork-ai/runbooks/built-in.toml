@@ -180,6 +180,24 @@ description = "Reinstall the driver. If the fault returns immediately afterwards
 invasiveness = "high"
 
 [[entry]]
+id = "service.stopped"
+title = "A service that should be running has stopped"
+finding_ids = ["service.stopped"]
+explanation = """
+The service is set to start automatically but stopped with an error, so whatever depends on it is not working. Restarting it is worth trying first: if the cause was transient -- a resource that was briefly unavailable, a race at start-up -- it will simply come back. If it stops again straight away, the cause is not transient and the system log will say what it is."""
+
+[[entry.fixes]]
+description = "Restart the service. If it stops again, the cause is not transient and the log will say more."
+invasiveness = "low"
+action = { kind = "restart-service", target = "{evidence:service}" }
+
+[[entry.fixes]]
+description = "Read what the service said when it failed."
+invasiveness = "inspect"
+command = "systemctl status the-service"
+platforms = ["linux"]
+
+[[entry]]
 id = "app.launch-failed"
 title = "An installed application will not start"
 finding_ids = ["app.launch-failed"]

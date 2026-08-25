@@ -212,6 +212,8 @@ pub enum Refusal {
     RelativePath { path: String },
     #[error("`{kind}` is not a kind of fix this tool knows how to carry out")]
     UnknownRecipe { kind: String },
+    #[error("this problem does not say what `{{{placeholder}}}` refers to")]
+    UnresolvedPlaceholder { placeholder: String },
     #[error("the instruction is empty")]
     Empty,
 }
@@ -405,6 +407,28 @@ impl FixAction {
 /// There is deliberately no "run this command" recipe, for the same reason
 /// there is no such [`FixAction`].
 impl FixAction {
+    /// Build an action from a runbook recipe, filling in details from the
+    /// finding it is answering.
+    ///
+    /// A runbook entry covers a *class* of problem -- "a service that should
+    /// be running has stopped" -- so it cannot name the particular service.
+    /// It names where to look instead:
+    ///
+    /// * `{subject}` -- what the finding is about;
+    /// * `{evidence:service}` -- the value of that evidence label.
+    ///
+    /// A placeholder that cannot be filled is refused, not left blank. Blank
+    /// would turn "restart the service this finding is about" into "restart
+    /// the service called nothing", and a fix acting on the wrong target is
+    /// worse than a fix that does not run.
+    pub fn from_recipe_for(
+        kind: &str,
+        target: &str,
+        finding: &ork_core::Finding,
+    ) -> std::result::Result<Self, Refusal> {
+        Self::from_recipe(kind, &fill_in(target, finding)?)
+    }
+
     /// Build an action from a runbook recipe.
     ///
     /// `target` is expanded first: `~` becomes the user's home directory and
@@ -428,6 +452,50 @@ impl FixAction {
             }),
         }
     }
+}
+
+/// Replace `{subject}` and `{evidence:label}` with what the finding says.
+fn fill_in(target: &str, finding: &ork_core::Finding) -> std::result::Result<String, Refusal> {
+    let mut out = String::with_capacity(target.len());
+    let mut rest = target;
+
+    while let Some(open) = rest.find('{') {
+        out.push_str(&rest[..open]);
+        let Some(close) = rest[open..].find('}') else {
+            // An unclosed brace is a typo in the runbook, not a literal.
+            return Err(Refusal::UnresolvedPlaceholder {
+                placeholder: rest[open..].to_string(),
+            });
+        };
+        let name = &rest[open + 1..open + close];
+
+        let value = if name == "subject" {
+            finding.subject.clone()
+        } else if let Some(label) = name.strip_prefix("evidence:") {
+            finding
+                .evidence
+                .iter()
+                .find(|item| item.label.eq_ignore_ascii_case(label))
+                .map(|item| item.value.clone())
+        } else {
+            None
+        };
+
+        match value {
+            Some(value) if !value.trim().is_empty() => out.push_str(value.trim()),
+            // Either the finding does not carry it, or it carries it empty.
+            // Both mean this recipe cannot be applied to this finding.
+            _ => {
+                return Err(Refusal::UnresolvedPlaceholder {
+                    placeholder: name.to_string(),
+                });
+            }
+        }
+        rest = &rest[open + close + 1..];
+    }
+
+    out.push_str(rest);
+    Ok(out)
 }
 
 /// Expand `~`, `$VAR`, and `%VAR%` so a runbook can name a path without
@@ -488,6 +556,86 @@ fn expand(input: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    fn service_finding(evidence: &[(&str, &str)]) -> ork_core::Finding {
+        let mut builder = ork_core::Finding::builder("services.failed", "service.stopped")
+            .subject("cups")
+            .severity(ork_core::Severity::Medium)
+            .category(ork_core::finding::Category::Configuration)
+            .title("stopped")
+            .detail("stopped");
+        for (label, value) in evidence {
+            builder = builder.evidence(*label, *value);
+        }
+        builder.build()
+    }
+
+    #[test]
+    fn a_placeholder_is_filled_in_from_the_finding() {
+        // A runbook entry covers a class of problem, so it names where to look
+        // rather than naming the service.
+        let finding = service_finding(&[("service", "cups")]);
+        let action =
+            FixAction::from_recipe_for("restart-service", "{evidence:service}", &finding).unwrap();
+        assert!(matches!(action, FixAction::RestartService { ref service } if service == "cups"));
+
+        let by_subject =
+            FixAction::from_recipe_for("restart-service", "{subject}", &finding).unwrap();
+        assert!(
+            matches!(by_subject, FixAction::RestartService { ref service } if service == "cups")
+        );
+    }
+
+    #[test]
+    fn a_placeholder_the_finding_cannot_fill_is_refused_rather_than_left_blank() {
+        // Blank would turn "restart the service this is about" into "restart
+        // the service called nothing". A fix acting on the wrong target is
+        // worse than one that does not run.
+        let finding = service_finding(&[("state", "failed")]);
+        assert!(
+            FixAction::from_recipe_for("restart-service", "{evidence:service}", &finding).is_err()
+        );
+        assert!(FixAction::from_recipe_for("restart-service", "{nonsense}", &finding).is_err());
+
+        let empty = service_finding(&[("service", "   ")]);
+        assert!(
+            FixAction::from_recipe_for("restart-service", "{evidence:service}", &empty).is_err()
+        );
+    }
+
+    #[test]
+    fn a_placeholder_can_sit_inside_a_longer_path() {
+        let finding = service_finding(&[("service", "cups")]);
+        let action = FixAction::from_recipe_for(
+            "remove-stale-file",
+            "/var/run/{evidence:service}.lock",
+            &finding,
+        )
+        .unwrap();
+        match action {
+            FixAction::RemoveStaleFile { path, .. } => {
+                assert_eq!(path.to_string_lossy(), "/var/run/cups.lock");
+            }
+            other => panic!("expected a file removal, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn an_unclosed_brace_is_a_typo_not_a_literal() {
+        let finding = service_finding(&[("service", "cups")]);
+        assert!(
+            FixAction::from_recipe_for("restart-service", "{evidence:service", &finding).is_err()
+        );
+    }
+
+    #[test]
+    fn a_recipe_with_no_placeholder_is_left_exactly_as_written() {
+        let finding = service_finding(&[("service", "cups")]);
+        let action = FixAction::from_recipe_for("restart-service", "spooler", &finding).unwrap();
+        assert!(
+            matches!(action, FixAction::RestartService { ref service } if service == "spooler")
+        );
+    }
+
     #[test]
     fn a_recipe_naming_something_outside_the_closed_set_is_refused() {
         // The whole point of the closed set. A runbook is text; it does not

@@ -93,6 +93,25 @@ approximated:
 | `restart-service` | The service name |
 | `remove-stale-file` | The path. `~`, `$VAR`, and `%VAR%` are expanded |
 
+A `target` may also be written as a placeholder, filled in from the finding it
+is applied to. This is what lets one entry cover a class of problem instead of a
+single named thing:
+
+| Placeholder | Filled in with |
+| --- | --- |
+| `{subject}` | What the finding is about -- the service name, the file, the device |
+| `{evidence:label}` | The evidence recorded under that label, e.g. `{evidence:service}` |
+
+```toml
+action = { kind = "restart-service", target = "{evidence:service}" }
+```
+
+A placeholder may sit inside a longer string -- `/var/run/{evidence:service}.lock`
+works. If a finding cannot fill one in, the recipe is **refused**, not left
+blank: a blank would turn "restart the service this finding is about" into
+"restart the service called nothing", and a fix acting on the wrong target is
+worse than a fix that does not run.
+
 There is deliberately no "run this command" kind. A runbook is a text file; it
 does not get to invent new powers by naming them, and the set of things that
 can be done to a machine is decided by the code that has to do them safely.

@@ -63,7 +63,7 @@ fn candidates_for(item: &TriageItem, library: &RunbookLibrary, platform: &str) -
             // real action. Everything else stays advice for a person, which is
             // the majority and always will be.
             if let Some(recipe) = &fix.action {
-                match FixAction::from_recipe(&recipe.kind, &recipe.target) {
+                match FixAction::from_recipe_for(&recipe.kind, &recipe.target, &item.finding) {
                     Ok(action) => return action,
                     Err(refusal) => {
                         // A runbook asking for something outside the closed

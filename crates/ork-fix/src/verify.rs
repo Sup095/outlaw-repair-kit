@@ -19,6 +19,7 @@
 
 use async_trait::async_trait;
 use ork_core::PlatformKind;
+use ork_core::platform::ServiceStatus;
 
 use crate::engine::{Verdict, Verifier};
 use crate::store::TriageItem;
@@ -73,6 +74,7 @@ impl VerifierRegistry {
         Self {
             verifiers: vec![
                 Box::new(LaunchVerifier::new(RealLaunchTester::default())),
+                Box::new(ServiceRunningVerifier),
                 Box::new(FileGoneVerifier),
             ],
         }
@@ -116,6 +118,67 @@ impl Default for VerifierRegistry {
     fn default() -> Self {
         Self::standard()
     }
+}
+
+/// Confirms a service that was supposed to be restarted is actually running.
+///
+/// This is the other half of the only two changes the engine can make. Without
+/// it, `restart-service` could never be applied at all: the engine refuses to
+/// make a change nobody can test, so an action with no verifier is an action
+/// that never runs.
+///
+/// The distinction it exists to draw: the restart command exiting zero says
+/// the command ran. It does not say the service came up, and it certainly does
+/// not say the service stayed up. Only asking afterwards answers that.
+pub struct ServiceRunningVerifier;
+
+#[async_trait]
+impl Verifier for ServiceRunningVerifier {
+    async fn verify(&self, item: &TriageItem) -> Verdict {
+        let Some(service) = service_name(item) else {
+            return Verdict::CannotTell {
+                reason: "this problem does not name a service to check".to_string(),
+            };
+        };
+
+        let Ok(platform) = ork_core::platform::detect() else {
+            return Verdict::CannotTell {
+                reason: "could not read this machine to check the service".to_string(),
+            };
+        };
+
+        match platform.service_status(&service) {
+            ServiceStatus::Running => Verdict::Fixed,
+            ServiceStatus::Stopped => Verdict::StillBroken {
+                detail: format!("`{service}` is not running"),
+            },
+            // A name that does not resolve is not evidence the fix worked, and
+            // it is not evidence it failed either -- it means the finding and
+            // this machine disagree about what the service is called.
+            ServiceStatus::NotFound => Verdict::CannotTell {
+                reason: format!("this machine has no service called `{service}`"),
+            },
+            ServiceStatus::Unknown { detail } => Verdict::CannotTell {
+                reason: format!("could not tell what `{service}` is doing: {detail}"),
+            },
+        }
+    }
+}
+
+impl ItemVerifier for ServiceRunningVerifier {
+    fn handles(&self, item: &TriageItem) -> bool {
+        service_name(item).is_some()
+    }
+}
+
+/// The service a finding is about, taken from its evidence.
+fn service_name(item: &TriageItem) -> Option<String> {
+    let named = item.finding.evidence.iter().find(|evidence| {
+        let label = evidence.label.to_ascii_lowercase();
+        label == "service" || label == "unit"
+    })?;
+    let name = named.value.trim();
+    (!name.is_empty()).then(|| name.to_string())
 }
 
 /// Confirms a file that was supposed to be removed is actually gone.
@@ -163,4 +226,123 @@ fn stale_file_path(item: &TriageItem) -> Option<String> {
             label == "path" || label == "file"
         })
         .map(|evidence| evidence.value.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::store::ItemState;
+    use ork_core::finding::{Category, Finding, Severity, Triage};
+
+    fn item(finding_id: &str, evidence: &[(&str, &str)]) -> TriageItem {
+        let mut builder = Finding::builder("probe", finding_id)
+            .subject("something")
+            .severity(Severity::High)
+            .category(Category::Application)
+            .title("a problem")
+            .detail("details")
+            .triage(Triage::Queue);
+        for (label, value) in evidence {
+            builder = builder.evidence(*label, *value);
+        }
+        let finding = builder.build();
+        TriageItem {
+            id: 1,
+            occurrence_key: finding.occurrence_key(),
+            finding_id: finding.id.clone(),
+            subject: finding.subject.clone(),
+            severity: finding.severity,
+            title: finding.title.clone(),
+            finding,
+            state: ItemState::Pending,
+            attempts: 0,
+        }
+    }
+
+    #[test]
+    fn a_service_is_recognised_by_the_evidence_that_names_it() {
+        assert!(ServiceRunningVerifier.handles(&item("service.stopped", &[("service", "cups")])));
+        // systemd calls them units, and a finding may say so.
+        assert!(ServiceRunningVerifier.handles(&item("service.stopped", &[("unit", "cups")])));
+    }
+
+    #[test]
+    fn a_problem_that_names_no_service_is_not_claimed() {
+        assert!(!ServiceRunningVerifier.handles(&item("service.stopped", &[])));
+        assert!(!ServiceRunningVerifier.handles(&item("service.stopped", &[("service", "   ")])));
+        assert!(!ServiceRunningVerifier.handles(&item("memory.pressure", &[("used", "97%")])));
+    }
+
+    #[tokio::test]
+    async fn a_service_this_machine_has_never_heard_of_is_never_called_fixed() {
+        // The engine treats cannot-tell as failure and rolls back, which is
+        // the right outcome: the finding and this machine disagree about what
+        // the service is called, so nothing has been proved either way.
+        let verdict = ServiceRunningVerifier
+            .verify(&item(
+                "service.stopped",
+                &[("service", "ork-not-a-real-service")],
+            ))
+            .await;
+        assert!(
+            matches!(verdict, Verdict::CannotTell { .. }),
+            "got {verdict:?}"
+        );
+    }
+
+    #[test]
+    fn a_stale_file_is_recognised_by_the_path_in_its_evidence() {
+        assert!(
+            FileGoneVerifier.handles(&item("app.launch-stale-lock", &[("path", "/tmp/x.pid")]))
+        );
+        assert!(!FileGoneVerifier.handles(&item("app.launch-failed", &[("path", "/tmp/x.pid")])));
+        assert!(!FileGoneVerifier.handles(&item("app.launch-stale-lock", &[])));
+    }
+
+    #[tokio::test]
+    async fn a_file_still_present_is_reported_as_still_broken() {
+        let dir = std::env::temp_dir().join(format!("ork-verify-unit-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("still-here.pid");
+        std::fs::write(&path, "1").unwrap();
+
+        let present = item(
+            "app.launch-stale-lock",
+            &[("path", &path.display().to_string())],
+        );
+        assert!(matches!(
+            FileGoneVerifier.verify(&present).await,
+            Verdict::StillBroken { .. }
+        ));
+
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(FileGoneVerifier.verify(&present).await, Verdict::Fixed);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_registry_only_claims_what_it_can_really_test() {
+        let registry = VerifierRegistry::standard();
+        assert!(
+            registry
+                .for_item(&item("service.stopped", &[("service", "cups")]))
+                .is_some()
+        );
+        assert!(
+            registry
+                .for_item(&item("app.launch-stale-lock", &[("path", "/tmp/x.pid")]))
+                .is_some()
+        );
+        // Nothing can re-test memory pressure, so nothing pretends to.
+        assert!(registry.for_item(&item("memory.pressure", &[])).is_none());
+    }
+
+    #[test]
+    fn coverage_counts_only_the_problems_that_can_be_fixed() {
+        let registry = VerifierRegistry::standard();
+        let testable = item("service.stopped", &[("service", "cups")]);
+        let not_testable = item("memory.pressure", &[]);
+        assert_eq!(registry.coverage([&testable, &not_testable]), 1);
+        assert_eq!(VerifierRegistry::empty().coverage([&testable]), 0);
+    }
 }
