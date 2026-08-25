@@ -14,6 +14,7 @@ pub mod logs;
 pub mod memory;
 pub mod processes;
 pub mod services;
+pub mod system_files;
 
 use crate::probe::{Probe, ProbeMeta};
 
@@ -44,6 +45,11 @@ pub fn default_registry() -> Vec<Box<dyn Probe>> {
         // Starts real applications, so it runs after everything else and only
         // in the Full tier.
         Box::new(launchers::LauncherProbe),
+        // The Deep tier, and the slowest thing here by a wide margin: it
+        // reads and hashes most of the operating system. Last, so that
+        // everything quick has already been reported by the time it starts.
+        Box::new(system_files::SystemFilesProbe),
+        Box::new(system_files::PackageFilesProbe),
     ]
 }
 

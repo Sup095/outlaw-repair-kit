@@ -66,7 +66,7 @@
     <select bind:value={tier} disabled={running}>
       <option value="quick">Quick — minutes</option>
       <option value="full">Full — tens of minutes</option>
-      <option value="deep">Deep — same as Full, for now</option>
+      <option value="deep">Deep — an hour or more</option>
     </select>
   </label>
   <button class="primary" onclick={run} disabled={running}>{running ? "Scanning…" : "Run scan"}</button>
@@ -78,12 +78,14 @@
 </div>
 
 {#if tier === "deep"}
-  <!-- The tier is real and wired through; nothing has been written that only
-       runs at it yet. Saying so beats letting somebody pick it and wonder why
-       it finished in the same time as Full. -->
+  <!-- Say what it adds *and* what it does not, so nobody picks it expecting
+       the stress tests and concludes the tool is broken when it finishes. -->
   <p class="dim note">
-    Nothing runs at this tier yet that does not also run at Full. The stress and burn-in
-    tests it is meant for are not built. Picking it today does the same work Full does.
+    Adds the system file check: verifies that the operating system's own files still
+    match what installed them. It reads and hashes most of what is installed, so it
+    takes minutes to an hour — and there is no time limit on it, only the Stop button.
+    On Windows it needs administrator rights and says so if it does not have them.
+    The stress and burn-in tests this tier is also meant for are not built yet.
   </p>
 {:else if tier === "full"}
   <p class="dim note">

@@ -50,8 +50,12 @@ automatically.
 > a scan that could not look at your disks must not read as a clean bill of
 > health.
 >
-> `deep` currently runs the same checks as `full`; the stress and burn-in tests
-> for that tier are not built yet.
+> `deep` adds the system file check: it verifies that the operating system's own
+> files still match what installed them. That means reading and hashing most of
+> what is installed, so it takes minutes to an hour, and there is no time limit
+> on it -- press Ctrl-C to stop. On Windows it needs administrator rights, and
+> is skipped with that reason shown when it does not have them. The stress and
+> burn-in tests that tier is also meant for are not built yet.
 
 ---
 

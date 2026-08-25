@@ -23,11 +23,13 @@ pub enum ScanTier {
     /// and GPU, an exhaustive rootkit scan, and system file checksum
     /// verification.
     ///
-    /// **Nothing declares this tier yet.** The variant exists and is wired all
-    /// the way through, but no probe has `min_tier: Deep`, so a deep scan runs
-    /// exactly what a full one runs. Both front-ends say so where the tier is
-    /// chosen, rather than letting somebody pick it and wonder why it finished
-    /// so quickly.
+    /// **What is actually built at this tier is the system file check** --
+    /// verifying that the operating system's own files still match what
+    /// installed them, which reads and hashes most of what is installed and is
+    /// why a deep scan takes as long as it does. The stress and burn-in work
+    /// and the rootkit scan are not built. Both front-ends say which of those
+    /// is true where the tier is chosen, rather than letting somebody pick it
+    /// expecting the rest.
     Deep,
 }
 

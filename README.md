@@ -97,6 +97,7 @@ The Quick tier runs these checks:
 | Recent system log errors | Crashes, driver faults, and hardware errors, with repeats grouped together |
 | Disk health *(full scan)* | A drive that says it is failing. Reported as the drive's own verdict, never as an interpretation of raw SMART attributes |
 | Application launch test *(full scan)* | Launchers and graphical applications that will not start -- started for real and watched, which is why it is not part of a quick scan |
+| System file integrity *(deep scan)* | Operating system files that no longer match what installed them -- a half-finished update, a file the disk corrupted, or something that replaced a system binary. It reads and hashes most of what is installed, which is why it is the only thing in the deep tier |
 
 A **full** scan adds the application launch test, which starts catalogued
 applications such as Steam to see whether they actually open, and closes them
@@ -252,10 +253,11 @@ cargo test
    "explained" to "fixed", and `outlaw fix` tells you the count before it
    starts.
 9. **Full and Deep tiers, plus a background watcher.** Full runs the disk
-   health check and the application launch test. **Deep declares no checks of
-   its own yet** -- a deep scan currently runs exactly what a full one runs,
-   and both front-ends say so where the tier is chosen. The stress and burn-in
-   work it is meant for is not built.
+   health check and the application launch test. Deep adds the system file
+   check -- verifying that the operating system's own files still match what
+   installed them, which is what makes a deep scan take as long as it does.
+   **The stress and burn-in work and the background watcher are not built**,
+   and both front-ends say so where the tier is chosen.
 10. **Escalation mode** -- to be proposed and reviewed for safety before it is
     built, not bolted on.
 

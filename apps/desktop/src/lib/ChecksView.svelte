@@ -12,7 +12,7 @@
   const tiers = [
     { id: "quick", label: "Quick", note: "Runs in a quick scan, and in every deeper one." },
     { id: "full", label: "Full", note: "Adds checks that start programs or talk to hardware." },
-    { id: "deep", label: "Deep", note: "Nothing declares this tier yet." },
+    { id: "deep", label: "Deep", note: "Reads and hashes most of the operating system. Minutes, not seconds." },
   ] as const;
 
   async function load() {

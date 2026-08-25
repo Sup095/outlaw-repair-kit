@@ -47,9 +47,10 @@ enum Command {
     Scan {
         /// How thorough to be: quick, full, or deep.
         ///
-        /// No tier has a time limit; press Ctrl-C to stop. `deep` currently
-        /// runs exactly what `full` runs -- the stress and burn-in checks it
-        /// is meant for are not built yet.
+        /// No tier has a time limit; press Ctrl-C to stop. `deep` adds the
+        /// system file check, which reads and hashes most of the operating
+        /// system and takes minutes to an hour; the stress and burn-in checks
+        /// that tier is also meant for are not built yet.
         #[arg(long, short, default_value = "quick")]
         tier: ScanTier,
 

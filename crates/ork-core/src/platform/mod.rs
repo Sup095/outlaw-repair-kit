@@ -9,6 +9,7 @@
 
 pub(crate) mod common;
 pub mod disks;
+pub mod integrity;
 mod services;
 
 #[cfg(target_os = "linux")]
