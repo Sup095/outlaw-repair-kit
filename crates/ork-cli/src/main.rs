@@ -7,6 +7,7 @@
 mod ai;
 mod boot;
 mod fix;
+mod link;
 mod render;
 mod style;
 
@@ -85,12 +86,62 @@ enum Command {
         #[arg(long)]
         remove: bool,
     },
+    /// Lend a model to another machine, or borrow one.
+    ///
+    /// A linked machine can be asked to think about a problem and to say what
+    /// its last scan found. It cannot be made to do anything: no command in
+    /// the link changes the machine at the other end.
+    Link {
+        #[command(subcommand)]
+        action: Option<LinkAction>,
+    },
     /// Run the start-up screen on its own: self-test and update check.
     Boot,
     /// List the checks this build knows how to run.
     Probes,
     /// Show what this tool detected about the machine it is running on.
     Host,
+}
+
+#[derive(Subcommand)]
+enum LinkAction {
+    /// Lend this machine's model to machines that pair with it.
+    Host {
+        #[arg(long, default_value_t = ork_link::DEFAULT_PORT)]
+        port: u16,
+
+        /// The model to lend. Defaults to the first local address in settings.
+        #[arg(long)]
+        model_url: Option<String>,
+
+        /// Do not answer discovery on the local network.
+        #[arg(long)]
+        no_discovery: bool,
+    },
+    /// Pair with a machine that is showing a pairing code.
+    Join {
+        /// The code from the other machine's screen. Asked for if left out.
+        code: Option<String>,
+
+        /// Where that machine is. Found on the local network if left out.
+        #[arg(long)]
+        at: Option<String>,
+
+        #[arg(long, default_value_t = ork_link::DEFAULT_PORT)]
+        port: u16,
+    },
+    /// See who on this network is lending a model.
+    Find {
+        #[arg(long, default_value_t = ork_link::DEFAULT_PORT)]
+        port: u16,
+    },
+    /// Ask every linked machine whether it is still answering.
+    Check,
+    /// Cut a link and forget its token.
+    Remove {
+        /// The machine's name, or its id.
+        name: String,
+    },
 }
 
 #[tokio::main]
@@ -106,6 +157,16 @@ async fn main() -> Result<()> {
         .init();
 
     match cli.command {
+        Command::Link { action } => match action {
+            None => link::show(cli.json, false).await,
+            Some(LinkAction::Host { port, model_url, no_discovery }) => {
+                link::host(port, model_url, !no_discovery).await
+            }
+            Some(LinkAction::Join { code, at, port }) => link::join(code, at, port).await,
+            Some(LinkAction::Find { port }) => link::find(port, cli.json).await,
+            Some(LinkAction::Check) => link::show(cli.json, true).await,
+            Some(LinkAction::Remove { name }) => link::remove(&name),
+        },
         Command::Boot => {
             let report = boot::run().await;
             if cli.json {

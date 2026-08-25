@@ -15,6 +15,7 @@ your machine without asking.
 | Know what every command does | [Command reference](commands.md) |
 | Use the window instead of the terminal | [The desktop app](desktop.md) |
 | Have findings explained in plain language | [Setting up a model](ai-setup.md) |
+| Borrow a stronger computer's model | [Linking two machines](linking.md) |
 | Use a stronger computer's model from a weaker one | [Using another machine](remote-machine.md) |
 | Understand what it will and will not change | [Fixing problems safely](fixing.md) |
 | Teach it about a problem it does not know | [Writing runbooks](runbooks.md) |

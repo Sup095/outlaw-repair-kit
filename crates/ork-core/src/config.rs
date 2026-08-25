@@ -48,6 +48,13 @@ pub struct EndpointConfig {
     /// Model name to request. Empty means "whatever the server offers first".
     #[serde(default)]
     pub model: String,
+    /// Which stored credential proves the right to use this endpoint.
+    ///
+    /// A name, never a token: this file is not a place for secrets. A linked
+    /// machine puts its own credential's name here so that a link and a
+    /// hand-typed endpoint end up on exactly the same code path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_ref: Option<String>,
 }
 
 impl EndpointConfig {
@@ -55,7 +62,14 @@ impl EndpointConfig {
         Self {
             url: url.into(),
             model: model.into(),
+            token_ref: None,
         }
+    }
+
+    /// The same endpoint, reached with a named credential.
+    pub fn with_token_ref(mut self, account: impl Into<String>) -> Self {
+        self.token_ref = Some(account.into());
+        self
     }
 }
 

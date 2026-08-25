@@ -222,7 +222,13 @@ impl ModelRouter {
                         None,
                     );
                 };
-                let token = secrets::get(SecretKind::RemoteEndpointToken);
+                // A linked machine names its own credential; a hand-typed
+                // endpoint falls back to the single stored remote token.
+                let token = endpoint
+                    .token_ref
+                    .as_deref()
+                    .and_then(secrets::get_named)
+                    .or_else(|| secrets::get(SecretKind::RemoteEndpointToken));
                 match OpenAiCompatibleClient::new(&endpoint.url, &model, token) {
                     Ok(client) => (
                         AttemptOutcome::Selected {

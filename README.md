@@ -92,7 +92,8 @@ you think it did.
 | [Command reference](docs/commands.md) | What every command does |
 | [The desktop app](docs/desktop.md) | The window, and the start-up self-test |
 | [Setting up a model](docs/ai-setup.md) | Local, another machine, or hosted |
-| [Using another machine](docs/remote-machine.md) | Borrow a stronger computer's model |
+| [Linking two machines](docs/linking.md) | Pair two computers so one lends the other a model |
+| [Using another machine](docs/remote-machine.md) | Point at an endpoint by hand, over any network |
 | [Fixing problems safely](docs/fixing.md) | What it will and will not change |
 | [Writing runbooks](docs/runbooks.md) | Teach it about a problem it does not know |
 | [Troubleshooting](docs/troubleshooting.md) | When something is not working |

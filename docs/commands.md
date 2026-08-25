@@ -130,6 +130,46 @@ Press Ctrl-C to stop after the current step.
 
 ---
 
+## `outlaw link`
+
+Lend a model to another machine, or borrow one. See
+[linking.md](linking.md) for the whole picture.
+
+```bash
+outlaw link                    # what this machine is linked to
+outlaw link host               # lend this machine's model
+outlaw link join               # pair with a machine showing a code
+outlaw link find               # who on this network is lending
+outlaw link check              # ask each link whether it still answers
+outlaw link remove <name>      # cut a link and forget its token
+```
+
+| Option | Applies to | What it does |
+| --- | --- | --- |
+| `--port <n>` | `host`, `join`, `find` | Use a port other than 7341 |
+| `--model-url <url>` | `host` | Lend a specific model instead of the first configured one |
+| `--no-discovery` | `host` | Do not answer discovery on the local network |
+| `--at <address>` | `join` | Skip discovery and pair with that address |
+
+A linked machine can be asked to think, and to say what its last scan found.
+Nothing in the link can change the machine at the other end.
+
+## `outlaw boot`
+
+Run the start-up screen on its own: six self-checks and an update check. Exits
+non-zero if a check failed.
+
+```bash
+outlaw boot
+outlaw boot --json
+```
+
+Start-up runs automatically before `scan` and `fix`. Skip it with `--no-boot`,
+which is also implied by `--json`.
+
+The update check reports and never installs. See [desktop.md](desktop.md) for
+what each check covers.
+
 ## `outlaw audit`
 
 Everything the tool has checked, found, attempted, and changed. Newest first,

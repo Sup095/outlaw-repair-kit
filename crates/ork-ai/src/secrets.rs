@@ -92,6 +92,18 @@ pub fn get(kind: SecretKind) -> Option<String> {
     }
 }
 
+/// Fetch a credential stored under an arbitrary account name.
+///
+/// Linked machines each keep their own token, so they cannot be addressed by
+/// the fixed [`SecretKind`] list. The account name comes from the settings
+/// file, which holds names and never values.
+pub fn get_named(account: &str) -> Option<String> {
+    match keyring::Entry::new(SERVICE, account).and_then(|entry| entry.get_password()) {
+        Ok(value) if !value.trim().is_empty() => Some(value),
+        _ => None,
+    }
+}
+
 /// Whether a secret is available, without reading its value.
 pub fn is_set(kind: SecretKind) -> bool {
     get(kind).is_some()
