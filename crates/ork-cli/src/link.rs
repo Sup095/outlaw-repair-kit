@@ -29,7 +29,11 @@ pub async fn host(port: u16, model_url: Option<String>, discoverable: bool) -> R
 
     let name = book.machine_name.clone();
     let machine_id = book.machine_id.clone();
-    let existing = book.peers.iter().filter(|peer| peer.role == Role::Borrower).count();
+    let existing = book
+        .peers
+        .iter()
+        .filter(|peer| peer.role == Role::Borrower)
+        .count();
     let state = std::sync::Arc::new(HostState::new(book, path, upstream.clone()));
 
     println!("{}", bold("Lending a model"));
@@ -125,7 +129,11 @@ pub async fn find(port: u16, json: bool) -> Result<()> {
 
     println!("{}", bold("Lending a model on this network"));
     for machine in &found {
-        let state = if machine.pairing_open { "showing a pairing code" } else { "not pairing right now" };
+        let state = if machine.pairing_open {
+            "showing a pairing code"
+        } else {
+            "not pairing right now"
+        };
         println!("  {:<22}{}  {}", machine.name, machine.address, dim(state));
     }
     println!();
@@ -173,7 +181,9 @@ pub async fn join(code: Option<String>, at: Option<String>, port: u16) -> Result
         None => {
             eprint!("Pairing code: ");
             let mut typed = String::new();
-            std::io::stdin().read_line(&mut typed).context("could not read the pairing code")?;
+            std::io::stdin()
+                .read_line(&mut typed)
+                .context("could not read the pairing code")?;
             PairingCode::parse(&typed)?
         }
     };
@@ -189,7 +199,10 @@ pub async fn join(code: Option<String>, at: Option<String>, port: u16) -> Result
     println!("  {:<14}{}", "address", peer.address);
     println!("  {:<14}{}", "version", peer.version);
     println!();
-    println!("  {}", dim("Its model will be used automatically. Check with: outlaw models"));
+    println!(
+        "  {}",
+        dim("Its model will be used automatically. Check with: outlaw models")
+    );
     Ok(())
 }
 
@@ -230,7 +243,11 @@ pub async fn show(json: bool, check: bool) -> Result<()> {
 
     println!("{}", bold("Linked machines"));
     for peer in &book.peers {
-        let where_ = if peer.address.is_empty() { dim("connects to us") } else { peer.address.clone() };
+        let where_ = if peer.address.is_empty() {
+            dim("connects to us")
+        } else {
+            peer.address.clone()
+        };
         println!("  {:<22}{:<16}{}", peer.name, peer.role.as_str(), where_);
 
         if check && peer.role == Role::Lender {
@@ -251,12 +268,21 @@ pub async fn show(json: bool, check: bool) -> Result<()> {
     // What the router will actually do with all this.
     let mut config = Config::load_or_default(&Config::default_path()?)?;
     match routing::apply_to_config(&book, &mut config) {
-        Some(peer) => println!("  {}", dim(&format!("{} will be asked first when a model is needed", peer.name))),
+        Some(peer) => println!(
+            "  {}",
+            dim(&format!(
+                "{} will be asked first when a model is needed",
+                peer.name
+            ))
+        ),
         None if config.ai.remote.endpoint.is_some() => println!(
             "  {}",
             dim("a remote endpoint set by hand takes priority over any link")
         ),
-        None => println!("  {}", dim("no link is currently usable for running a model")),
+        None => println!(
+            "  {}",
+            dim("no link is currently usable for running a model")
+        ),
     }
     Ok(())
 }
@@ -274,7 +300,9 @@ pub fn remove(name: &str) -> Result<()> {
     }
     println!(
         "{}",
-        dim("Its access token has been removed from the credential store. The other machine keeps its own record until it removes the link too.")
+        dim(
+            "Its access token has been removed from the credential store. The other machine keeps its own record until it removes the link too."
+        )
     );
     Ok(())
 }
@@ -286,7 +314,9 @@ pub fn remove(name: &str) -> Result<()> {
 pub async fn view(name: Option<String>, json: bool) -> Result<()> {
     let book = load_book()?;
     let peer = match &name {
-        Some(name) => book.find(name).with_context(|| format!("nothing here is linked as `{name}`"))?,
+        Some(name) => book
+            .find(name)
+            .with_context(|| format!("nothing here is linked as `{name}`"))?,
         None => book
             .lenders()
             .next()
@@ -301,12 +331,27 @@ pub async fn view(name: Option<String>, json: bool) -> Result<()> {
         return Ok(());
     }
 
-    println!("{}", bold(status["host_name"].as_str().unwrap_or(&peer.name)));
+    println!(
+        "{}",
+        bold(status["host_name"].as_str().unwrap_or(&peer.name))
+    );
     if let Some(host) = status.get("host") {
-        println!("  {:<14}{}", "system", host["os_name"].as_str().unwrap_or("unknown"));
-        println!("  {:<14}{}", "processor", host["cpu_brand"].as_str().unwrap_or("unknown"));
+        println!(
+            "  {:<14}{}",
+            "system",
+            host["os_name"].as_str().unwrap_or("unknown")
+        );
+        println!(
+            "  {:<14}{}",
+            "processor",
+            host["cpu_brand"].as_str().unwrap_or("unknown")
+        );
     }
-    println!("  {:<14}{}", "version", status["version"].as_str().unwrap_or("unknown"));
+    println!(
+        "  {:<14}{}",
+        "version",
+        status["version"].as_str().unwrap_or("unknown")
+    );
     println!();
 
     // A machine whose queue could not be read is a fact worth stating, not a

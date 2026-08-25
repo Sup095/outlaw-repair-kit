@@ -43,7 +43,10 @@ impl PairingCode {
         let mut bytes = [0u8; CODE_LEN];
         rand::rng().fill_bytes(&mut bytes);
         // Modulo bias is irrelevant here: 256 is an exact multiple of 32.
-        let text = bytes.iter().map(|byte| ALPHABET[(byte % 32) as usize] as char).collect();
+        let text = bytes
+            .iter()
+            .map(|byte| ALPHABET[(byte % 32) as usize] as char)
+            .collect();
         Self { text }
     }
 
@@ -142,7 +145,10 @@ mod tests {
     fn a_code_never_prints_itself_by_accident() {
         let code = PairingCode::generate();
         let debugged = format!("{code:?}");
-        assert!(!debugged.contains(&code.display().replace('-', "")), "a debug print leaked the code");
+        assert!(
+            !debugged.contains(&code.display().replace('-', "")),
+            "a debug print leaked the code"
+        );
     }
 
     #[test]
@@ -156,7 +162,10 @@ mod tests {
     fn generated_codes_do_not_repeat() {
         let mut seen = std::collections::HashSet::new();
         for _ in 0..500 {
-            assert!(seen.insert(PairingCode::generate().display()), "a code repeated");
+            assert!(
+                seen.insert(PairingCode::generate().display()),
+                "a code repeated"
+            );
         }
     }
 }

@@ -164,9 +164,11 @@ async fn main() -> Result<()> {
     match cli.command {
         Command::Link { action } => match action {
             None => link::show(cli.json, false).await,
-            Some(LinkAction::Host { port, model_url, no_discovery }) => {
-                link::host(port, model_url, !no_discovery).await
-            }
+            Some(LinkAction::Host {
+                port,
+                model_url,
+                no_discovery,
+            }) => link::host(port, model_url, !no_discovery).await,
             Some(LinkAction::Join { code, at, port }) => link::join(code, at, port).await,
             Some(LinkAction::Find { port }) => link::find(port, cli.json).await,
             Some(LinkAction::Check) => link::show(cli.json, true).await,
@@ -178,7 +180,11 @@ async fn main() -> Result<()> {
             if cli.json {
                 println!("{}", serde_json::to_string_pretty(&report)?);
             }
-            if report.ready() { Ok(()) } else { std::process::exit(1) }
+            if report.ready() {
+                Ok(())
+            } else {
+                std::process::exit(1)
+            }
         }
         Command::Scan { tier, explain } => {
             // The start-up screen belongs on the commands a person sits and

@@ -87,7 +87,11 @@ struct Screen {
 
 impl Screen {
     fn new() -> Self {
-        Self { drawn: 0, log: Vec::new(), animated: std::io::stdout().is_terminal() }
+        Self {
+            drawn: 0,
+            log: Vec::new(),
+            animated: std::io::stdout().is_terminal(),
+        }
     }
 
     fn push(&mut self, line: String) {
@@ -140,7 +144,13 @@ fn bar(progress: f32) -> String {
         "\u{2588}".repeat(filled),
         "\u{2591}".repeat(WIDTH.saturating_sub(filled)),
     );
-    format!("  {}{}{}  {:>3}%", amber_dim("["), amber(&track), amber_dim("]"), (clamped * 100.0).round())
+    format!(
+        "  {}{}{}  {:>3}%",
+        amber_dim("["),
+        amber(&track),
+        amber_dim("]"),
+        (clamped * 100.0).round()
+    )
 }
 
 fn print_banner() {
@@ -180,7 +190,11 @@ pub async fn run() -> BootReport {
                 format!("{} {}", state_mark(event.state()), amber(&status.summary()))
             }
             BootEvent::Finished { line, .. } => {
-                format!("{} {}", state_mark(event.state()), style::bold(&amber(line)))
+                format!(
+                    "{} {}",
+                    state_mark(event.state()),
+                    style::bold(&amber(line))
+                )
             }
         };
         screen.push(line);
@@ -194,7 +208,12 @@ pub async fn run() -> BootReport {
         // here in full. This is the one thing on the screen that must not be
         // missed.
         for failure in report.selftest.failures() {
-            println!("  {} {}: {}", state_mark(CheckState::Fail), failure.name, failure.detail);
+            println!(
+                "  {} {}: {}",
+                state_mark(CheckState::Fail),
+                failure.name,
+                failure.detail
+            );
         }
         println!();
     }
@@ -224,7 +243,11 @@ mod tests {
 
     #[test]
     fn the_bar_is_always_the_same_width() {
-        let width = |text: &str| text.chars().filter(|c| *c == '\u{2588}' || *c == '\u{2591}').count();
+        let width = |text: &str| {
+            text.chars()
+                .filter(|c| *c == '\u{2588}' || *c == '\u{2591}')
+                .count()
+        };
         for step in 0..=10 {
             assert_eq!(width(&bar(step as f32 / 10.0)), 34);
         }
@@ -237,13 +260,19 @@ mod tests {
         for index in 0..10 {
             screen.push(index.to_string());
         }
-        assert_eq!(screen.log, vec!["7".to_string(), "8".to_string(), "9".to_string()]);
+        assert_eq!(
+            screen.log,
+            vec!["7".to_string(), "8".to_string(), "9".to_string()]
+        );
     }
 
     #[test]
     fn the_banner_names_the_tool_and_who_made_it() {
         // The ASCII spells OUTLAW; the rest is plain text below it.
         assert!(BANNER.lines().count() >= 5);
-        assert!(BANNER.lines().all(|line| line.len() <= 60), "the banner must fit a narrow terminal");
+        assert!(
+            BANNER.lines().all(|line| line.len() <= 60),
+            "the banner must fit a narrow terminal"
+        );
     }
 }

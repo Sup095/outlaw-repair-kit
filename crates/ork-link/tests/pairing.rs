@@ -30,7 +30,11 @@ async fn start_host(machine_id: &str) -> (Arc<HostState>, String, tempfile::Temp
     };
 
     // No model is running in a test; the pairing routes never touch it.
-    let state = Arc::new(HostState::new(book, book_path, "http://127.0.0.1:1/v1".to_string()));
+    let state = Arc::new(HostState::new(
+        book,
+        book_path,
+        "http://127.0.0.1:1/v1".to_string(),
+    ));
 
     let listener = tokio::net::TcpListener::bind::<SocketAddr>(([127, 0, 0, 1], 0).into())
         .await
@@ -59,15 +63,24 @@ async fn a_machine_that_types_the_code_correctly_is_linked() {
     let (state, address, _dir) = start_host("host-a-0").await;
     let code = state.open_pairing();
 
-    let mut book = PeerBook { machine_id: "client-machine".into(), machine_name: "work rig".into(), ..Default::default() };
-    let peer = client::join(&mut book, &address, code).await.expect("pairing failed");
+    let mut book = PeerBook {
+        machine_id: "client-machine".into(),
+        machine_name: "work rig".into(),
+        ..Default::default()
+    };
+    let peer = client::join(&mut book, &address, code)
+        .await
+        .expect("pairing failed");
 
     assert_eq!(peer.name, "main pc");
     assert_eq!(peer.role, Role::Lender);
     assert_eq!(book.lenders().count(), 1);
 
     // And the host now knows about the machine that joined.
-    assert!(!state.pairing_open(), "the code stayed open after being used");
+    assert!(
+        !state.pairing_open(),
+        "the code stayed open after being used"
+    );
     let _ = ork_link::peer::forget_token(&peer.id);
 }
 
@@ -76,11 +89,20 @@ async fn the_token_it_ends_up_with_actually_opens_the_door() {
     let (state, address, _dir) = start_host("host-the-1").await;
     let code = state.open_pairing();
 
-    let mut book = PeerBook { machine_id: "client-machine".into(), machine_name: "work rig".into(), ..Default::default() };
-    let peer = client::join(&mut book, &address, code).await.expect("pairing failed");
+    let mut book = PeerBook {
+        machine_id: "client-machine".into(),
+        machine_name: "work rig".into(),
+        ..Default::default()
+    };
+    let peer = client::join(&mut book, &address, code)
+        .await
+        .expect("pairing failed");
 
     let link = client::LinkClient::for_peer(&peer).expect("no token was stored");
-    let hello = link.hello().await.expect("the host refused a token it had just issued");
+    let hello = link
+        .hello()
+        .await
+        .expect("the host refused a token it had just issued");
     assert_eq!(hello["you_are"], "work rig");
 
     let _ = ork_link::peer::forget_token(&peer.id);
@@ -105,7 +127,11 @@ async fn the_wrong_code_gets_nowhere() {
     let (state, address, _dir) = start_host("host-the-3").await;
     state.open_pairing();
 
-    let mut book = PeerBook { machine_id: "client".into(), machine_name: "rig".into(), ..Default::default() };
+    let mut book = PeerBook {
+        machine_id: "client".into(),
+        machine_name: "rig".into(),
+        ..Default::default()
+    };
     let wrong = PairingCode::generate();
     let result = client::join(&mut book, &address, wrong).await;
 

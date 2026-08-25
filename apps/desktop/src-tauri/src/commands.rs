@@ -34,7 +34,10 @@ pub struct AppState {
 
 fn state_dir() -> anyhow::Result<std::path::PathBuf> {
     let path = Config::default_path()?;
-    Ok(path.parent().map(|dir| dir.to_path_buf()).unwrap_or_default())
+    Ok(path
+        .parent()
+        .map(|dir| dir.to_path_buf())
+        .unwrap_or_default())
 }
 
 fn runbook_dir() -> Option<std::path::PathBuf> {
@@ -94,7 +97,11 @@ pub fn probe_list() -> CmdResult<serde_json::Value> {
 /// No tier has a time limit. The only thing that ends a scan early is
 /// [`cancel_scan`], which is the user's decision.
 #[tauri::command]
-pub async fn start_scan(app: AppHandle, state: State<'_, AppState>, tier: String) -> CmdResult<ScanReport> {
+pub async fn start_scan(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    tier: String,
+) -> CmdResult<ScanReport> {
     let tier: ScanTier = tier.parse().map_err(fail)?;
 
     let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel::<ScanEvent>();
@@ -102,7 +109,10 @@ pub async fn start_scan(app: AppHandle, state: State<'_, AppState>, tier: String
     let cancel = scanner.cancel_token();
 
     {
-        let mut slot = state.scan.lock().map_err(|_| "the scan lock was poisoned".to_string())?;
+        let mut slot = state
+            .scan
+            .lock()
+            .map_err(|_| "the scan lock was poisoned".to_string())?;
         if slot.is_some() {
             return Err("a scan is already running".to_string());
         }
@@ -144,7 +154,10 @@ pub async fn start_scan(app: AppHandle, state: State<'_, AppState>, tier: String
 /// Stop the running scan. Always available, never automatic.
 #[tauri::command]
 pub fn cancel_scan(state: State<'_, AppState>) -> CmdResult<bool> {
-    let mut slot = state.scan.lock().map_err(|_| "the scan lock was poisoned".to_string())?;
+    let mut slot = state
+        .scan
+        .lock()
+        .map_err(|_| "the scan lock was poisoned".to_string())?;
     match slot.take() {
         Some(cancel) => {
             cancel.cancel();
@@ -160,9 +173,15 @@ pub async fn explain_report(report: ScanReport) -> CmdResult<serde_json::Value> 
     let config = load_config().map_err(fail)?;
     let routing = ModelRouter::new(config.ai.clone()).resolve().await;
     let library = RunbookLibrary::load(runbook_dir().as_deref()).map_err(fail)?;
-    let platform = ork_core::platform::detect().map_err(fail)?.kind().to_string();
+    let platform = ork_core::platform::detect()
+        .map_err(fail)?
+        .kind()
+        .to_string();
 
-    let analysis = Analyst::new(library, platform).analyse(&report, &routing).await.map_err(fail)?;
+    let analysis = Analyst::new(library, platform)
+        .analyse(&report, &routing)
+        .await
+        .map_err(fail)?;
     Ok(serde_json::json!({ "routing": routing.summary(), "analysis": analysis }))
 }
 
@@ -226,7 +245,10 @@ pub fn secret_clear(which: String) -> CmdResult<()> {
 pub async fn routing_status() -> CmdResult<serde_json::Value> {
     let config = load_config().map_err(fail)?;
     let routing = ModelRouter::new(config.ai.clone()).resolve().await;
-    let gpus = ork_core::platform::detect().map_err(fail)?.gpus().map_err(fail)?;
+    let gpus = ork_core::platform::detect()
+        .map_err(fail)?
+        .gpus()
+        .map_err(fail)?;
     let advice = advise_for_vram(&gpus);
     let library = RunbookLibrary::load(runbook_dir().as_deref()).map_err(fail)?;
 
@@ -266,5 +288,8 @@ pub struct AuditLine {
 pub fn audit_list(limit: usize) -> CmdResult<Vec<AuditLine>> {
     let store = open_store().map_err(fail)?;
     let rows = store.audit_log(limit.clamp(1, 500)).map_err(fail)?;
-    Ok(rows.into_iter().map(|(at, kind, message)| AuditLine { at, kind, message }).collect())
+    Ok(rows
+        .into_iter()
+        .map(|(at, kind, message)| AuditLine { at, kind, message })
+        .collect())
 }

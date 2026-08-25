@@ -40,8 +40,8 @@ const LABEL_HOST: &[u8] = b"ork-pair-host-v1";
 const LABEL_TOKEN: &[u8] = b"ork-pair-token-v1";
 
 fn derive(code: &PairingCode, label: &[u8], parts: &[&[u8]]) -> String {
-    let mut mac = HmacSha256::new_from_slice(code.secret())
-        .expect("HMAC accepts a key of any length");
+    let mut mac =
+        HmacSha256::new_from_slice(code.secret()).expect("HMAC accepts a key of any length");
     mac.update(label);
     for part in parts {
         // Length-prefixed, so that ("ab", "c") and ("a", "bc") cannot produce
@@ -97,7 +97,11 @@ impl ClientHandshake {
     /// Begin pairing with the machine showing `code`.
     pub fn start(code: PairingCode, client_id: &str, client_name: &str) -> Self {
         let nonce = hex(&random_bytes::<16>());
-        let proof = derive(&code, LABEL_CLIENT, &[nonce.as_bytes(), client_id.as_bytes()]);
+        let proof = derive(
+            &code,
+            LABEL_CLIENT,
+            &[nonce.as_bytes(), client_id.as_bytes()],
+        );
         Self {
             request: PairRequest {
                 client_id: client_id.to_string(),
@@ -123,7 +127,10 @@ impl ClientHandshake {
         Ok(derive(
             &self.code,
             LABEL_TOKEN,
-            &[self.request.nonce.as_bytes(), self.request.client_id.as_bytes()],
+            &[
+                self.request.nonce.as_bytes(),
+                self.request.client_id.as_bytes(),
+            ],
         ))
     }
 }
@@ -138,7 +145,10 @@ pub fn accept(code: &PairingCode, request: &PairRequest) -> anyhow::Result<(Stri
         LABEL_CLIENT,
         &[request.nonce.as_bytes(), request.client_id.as_bytes()],
     );
-    anyhow::ensure!(secret_eq(&expected, &request.proof), "that pairing code is not right");
+    anyhow::ensure!(
+        secret_eq(&expected, &request.proof),
+        "that pairing code is not right"
+    );
 
     let proof = derive(code, LABEL_HOST, &[request.nonce.as_bytes()]);
     let token = derive(
@@ -199,7 +209,10 @@ mod tests {
         assert_eq!(client_token, host_token);
         // The token appears in neither direction on the wire.
         let sent = serde_json::to_string(&client.request).unwrap();
-        assert!(!sent.contains(&client_token), "the request carried the token");
+        assert!(
+            !sent.contains(&client_token),
+            "the request carried the token"
+        );
     }
 
     #[test]
@@ -216,7 +229,11 @@ mod tests {
         // answering in the host's place and being handed a session.
         let code = PairingCode::generate();
         let client = ClientHandshake::start(code, "client-id", "work rig");
-        let impostor = derive(&PairingCode::generate(), LABEL_HOST, &[client.request.nonce.as_bytes()]);
+        let impostor = derive(
+            &PairingCode::generate(),
+            LABEL_HOST,
+            &[client.request.nonce.as_bytes()],
+        );
         assert!(client.finish(&host_reply(impostor)).is_err());
     }
 
@@ -229,7 +246,10 @@ mod tests {
         // Same nonce and proof, different machine claiming them.
         let mut stolen = first.request.clone();
         stolen.client_id = "client-b".into();
-        assert!(accept(&code, &stolen).is_err(), "the proof was accepted for another machine");
+        assert!(
+            accept(&code, &stolen).is_err(),
+            "the proof was accepted for another machine"
+        );
 
         let second = ClientHandshake::start(code.clone(), "client-b", "other");
         let (_, second_token) = accept(&code, &second.request).unwrap();

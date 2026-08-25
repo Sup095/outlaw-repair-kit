@@ -48,8 +48,18 @@ pub struct CheckResult {
 }
 
 impl CheckResult {
-    fn new(name: &'static str, state: CheckState, detail: impl Into<String>, started: Instant) -> Self {
-        Self { name: name.to_string(), state, detail: detail.into(), duration: started.elapsed() }
+    fn new(
+        name: &'static str,
+        state: CheckState,
+        detail: impl Into<String>,
+        started: Instant,
+    ) -> Self {
+        Self {
+            name: name.to_string(),
+            state,
+            detail: detail.into(),
+            duration: started.elapsed(),
+        }
     }
 }
 
@@ -62,7 +72,11 @@ pub struct SelfTestReport {
 
 impl SelfTestReport {
     pub fn worst(&self) -> CheckState {
-        self.checks.iter().map(|check| check.state).max().unwrap_or(CheckState::Pass)
+        self.checks
+            .iter()
+            .map(|check| check.state)
+            .max()
+            .unwrap_or(CheckState::Pass)
     }
 
     pub fn passed(&self) -> bool {
@@ -70,11 +84,15 @@ impl SelfTestReport {
     }
 
     pub fn failures(&self) -> impl Iterator<Item = &CheckResult> {
-        self.checks.iter().filter(|check| check.state == CheckState::Fail)
+        self.checks
+            .iter()
+            .filter(|check| check.state == CheckState::Fail)
     }
 
     pub fn warnings(&self) -> impl Iterator<Item = &CheckResult> {
-        self.checks.iter().filter(|check| check.state == CheckState::Warn)
+        self.checks
+            .iter()
+            .filter(|check| check.state == CheckState::Warn)
     }
 }
 
@@ -131,7 +149,12 @@ fn check_probes() -> CheckResult {
         );
     }
 
-    CheckResult::new("diagnostic checks", CheckState::Pass, format!("{total} registered"), started)
+    CheckResult::new(
+        "diagnostic checks",
+        CheckState::Pass,
+        format!("{total} registered"),
+        started,
+    )
 }
 
 fn check_configuration() -> CheckResult {
@@ -139,7 +162,11 @@ fn check_configuration() -> CheckResult {
     match ork_core::Config::default_path() {
         Ok(path) => match ork_core::Config::load_or_default(&path) {
             Ok(_) => {
-                let state = if path.exists() { "loaded" } else { "using defaults" };
+                let state = if path.exists() {
+                    "loaded"
+                } else {
+                    "using defaults"
+                };
                 CheckResult::new("configuration", CheckState::Pass, state, started)
             }
             // A broken settings file is a warning, not a failure: the tool
@@ -167,18 +194,24 @@ fn check_runbooks() -> CheckResult {
         .and_then(|path| path.parent().map(|dir| dir.join("runbooks")));
 
     match ork_ai::runbook::RunbookLibrary::load(user_dir.as_deref()) {
-        Ok(library) if library.is_empty() => {
-            CheckResult::new("runbook library", CheckState::Fail, "the library is empty", started)
-        }
+        Ok(library) if library.is_empty() => CheckResult::new(
+            "runbook library",
+            CheckState::Fail,
+            "the library is empty",
+            started,
+        ),
         Ok(library) => CheckResult::new(
             "runbook library",
             CheckState::Pass,
             format!("{} entries", library.len()),
             started,
         ),
-        Err(error) => {
-            CheckResult::new("runbook library", CheckState::Fail, format!("{error:#}"), started)
-        }
+        Err(error) => CheckResult::new(
+            "runbook library",
+            CheckState::Fail,
+            format!("{error:#}"),
+            started,
+        ),
     }
 }
 
@@ -213,9 +246,12 @@ fn check_state_store() -> CheckResult {
                 started,
             ),
         },
-        Err(error) => {
-            CheckResult::new("state database", CheckState::Fail, format!("{error:#}"), started)
-        }
+        Err(error) => CheckResult::new(
+            "state database",
+            CheckState::Fail,
+            format!("{error:#}"),
+            started,
+        ),
     }
 }
 
@@ -285,7 +321,10 @@ pub fn run(mut on_result: impl FnMut(&CheckResult, usize, usize)) -> SelfTestRep
         results.push(result);
     }
 
-    SelfTestReport { checks: results, duration: started.elapsed() }
+    SelfTestReport {
+        checks: results,
+        duration: started.elapsed(),
+    }
 }
 
 #[cfg(test)]
@@ -308,10 +347,17 @@ mod tests {
             seen.push((index, result.name.clone()));
         });
 
-        let names: Vec<&str> = report.checks.iter().map(|check| check.name.as_str()).collect();
+        let names: Vec<&str> = report
+            .checks
+            .iter()
+            .map(|check| check.name.as_str())
+            .collect();
         let reported: Vec<&str> = seen.iter().map(|(_, name)| name.as_str()).collect();
         assert_eq!(names, reported);
-        assert_eq!(seen.iter().map(|(index, _)| *index).collect::<Vec<_>>(), (1..=CHECK_COUNT).collect::<Vec<_>>());
+        assert_eq!(
+            seen.iter().map(|(index, _)| *index).collect::<Vec<_>>(),
+            (1..=CHECK_COUNT).collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -324,16 +370,26 @@ mod tests {
 
     #[test]
     fn the_worst_state_is_what_decides_whether_the_run_passed() {
-        let mut report = SelfTestReport { checks: Vec::new(), duration: Duration::ZERO };
+        let mut report = SelfTestReport {
+            checks: Vec::new(),
+            duration: Duration::ZERO,
+        };
         assert_eq!(report.worst(), CheckState::Pass);
         assert!(report.passed());
 
-        report.checks.push(CheckResult::new("a", CheckState::Warn, "", Instant::now()));
+        report
+            .checks
+            .push(CheckResult::new("a", CheckState::Warn, "", Instant::now()));
         assert_eq!(report.worst(), CheckState::Warn);
-        assert!(report.passed(), "a warning must not stop the tool from starting");
+        assert!(
+            report.passed(),
+            "a warning must not stop the tool from starting"
+        );
         assert_eq!(report.warnings().count(), 1);
 
-        report.checks.push(CheckResult::new("b", CheckState::Fail, "", Instant::now()));
+        report
+            .checks
+            .push(CheckResult::new("b", CheckState::Fail, "", Instant::now()));
         assert_eq!(report.worst(), CheckState::Fail);
         assert!(!report.passed());
         assert_eq!(report.failures().count(), 1);

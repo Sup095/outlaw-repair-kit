@@ -35,9 +35,19 @@ pub enum BootEvent {
     /// Start-up has begun. Nothing has been checked yet.
     Started { version: String, total_steps: usize },
     /// A self-check finished.
-    Check { step: usize, total_steps: usize, result: CheckResult, line: String },
+    Check {
+        step: usize,
+        total_steps: usize,
+        result: CheckResult,
+        line: String,
+    },
     /// The update check finished.
-    Update { step: usize, total_steps: usize, status: UpdateStatus, line: String },
+    Update {
+        step: usize,
+        total_steps: usize,
+        status: UpdateStatus,
+        line: String,
+    },
     /// Start-up is over. `ready` is false only if something is actually broken.
     Finished { ready: bool, line: String },
 }
@@ -57,8 +67,12 @@ impl BootEvent {
     pub fn progress(&self) -> f32 {
         match self {
             BootEvent::Started { .. } => 0.0,
-            BootEvent::Check { step, total_steps, .. }
-            | BootEvent::Update { step, total_steps, .. } => *step as f32 / *total_steps as f32,
+            BootEvent::Check {
+                step, total_steps, ..
+            }
+            | BootEvent::Update {
+                step, total_steps, ..
+            } => *step as f32 / *total_steps as f32,
             BootEvent::Finished { .. } => 1.0,
         }
     }
@@ -127,15 +141,27 @@ pub async fn boot(mut on_event: impl FnMut(BootEvent)) -> BootReport {
     });
 
     for (index, result) in steps {
-        let line = format!("[{}] {} -- {}", result.state.as_str(), result.name, result.detail);
-        on_event(BootEvent::Check { step: index, total_steps: TOTAL_STEPS, result, line });
+        let line = format!(
+            "[{}] {} -- {}",
+            result.state.as_str(),
+            result.name,
+            result.detail
+        );
+        on_event(BootEvent::Check {
+            step: index,
+            total_steps: TOTAL_STEPS,
+            result,
+            line,
+        });
     }
 
     let update = update_check
         .await
         // The update check cannot itself fail, so a join error means the task
         // was cancelled or panicked -- neither of which should stop start-up.
-        .unwrap_or_else(|error| UpdateStatus::Unknown { reason: error.to_string() });
+        .unwrap_or_else(|error| UpdateStatus::Unknown {
+            reason: error.to_string(),
+        });
     on_event(BootEvent::Update {
         step: TOTAL_STEPS,
         total_steps: TOTAL_STEPS,
@@ -160,7 +186,10 @@ pub async fn boot(mut on_event: impl FnMut(BootEvent)) -> BootReport {
     } else {
         format!("{} check(s) failed", report.selftest.failures().count())
     };
-    on_event(BootEvent::Finished { ready: report.ready(), line });
+    on_event(BootEvent::Finished {
+        ready: report.ready(),
+        line,
+    });
 
     report
 }
@@ -177,14 +206,26 @@ mod tests {
         assert!(matches!(events.first(), Some(BootEvent::Started { .. })));
         assert!(matches!(events.last(), Some(BootEvent::Finished { .. })));
 
-        let checks = events.iter().filter(|e| matches!(e, BootEvent::Check { .. })).count();
+        let checks = events
+            .iter()
+            .filter(|e| matches!(e, BootEvent::Check { .. }))
+            .count();
         assert_eq!(checks, selftest::CHECK_COUNT);
-        assert_eq!(events.iter().filter(|e| matches!(e, BootEvent::Update { .. })).count(), 1);
+        assert_eq!(
+            events
+                .iter()
+                .filter(|e| matches!(e, BootEvent::Update { .. }))
+                .count(),
+            1
+        );
 
         // Progress must never go backwards, or a bar drawn from it jumps about.
         let mut last = 0.0;
         for event in &events {
-            assert!(event.progress() >= last, "progress went backwards at {event:?}");
+            assert!(
+                event.progress() >= last,
+                "progress went backwards at {event:?}"
+            );
             last = event.progress();
         }
         assert_eq!(last, 1.0);
@@ -198,7 +239,10 @@ mod tests {
         let mut events = Vec::new();
         boot(|event| events.push(event)).await;
         for event in &events {
-            assert!(!event.line().trim().is_empty(), "{event:?} has nothing to show");
+            assert!(
+                !event.line().trim().is_empty(),
+                "{event:?} has nothing to show"
+            );
         }
     }
 }

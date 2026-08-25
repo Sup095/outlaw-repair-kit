@@ -87,8 +87,12 @@ impl PeerBook {
         let mut book: Self = if path.exists() {
             let text = std::fs::read_to_string(path)
                 .with_context(|| format!("could not read {}", path.display()))?;
-            serde_json::from_str(&text)
-                .with_context(|| format!("{} is not readable as a list of linked machines", path.display()))?
+            serde_json::from_str(&text).with_context(|| {
+                format!(
+                    "{} is not readable as a list of linked machines",
+                    path.display()
+                )
+            })?
         } else {
             Self::default()
         };
@@ -115,7 +119,8 @@ impl PeerBook {
                 .with_context(|| format!("could not create {}", parent.display()))?;
         }
         let text = serde_json::to_string_pretty(self)?;
-        std::fs::write(path, text).with_context(|| format!("could not write {}", path.display()))?;
+        std::fs::write(path, text)
+            .with_context(|| format!("could not write {}", path.display()))?;
         Ok(())
     }
 
@@ -123,7 +128,11 @@ impl PeerBook {
         self.peers
             .iter()
             .find(|peer| peer.id == id_or_name)
-            .or_else(|| self.peers.iter().find(|peer| peer.name.eq_ignore_ascii_case(id_or_name)))
+            .or_else(|| {
+                self.peers
+                    .iter()
+                    .find(|peer| peer.name.eq_ignore_ascii_case(id_or_name))
+            })
     }
 
     /// Machines this one can borrow a model from.
@@ -134,7 +143,11 @@ impl PeerBook {
     /// Add or replace a link. Re-pairing an existing machine replaces it
     /// rather than leaving two entries that disagree about its token.
     pub fn upsert(&mut self, peer: Peer) {
-        match self.peers.iter_mut().find(|existing| existing.id == peer.id && existing.role == peer.role) {
+        match self
+            .peers
+            .iter_mut()
+            .find(|existing| existing.id == peer.id && existing.role == peer.role)
+        {
             Some(existing) => *existing = peer,
             None => self.peers.push(peer),
         }
@@ -151,7 +164,11 @@ impl PeerBook {
             .filter(|peer| peer.id == id_or_name || peer.name.eq_ignore_ascii_case(id_or_name))
             .cloned()
             .collect();
-        self.peers.retain(|peer| !matching.iter().any(|gone| gone.id == peer.id && gone.role == peer.role));
+        self.peers.retain(|peer| {
+            !matching
+                .iter()
+                .any(|gone| gone.id == peer.id && gone.role == peer.role)
+        });
         for peer in &matching {
             let _ = forget_token(&peer.id);
         }
@@ -238,7 +255,10 @@ mod tests {
         assert!(path.exists(), "a new identity was not written out");
 
         let second = PeerBook::load(&path).unwrap();
-        assert_eq!(first.machine_id, second.machine_id, "the identity changed between runs");
+        assert_eq!(
+            first.machine_id, second.machine_id,
+            "the identity changed between runs"
+        );
         let _ = std::fs::remove_file(&path);
     }
 
@@ -292,7 +312,10 @@ mod tests {
         book.upsert(borrower);
 
         let written = serde_json::to_string(&book).unwrap();
-        assert!(!written.contains("the-real-token"), "the token was written to disk");
+        assert!(
+            !written.contains("the-real-token"),
+            "the token was written to disk"
+        );
         assert!(written.contains(&crate::pair::token_fingerprint("the-real-token")));
     }
 }

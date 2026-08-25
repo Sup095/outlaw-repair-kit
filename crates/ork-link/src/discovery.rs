@@ -86,10 +86,15 @@ pub async fn search(port: u16) -> Result<Vec<Discovered>> {
     let socket = UdpSocket::bind(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)))
         .await
         .context("could not open a socket to search the network")?;
-    socket.set_broadcast(true).context("this system does not allow network broadcasts")?;
+    socket
+        .set_broadcast(true)
+        .context("this system does not allow network broadcasts")?;
 
     let target = SocketAddrV4::new(Ipv4Addr::BROADCAST, port);
-    socket.send_to(PROBE, target).await.context("could not send the search")?;
+    socket
+        .send_to(PROBE, target)
+        .await
+        .context("could not send the search")?;
 
     let mut found: Vec<Discovered> = Vec::new();
     let deadline = tokio::time::Instant::now() + LISTEN_FOR;
@@ -148,7 +153,10 @@ mod tests {
         let port = test_port();
         let (stop, stopped) = tokio::sync::oneshot::channel();
         let responder = tokio::spawn(async move {
-            let _ = respond(port, || describe("main pc"), async { let _ = stopped.await; }).await;
+            let _ = respond(port, || describe("main pc"), async {
+                let _ = stopped.await;
+            })
+            .await;
         });
 
         // Give the responder a moment to bind before shouting at it.
@@ -162,7 +170,11 @@ mod tests {
         assert_eq!(found[0].name, "main pc");
         assert!(found[0].pairing_open);
         // The address comes from the packet's sender, never from its contents.
-        assert!(found[0].address.ends_with(&format!(":{port}")), "{}", found[0].address);
+        assert!(
+            found[0].address.ends_with(&format!(":{port}")),
+            "{}",
+            found[0].address
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -179,12 +191,21 @@ mod tests {
         });
         tokio::time::sleep(Duration::from_millis(150)).await;
 
-        let socket = UdpSocket::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0))).await.unwrap();
-        socket.send_to(b"hello?", SocketAddr::from((Ipv4Addr::LOCALHOST, port))).await.unwrap();
+        let socket = UdpSocket::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+            .await
+            .unwrap();
+        socket
+            .send_to(b"hello?", SocketAddr::from((Ipv4Addr::LOCALHOST, port)))
+            .await
+            .unwrap();
 
         let mut buffer = [0u8; 512];
-        let answered = tokio::time::timeout(Duration::from_millis(400), socket.recv_from(&mut buffer)).await;
+        let answered =
+            tokio::time::timeout(Duration::from_millis(400), socket.recv_from(&mut buffer)).await;
         responder.abort();
-        assert!(answered.is_err(), "it replied to something that was not a probe");
+        assert!(
+            answered.is_err(),
+            "it replied to something that was not a probe"
+        );
     }
 }

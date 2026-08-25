@@ -43,7 +43,11 @@ fn load_book() -> anyhow::Result<PeerBook> {
 #[tauri::command]
 pub fn link_status(state: State<'_, AppState>) -> CmdResult<serde_json::Value> {
     let book = load_book().map_err(fail)?;
-    let hosting = state.link.hosting.lock().map_err(|_| "the link lock was poisoned".to_string())?;
+    let hosting = state
+        .link
+        .hosting
+        .lock()
+        .map_err(|_| "the link lock was poisoned".to_string())?;
 
     Ok(serde_json::json!({
         "machine_id": book.machine_id,
@@ -66,7 +70,11 @@ pub async fn link_host_start(
 ) -> CmdResult<String> {
     let port = port.unwrap_or(DEFAULT_PORT);
     {
-        let running = state.link.hosting.lock().map_err(|_| "the link lock was poisoned".to_string())?;
+        let running = state
+            .link
+            .hosting
+            .lock()
+            .map_err(|_| "the link lock was poisoned".to_string())?;
         if running.is_some() {
             return Err("this machine is already lending its model".to_string());
         }
@@ -74,11 +82,14 @@ pub async fn link_host_start(
 
     let path = book_path().map_err(fail)?;
     let book = PeerBook::load(&path).map_err(fail)?;
-    let config = ork_core::Config::load_or_default(&ork_core::Config::default_path().map_err(fail)?)
-        .map_err(fail)?;
+    let config =
+        ork_core::Config::load_or_default(&ork_core::Config::default_path().map_err(fail)?)
+            .map_err(fail)?;
     let upstream = model_url
         .or_else(|| config.ai.local.urls.first().cloned())
-        .ok_or_else(|| "no local model address is set -- add one on the Settings screen".to_string())?;
+        .ok_or_else(|| {
+            "no local model address is set -- add one on the Settings screen".to_string()
+        })?;
 
     let machine_id = book.machine_id.clone();
     let machine_name = book.machine_name.clone();
@@ -89,7 +100,11 @@ pub async fn link_host_start(
     let serving = host.clone();
     tokio::spawn(async move {
         let address = std::net::SocketAddr::from(([0, 0, 0, 0], port));
-        if let Err(error) = serve(serving, address, async { let _ = stopped.await; }).await {
+        if let Err(error) = serve(serving, address, async {
+            let _ = stopped.await;
+        })
+        .await
+        {
             tracing::error!(%error, "the link service stopped");
         }
     });
@@ -111,8 +126,16 @@ pub async fn link_host_start(
         let _ = discovery::respond(port, describe, std::future::pending()).await;
     });
 
-    *state.link.hosting.lock().map_err(|_| "the link lock was poisoned".to_string())? =
-        Some(Hosting { state: host, stop: Some(stop), port, code: code.display() });
+    *state
+        .link
+        .hosting
+        .lock()
+        .map_err(|_| "the link lock was poisoned".to_string())? = Some(Hosting {
+        state: host,
+        stop: Some(stop),
+        port,
+        code: code.display(),
+    });
 
     Ok(code.display())
 }
@@ -120,7 +143,11 @@ pub async fn link_host_start(
 /// Stop lending. Always available while a session is running.
 #[tauri::command]
 pub fn link_host_stop(state: State<'_, AppState>) -> CmdResult<bool> {
-    let mut slot = state.link.hosting.lock().map_err(|_| "the link lock was poisoned".to_string())?;
+    let mut slot = state
+        .link
+        .hosting
+        .lock()
+        .map_err(|_| "the link lock was poisoned".to_string())?;
     match slot.take() {
         Some(mut session) => {
             session.state.close_pairing();
@@ -136,7 +163,9 @@ pub fn link_host_stop(state: State<'_, AppState>) -> CmdResult<bool> {
 /// Who on this network is lending a model.
 #[tauri::command]
 pub async fn link_find(port: Option<u16>) -> CmdResult<Vec<discovery::Discovered>> {
-    discovery::search(port.unwrap_or(DEFAULT_PORT)).await.map_err(fail)
+    discovery::search(port.unwrap_or(DEFAULT_PORT))
+        .await
+        .map_err(fail)
 }
 
 /// Pair with a machine that is showing a code.
@@ -146,7 +175,9 @@ pub async fn link_join(code: String, address: String) -> CmdResult<serde_json::V
     let path = book_path().map_err(fail)?;
     let mut book = PeerBook::load(&path).map_err(fail)?;
 
-    let peer = client::join(&mut book, &address, code).await.map_err(fail)?;
+    let peer = client::join(&mut book, &address, code)
+        .await
+        .map_err(fail)?;
     book.save(&path).map_err(fail)?;
     Ok(serde_json::json!(peer))
 }
@@ -170,16 +201,31 @@ pub fn link_remove(name: String) -> CmdResult<usize> {
 pub async fn link_view(name: Option<String>) -> CmdResult<serde_json::Value> {
     let book = load_book().map_err(fail)?;
     let peer = match &name {
-        Some(name) => book.find(name).ok_or_else(|| format!("nothing here is linked as `{name}`"))?,
-        None => book.lenders().next().ok_or_else(|| "this machine is not linked to anything".to_string())?,
+        Some(name) => book
+            .find(name)
+            .ok_or_else(|| format!("nothing here is linked as `{name}`"))?,
+        None => book
+            .lenders()
+            .next()
+            .ok_or_else(|| "this machine is not linked to anything".to_string())?,
     };
-    LinkClient::for_peer(peer).map_err(fail)?.status().await.map_err(fail)
+    LinkClient::for_peer(peer)
+        .map_err(fail)?
+        .status()
+        .await
+        .map_err(fail)
 }
 
 /// Ask one linked machine whether it is still answering.
 #[tauri::command]
 pub async fn link_check(name: String) -> CmdResult<serde_json::Value> {
     let book = load_book().map_err(fail)?;
-    let peer = book.find(&name).ok_or_else(|| format!("nothing here is linked as `{name}`"))?;
-    LinkClient::for_peer(peer).map_err(fail)?.hello().await.map_err(fail)
+    let peer = book
+        .find(&name)
+        .ok_or_else(|| format!("nothing here is linked as `{name}`"))?;
+    LinkClient::for_peer(peer)
+        .map_err(fail)?
+        .hello()
+        .await
+        .map_err(fail)
 }

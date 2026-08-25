@@ -69,8 +69,11 @@ impl HostState {
     /// Start showing a pairing code, replacing any code already showing.
     pub fn open_pairing(&self) -> PairingCode {
         let code = PairingCode::generate();
-        *self.pairing.lock().expect("pairing lock") =
-            Some(ActivePairing { code: code.clone(), opened: Instant::now(), wrong_attempts: 0 });
+        *self.pairing.lock().expect("pairing lock") = Some(ActivePairing {
+            code: code.clone(),
+            opened: Instant::now(),
+            wrong_attempts: 0,
+        });
         code
     }
 
@@ -81,7 +84,11 @@ impl HostState {
 
     /// Whether a code is currently being shown and still usable.
     pub fn pairing_open(&self) -> bool {
-        self.pairing.lock().expect("pairing lock").as_ref().is_some_and(ActivePairing::usable)
+        self.pairing
+            .lock()
+            .expect("pairing lock")
+            .as_ref()
+            .is_some_and(ActivePairing::usable)
     }
 
     fn machine(&self) -> (String, String) {
@@ -101,8 +108,13 @@ impl HostState {
 }
 
 fn bearer(headers: &HeaderMap) -> Option<String> {
-    let value = headers.get(axum::http::header::AUTHORIZATION)?.to_str().ok()?;
-    value.strip_prefix("Bearer ").map(|token| token.trim().to_string())
+    let value = headers
+        .get(axum::http::header::AUTHORIZATION)?
+        .to_str()
+        .ok()?;
+    value
+        .strip_prefix("Bearer ")
+        .map(|token| token.trim().to_string())
 }
 
 #[derive(Serialize)]
@@ -111,7 +123,13 @@ struct ApiError {
 }
 
 fn refuse(status: StatusCode, message: &str) -> axum::response::Response {
-    (status, Json(ApiError { error: message.to_string() })).into_response()
+    (
+        status,
+        Json(ApiError {
+            error: message.to_string(),
+        }),
+    )
+        .into_response()
 }
 
 async fn handle_pair(
@@ -123,7 +141,10 @@ async fn handle_pair(
         let Some(active) = slot.as_mut() else {
             // Not "wrong code" -- there is no code. Saying so is not a leak,
             // and it saves somebody a long hunt for a typo.
-            return refuse(StatusCode::FORBIDDEN, "that machine is not showing a pairing code");
+            return refuse(
+                StatusCode::FORBIDDEN,
+                "that machine is not showing a pairing code",
+            );
         };
         if !active.usable() {
             *slot = None;
@@ -164,7 +185,10 @@ async fn handle_pair(
         });
         if let Err(error) = book.save(&state.book_path) {
             tracing::error!(%error, "could not record the new link");
-            return refuse(StatusCode::INTERNAL_SERVER_ERROR, "could not record the link");
+            return refuse(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "could not record the link",
+            );
         }
     }
 
@@ -204,7 +228,10 @@ async fn handle_models(
     State(state): State<Arc<HostState>>,
     headers: HeaderMap,
 ) -> axum::response::Response {
-    if bearer(&headers).and_then(|token| state.authorised(&token)).is_none() {
+    if bearer(&headers)
+        .and_then(|token| state.authorised(&token))
+        .is_none()
+    {
         return refuse(StatusCode::UNAUTHORIZED, "not linked to this machine");
     }
     forward(&state, "models", None).await
@@ -235,11 +262,14 @@ async fn forward(state: &HostState, path: &str, body: Option<Value>) -> axum::re
 
     match request.send().await {
         Ok(response) => {
-            let status = StatusCode::from_u16(response.status().as_u16())
-                .unwrap_or(StatusCode::BAD_GATEWAY);
+            let status =
+                StatusCode::from_u16(response.status().as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
             match response.json::<Value>().await {
                 Ok(payload) => (status, Json(payload)).into_response(),
-                Err(error) => refuse(StatusCode::BAD_GATEWAY, &format!("the model answered with something unreadable: {error}")),
+                Err(error) => refuse(
+                    StatusCode::BAD_GATEWAY,
+                    &format!("the model answered with something unreadable: {error}"),
+                ),
             }
         }
         // The borrower cannot fix this and should not be left guessing: the
@@ -260,12 +290,17 @@ async fn handle_status(
     State(state): State<Arc<HostState>>,
     headers: HeaderMap,
 ) -> axum::response::Response {
-    if bearer(&headers).and_then(|token| state.authorised(&token)).is_none() {
+    if bearer(&headers)
+        .and_then(|token| state.authorised(&token))
+        .is_none()
+    {
         return refuse(StatusCode::UNAUTHORIZED, "not linked to this machine");
     }
 
     let (_, host_name) = state.machine();
-    let host = ork_core::platform::detect().ok().and_then(|platform| platform.host().ok());
+    let host = ork_core::platform::detect()
+        .ok()
+        .and_then(|platform| platform.host().ok());
 
     // A missing queue is a fact about that machine worth reporting, not an
     // error worth refusing the whole request over.

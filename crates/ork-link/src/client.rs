@@ -122,7 +122,10 @@ pub async fn join(book: &mut PeerBook, address: &str, code: PairingCode) -> Resu
         anyhow::bail!("{message} ({status})");
     }
 
-    let reply: PairResponse = response.json().await.context("that machine answered with something unreadable")?;
+    let reply: PairResponse = response
+        .json()
+        .await
+        .context("that machine answered with something unreadable")?;
     let token = handshake.finish(&reply)?;
 
     let peer = Peer {
@@ -161,8 +164,17 @@ mod tests {
     fn addresses_are_accepted_in_the_shapes_people_type_them() {
         assert_eq!(normalise_address("192.168.1.5"), "http://192.168.1.5:7341");
         assert_eq!(normalise_address("main-pc"), "http://main-pc:7341");
-        assert_eq!(normalise_address("192.168.1.5:9000"), "http://192.168.1.5:9000");
-        assert_eq!(normalise_address("http://192.168.1.5:7341/"), "http://192.168.1.5:7341");
-        assert_eq!(normalise_address(" https://rig.example  "), "https://rig.example");
+        assert_eq!(
+            normalise_address("192.168.1.5:9000"),
+            "http://192.168.1.5:9000"
+        );
+        assert_eq!(
+            normalise_address("http://192.168.1.5:7341/"),
+            "http://192.168.1.5:7341"
+        );
+        assert_eq!(
+            normalise_address(" https://rig.example  "),
+            "https://rig.example"
+        );
     }
 }

@@ -14,8 +14,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 /// Where release information is read from.
-const RELEASES_URL: &str =
-    "https://api.github.com/repos/Sup095/outlaw-repair-kit/releases/latest";
+const RELEASES_URL: &str = "https://api.github.com/repos/Sup095/outlaw-repair-kit/releases/latest";
 
 /// The version this binary was built as.
 pub const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -30,7 +29,11 @@ pub enum UpdateStatus {
     /// This is the newest release.
     UpToDate { version: String },
     /// A newer release exists. `url` is the page a person can download from.
-    Available { current: String, latest: String, url: String },
+    Available {
+        current: String,
+        latest: String,
+        url: String,
+    },
     /// The check could not be completed. Not an error the user must act on.
     Unknown { reason: String },
 }
@@ -40,7 +43,9 @@ impl UpdateStatus {
     pub fn summary(&self) -> String {
         match self {
             UpdateStatus::UpToDate { version } => format!("up to date (v{version})"),
-            UpdateStatus::Available { current, latest, .. } => {
+            UpdateStatus::Available {
+                current, latest, ..
+            } => {
                 format!("v{latest} is available -- this is v{current}")
             }
             UpdateStatus::Unknown { reason } => format!("update check skipped: {reason}"),
@@ -66,7 +71,9 @@ struct Release {
 pub async fn check() -> UpdateStatus {
     match try_check().await {
         Ok(status) => status,
-        Err(error) => UpdateStatus::Unknown { reason: short_reason(&error) },
+        Err(error) => UpdateStatus::Unknown {
+            reason: short_reason(&error),
+        },
     }
 }
 
@@ -90,7 +97,9 @@ async fn try_check() -> anyhow::Result<UpdateStatus> {
 
 fn compare(current: &str, release: &Release) -> UpdateStatus {
     if release.draft || release.prerelease {
-        return UpdateStatus::UpToDate { version: current.to_string() };
+        return UpdateStatus::UpToDate {
+            version: current.to_string(),
+        };
     }
 
     let latest = release.tag_name.trim_start_matches('v');
@@ -104,10 +113,14 @@ fn compare(current: &str, release: &Release) -> UpdateStatus {
                 release.html_url.clone()
             },
         },
-        (Some(_), Some(_)) => UpdateStatus::UpToDate { version: current.to_string() },
+        (Some(_), Some(_)) => UpdateStatus::UpToDate {
+            version: current.to_string(),
+        },
         // An unparseable tag means someone changed the naming scheme. Claiming
         // "up to date" would be a guess; say so instead.
-        _ => UpdateStatus::Unknown { reason: format!("cannot read release tag '{}'", release.tag_name) },
+        _ => UpdateStatus::Unknown {
+            reason: format!("cannot read release tag '{}'", release.tag_name),
+        },
     }
 }
 
@@ -163,37 +176,64 @@ mod tests {
 
     #[test]
     fn a_newer_tag_is_offered_and_an_older_one_is_not() {
-        assert!(matches!(compare("0.4.0", &release("v0.5.0")), UpdateStatus::Available { .. }));
-        assert!(matches!(compare("0.4.0", &release("v0.4.1")), UpdateStatus::Available { .. }));
-        assert!(matches!(compare("0.4.0", &release("v0.4.0")), UpdateStatus::UpToDate { .. }));
+        assert!(matches!(
+            compare("0.4.0", &release("v0.5.0")),
+            UpdateStatus::Available { .. }
+        ));
+        assert!(matches!(
+            compare("0.4.0", &release("v0.4.1")),
+            UpdateStatus::Available { .. }
+        ));
+        assert!(matches!(
+            compare("0.4.0", &release("v0.4.0")),
+            UpdateStatus::UpToDate { .. }
+        ));
         // Running ahead of the last release is normal when building from source.
-        assert!(matches!(compare("0.5.0", &release("v0.4.0")), UpdateStatus::UpToDate { .. }));
+        assert!(matches!(
+            compare("0.5.0", &release("v0.4.0")),
+            UpdateStatus::UpToDate { .. }
+        ));
     }
 
     #[test]
     fn ten_sorts_after_nine_rather_than_before_it() {
         // The bug you get for free by comparing tags as strings.
-        assert!(matches!(compare("0.9.0", &release("v0.10.0")), UpdateStatus::Available { .. }));
+        assert!(matches!(
+            compare("0.9.0", &release("v0.10.0")),
+            UpdateStatus::Available { .. }
+        ));
     }
 
     #[test]
     fn drafts_and_prereleases_are_not_offered() {
         let mut draft = release("v9.0.0");
         draft.draft = true;
-        assert!(matches!(compare("0.4.0", &draft), UpdateStatus::UpToDate { .. }));
+        assert!(matches!(
+            compare("0.4.0", &draft),
+            UpdateStatus::UpToDate { .. }
+        ));
 
         let mut early = release("v9.0.0");
         early.prerelease = true;
-        assert!(matches!(compare("0.4.0", &early), UpdateStatus::UpToDate { .. }));
+        assert!(matches!(
+            compare("0.4.0", &early),
+            UpdateStatus::UpToDate { .. }
+        ));
     }
 
     #[test]
     fn an_unreadable_tag_says_unknown_rather_than_guessing() {
-        assert!(matches!(compare("0.4.0", &release("nightly")), UpdateStatus::Unknown { .. }));
+        assert!(matches!(
+            compare("0.4.0", &release("nightly")),
+            UpdateStatus::Unknown { .. }
+        ));
     }
 
     #[test]
     fn the_shipped_version_is_readable() {
-        assert!(parse_version(CURRENT_VERSION).is_some(), "CARGO_PKG_VERSION must be comparable");
+        assert!(
+            parse_version(CURRENT_VERSION).is_some(),
+            "CARGO_PKG_VERSION must be comparable"
+        );
     }
 }

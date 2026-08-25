@@ -30,7 +30,10 @@ pub fn apply_to_config(book: &PeerBook, config: &mut Config) -> Option<Peer> {
 
     // A link whose token has gone missing is not usable, and silently trying
     // it would produce a baffling failure later.
-    let peer = book.lenders().find(|peer| peer::load_token(&peer.id).is_some())?.clone();
+    let peer = book
+        .lenders()
+        .find(|peer| peer::load_token(&peer.id).is_some())?
+        .clone();
 
     config.ai.remote.enabled = true;
     config.ai.remote.endpoint = Some(
@@ -66,7 +69,10 @@ mod tests {
         config.ai.remote.endpoint = Some(EndpointConfig::new("http://mine:1234/v1", "my-model"));
 
         assert!(apply_to_config(&book, &mut config).is_none());
-        assert_eq!(config.ai.remote.endpoint.unwrap().url, "http://mine:1234/v1");
+        assert_eq!(
+            config.ai.remote.endpoint.unwrap().url,
+            "http://mine:1234/v1"
+        );
     }
 
     #[test]
@@ -92,7 +98,10 @@ mod tests {
 
         let endpoint = config.ai.remote.endpoint.unwrap();
         assert_eq!(endpoint.url, "http://192.0.2.10:7341/ork/v1");
-        assert_eq!(endpoint.token_ref.as_deref(), Some("link-token:routing-test-peer"));
+        assert_eq!(
+            endpoint.token_ref.as_deref(),
+            Some("link-token:routing-test-peer")
+        );
         assert!(config.ai.remote.enabled);
 
         let _ = peer::forget_token(id);
@@ -109,8 +118,14 @@ mod tests {
         apply_to_config(&book, &mut config).unwrap();
 
         let written = config.to_toml().unwrap();
-        assert!(!written.contains("super-secret-token"), "the settings file holds a token");
-        assert!(written.contains("link-token:"), "the settings file lost the credential's name");
+        assert!(
+            !written.contains("super-secret-token"),
+            "the settings file holds a token"
+        );
+        assert!(
+            written.contains("link-token:"),
+            "the settings file lost the credential's name"
+        );
 
         let _ = peer::forget_token(id);
     }
