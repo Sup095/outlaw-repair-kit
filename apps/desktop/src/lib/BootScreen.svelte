@@ -51,6 +51,15 @@
       } catch (problem) {
         error = String(problem);
         failed = true;
+        // A start-up that cannot even report on itself must still leave a way
+        // into the application, or a broken check becomes a locked door.
+        report = {
+          version: "unknown",
+          selftest: { checks: [] },
+          update: { state: "unknown", reason: "start-up did not finish" },
+        };
+        push(error, "fail");
+        progress = 1;
       }
     })();
 

@@ -62,6 +62,9 @@ jobs:
   desktop:
     name: desktop bundle ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    # A desktop bundle that fails to build must not take the command-line
+    # release down with it. The binaries and their checksums still publish.
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -99,6 +102,9 @@ jobs:
 
   publish:
     needs: [build, desktop]
+    # `always()` so that a skipped or failed desktop bundle does not cancel
+    # the release; the guard keeps it from publishing without the binaries.
+    if: always() && needs.build.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
