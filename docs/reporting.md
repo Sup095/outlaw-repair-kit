@@ -93,6 +93,21 @@ off — which is usually the part that matters — the tool writes the report to
 file, tells you where, and gives you a plain link to the blank issue form.
 Attach the file, or paste it in.
 
+## You will be told if it crashed
+
+The start-up self-test counts what has been recorded. A crash shows as a
+warning there, which is the only notice you get if the tool fell over in the
+window, where there is no terminal to have printed anything.
+
+```text
+[warn] recorded problems  1 crash(es) recorded -- `outlaw report` turns one into a bug report
+```
+
+It is a warning and nothing more — start-up continues normally. Handled errors
+are counted and mentioned but never warned about; most of them are a network
+hiccup, and warning about those every time would teach you to skip the line
+that matters.
+
 ## What is recorded, and where
 
 Two things:

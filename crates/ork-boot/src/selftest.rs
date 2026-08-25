@@ -97,7 +97,62 @@ impl SelfTestReport {
 }
 
 /// How many checks there are, so a progress bar can be sized before starting.
-pub const CHECK_COUNT: usize = 6;
+pub const CHECK_COUNT: usize = 7;
+
+/// Did the last run crash?
+///
+/// The desktop window has no terminal behind it, so a crash there leaves
+/// nothing on screen at all -- the user closes the app, opens it again, and
+/// never learns there is something worth reporting. This is the one place the
+/// tool gets to say so.
+///
+/// Only *crashes* raise a warning. Errors are counted and mentioned, because a
+/// handled error is very often a network hiccup or a machine saying no, and
+/// warning about those on every start would teach people to ignore the line
+/// that matters.
+fn check_recorded_problems() -> CheckResult {
+    let started = Instant::now();
+    let dir = match ork_core::Config::default_path() {
+        Ok(path) => path.parent().map(|dir| dir.to_path_buf()),
+        Err(_) => None,
+    };
+    let Some(dir) = dir else {
+        return CheckResult::new(
+            "recorded problems",
+            CheckState::Pass,
+            "nothing recorded",
+            started,
+        );
+    };
+
+    let recorded = ork_core::incident::all(&dir);
+    let crashes = recorded
+        .iter()
+        .filter(|incident| incident.kind == ork_core::incident::IncidentKind::Panic)
+        .count();
+    let errors = recorded.len() - crashes;
+
+    match (crashes, errors) {
+        (0, 0) => CheckResult::new(
+            "recorded problems",
+            CheckState::Pass,
+            "nothing recorded",
+            started,
+        ),
+        (0, errors) => CheckResult::new(
+            "recorded problems",
+            CheckState::Pass,
+            format!("{errors} error(s) recorded -- `outlaw report` if one needs looking at"),
+            started,
+        ),
+        (crashes, _) => CheckResult::new(
+            "recorded problems",
+            CheckState::Warn,
+            format!("{crashes} crash(es) recorded -- `outlaw report` turns one into a bug report"),
+            started,
+        ),
+    }
+}
 
 fn check_platform() -> CheckResult {
     let started = Instant::now();
@@ -312,6 +367,9 @@ pub fn run(mut on_result: impl FnMut(&CheckResult, usize, usize)) -> SelfTestRep
         check_runbooks,
         check_state_store,
         check_snapshot_area,
+        // Last, because it is the only check that is about previous runs
+        // rather than this one.
+        check_recorded_problems,
     ];
 
     let mut results = Vec::with_capacity(CHECK_COUNT);
@@ -366,6 +424,20 @@ mod tests {
         // build itself is wrong, not the machine it is running on.
         assert_eq!(check_platform().state, CheckState::Pass);
         assert_eq!(check_probes().state, CheckState::Pass);
+    }
+
+    #[test]
+    fn a_crash_is_worth_a_warning_but_never_stops_the_tool_starting() {
+        // The desktop window leaves no terminal trace when it falls over, so
+        // this line is the only chance the user gets to learn there is
+        // something worth reporting. It must not be so loud that it blocks
+        // anything, though -- the tool works fine; it merely crashed once.
+        let result = check_recorded_problems();
+        assert_ne!(
+            result.state,
+            CheckState::Fail,
+            "a past crash must never stop the tool starting: {result:?}"
+        );
     }
 
     #[test]

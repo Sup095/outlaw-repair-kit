@@ -8,10 +8,10 @@ nothing you set up in the app traps you in it.
 
 Both front-ends run the same start-up sequence before anything else:
 
-1. **Six self-checks.** Can it read this machine, are its checks registered
+1. **Seven self-checks.** Can it read this machine, are its checks registered
    without clashing, did its settings load, did its runbook library parse, is
-   its state database intact, and can it actually write to the folder it keeps
-   snapshots in.
+   its state database intact, can it actually write to the folder it keeps
+   snapshots in — and did anything crash last time.
 2. **An update check.** It asks GitHub whether a newer release exists.
 
 A diagnostic tool that is quietly broken is worse than none, because its clean
@@ -28,6 +28,18 @@ Checks pass, warn, or fail, and the difference matters:
 That last row is the important one. If the tool cannot write a backup, its
 promise to roll a failed fix back is empty, so it will not start applying
 fixes. Scanning and explaining still work.
+
+### It tells you if it crashed last time
+
+A window has no terminal behind it, so a crash leaves nothing on screen: you
+close the app, open it again, and never learn there was anything to report.
+The last self-check exists for that. A recorded crash shows as a **warn** with
+a pointer at [Reporting a problem](reporting.md), which is not enough to stop
+anything — the tool works; it merely fell over once.
+
+Handled errors are counted and mentioned but never warned about. A great many
+of them are a network hiccup or a machine saying no, and warning about those on
+every start would teach you to skip the line that matters.
 
 ### The update check never installs anything
 
