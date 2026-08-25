@@ -32,6 +32,23 @@ use crate::pair::{self, PairRequest, PairResponse};
 use crate::peer::{Peer, PeerBook, Role, now};
 use crate::{MAX_PAIRING_ATTEMPTS, PAIRING_WINDOW, PairingCode};
 
+/// Something worth telling the person sitting at the lending machine.
+///
+/// Without this the host is silent: you read a code out to someone in the next
+/// room and get no sign of whether it worked. Emitted rather than printed,
+/// because a library that writes to a terminal is a library with an opinion
+/// about who is running it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(tag = "event", rename_all = "kebab-case")]
+pub enum HostEvent {
+    /// A machine paired successfully.
+    Linked { name: String },
+    /// Somebody typed a code that was not right.
+    WrongCode { attempts_left: usize },
+    /// A linked machine asked this one to run its model.
+    ModelRequested { name: String },
+}
+
 /// A pairing code that is currently being shown to somebody.
 struct ActivePairing {
     code: PairingCode,
@@ -53,6 +70,7 @@ pub struct HostState {
     /// The OpenAI-compatible model this machine will run on a peer's behalf.
     upstream: String,
     http: reqwest::Client,
+    events: Mutex<Option<tokio::sync::mpsc::UnboundedSender<HostEvent>>>,
 }
 
 impl HostState {
@@ -63,6 +81,22 @@ impl HostState {
             pairing: Mutex::new(None),
             upstream: upstream.trim_end_matches('/').to_string(),
             http: reqwest::Client::new(),
+            events: Mutex::new(None),
+        }
+    }
+
+    /// Report what happens to whoever is watching.
+    pub fn events(&self) -> tokio::sync::mpsc::UnboundedReceiver<HostEvent> {
+        let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
+        *self.events.lock().expect("event lock") = Some(sender);
+        receiver
+    }
+
+    fn announce(&self, event: HostEvent) {
+        // A front-end that has stopped listening is not a reason to fail a
+        // request that has otherwise gone perfectly well.
+        if let Some(sender) = self.events.lock().expect("event lock").as_ref() {
+            let _ = sender.send(event);
         }
     }
 
@@ -161,6 +195,9 @@ async fn handle_pair(
                     *slot = None;
                     tracing::warn!("pairing closed after too many wrong codes");
                 }
+                state.announce(HostEvent::WrongCode {
+                    attempts_left: left,
+                });
                 return refuse(StatusCode::UNAUTHORIZED, "that pairing code is not right");
             }
         }
@@ -196,6 +233,9 @@ async fn handle_pair(
     // out loud into a standing invitation.
     state.close_pairing();
     tracing::info!(peer = %request.client_name, "linked");
+    state.announce(HostEvent::Linked {
+        name: request.client_name.clone(),
+    });
 
     Json(PairResponse {
         host_id,
@@ -246,6 +286,9 @@ async fn handle_completions(
         return refuse(StatusCode::UNAUTHORIZED, "not linked to this machine");
     };
     tracing::info!(peer = %peer.name, "running a model for a linked machine");
+    state.announce(HostEvent::ModelRequested {
+        name: peer.name.clone(),
+    });
     forward(&state, "chat/completions", Some(body)).await
 }
 

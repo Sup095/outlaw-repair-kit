@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use ork_core::Config;
 use ork_link::client::{self, LinkClient};
 use ork_link::peer::{PeerBook, Role};
-use ork_link::server::{HostState, serve};
+use ork_link::server::{HostEvent, HostState, serve};
 use ork_link::{PairingCode, discovery, routing};
 
 use crate::style::{bold, dim};
@@ -64,6 +64,41 @@ pub async fn host(port: u16, model_url: Option<String>, discoverable: bool) -> R
     println!();
     println!("  {}", dim("Press Ctrl-C to stop lending."));
     println!();
+
+    // Without this the screen sits silent while somebody in the next room
+    // types the code, with no sign of whether it worked.
+    let mut events = state.events();
+    tokio::spawn(async move {
+        while let Some(event) = events.recv().await {
+            match event {
+                HostEvent::Linked { name } => {
+                    println!("  {} {}", bold("linked"), name);
+                    println!(
+                        "  {}",
+                        dim("that machine can now ask this one to run its model")
+                    );
+                }
+                HostEvent::WrongCode { attempts_left: 0 } => {
+                    println!("  {}", bold("too many wrong codes -- pairing closed"));
+                    println!(
+                        "  {}",
+                        dim("press Ctrl-C and run `outlaw link host` again for a fresh code")
+                    );
+                }
+                HostEvent::WrongCode { attempts_left } => {
+                    println!(
+                        "  {}",
+                        dim(&format!(
+                            "wrong pairing code -- {attempts_left} attempt(s) left"
+                        ))
+                    );
+                }
+                HostEvent::ModelRequested { name } => {
+                    println!("  {}", dim(&format!("running the model for {name}")));
+                }
+            }
+        }
+    });
 
     // Answering on the local network is what saves anyone typing an address.
     let discovery_task = discoverable.then(|| {
