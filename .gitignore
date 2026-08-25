@@ -1,0 +1,28 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Node / frontend (added when the UI lands)
+node_modules/
+dist/
+.svelte-kit/
+
+# Local runtime state -- never commit. These hold machine-specific data,
+# scan history, and audit logs.
+*.db
+*.db-shm
+*.db-wal
+/local/
+*.log
+
+# Local configuration and anything secret. API keys live in the OS keychain,
+# but guard against accidental local overrides being committed.
+config.local.toml
+.env
+.env.*
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
