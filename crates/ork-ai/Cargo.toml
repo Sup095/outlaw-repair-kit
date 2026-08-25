@@ -27,5 +27,9 @@ time.workspace = true
 [target.'cfg(windows)'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
 
+# `vendored` builds dbus in-tree rather than linking the system one, so
+# building does not require libdbus-1-dev to be installed and the released
+# binary does not carry a runtime dependency on it. A downloaded diagnostic
+# tool should just run.
 [target.'cfg(target_os = "linux")'.dependencies]
-keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }
+keyring = { version = "3", features = ["sync-secret-service", "crypto-rust", "vendored"] }
