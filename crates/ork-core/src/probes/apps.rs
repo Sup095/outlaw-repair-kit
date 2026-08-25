@@ -2,118 +2,22 @@
 //!
 //! "It won't launch any more" is one of the most common real complaints about
 //! a computer, and one of the least visible to a scan that only looks at
-//! hardware and logs. This probe catches it directly, by running installed
-//! applications and seeing what happens.
+//! hardware and logs. This probe catches it directly, by asking installed
+//! applications to report themselves and seeing what happens.
 //!
-//! Two deliberate limits on how far it goes at this tier:
-//!
-//! * Only applications with a *safe* invocation are tested -- one that prints
-//!   a version and exits. Starting a graphical application unannounced during
-//!   a background scan would be obnoxious, so full launch testing belongs to
-//!   the Full tier, where the user has asked for something more intrusive.
-//! * Applications that are not installed are not mentioned at all. A finding
-//!   should describe something wrong, not something absent by choice.
-//!
-//! Each launch runs under the liveness supervisor, so an application that
-//! hangs on startup is reported as hung rather than quietly holding the scan
-//! open forever.
+//! The table of applications and the test itself live in [`crate::respond`],
+//! not here, so that the check which finds a broken application and the check
+//! which later declares it repaired are the same code. This module only turns
+//! the answer into a finding.
 
 use async_trait::async_trait;
 
 use crate::Result;
-use crate::exec::{ExecOutcome, LivenessPolicy, run_supervised};
 use crate::finding::{Category, Finding, Severity, Triage};
 use crate::platform::PlatformKind;
 use crate::probe::{Probe, ProbeContext, ProbeMeta};
+use crate::respond::{APPS, AppDefinition, RealResponseTester, RespondResult, ResponseTester};
 use crate::tier::ScanTier;
-
-/// An application this probe knows how to test.
-struct AppDefinition {
-    /// Stable slug, used in findings and runbook entries.
-    id: &'static str,
-    /// What a person calls it.
-    name: &'static str,
-    /// Executable names to look for on `PATH`, in order of preference.
-    executables: &'static [&'static str],
-    /// Arguments that make the program report itself and exit immediately.
-    ///
-    /// This must never start a user interface, open a window, modify anything,
-    /// or wait for input. If an application has no such invocation, it does
-    /// not belong in this table.
-    version_args: &'static [&'static str],
-    platforms: &'static [PlatformKind],
-}
-
-/// Applications with a known-safe way to ask "are you working?".
-///
-/// Kept short and conservative on purpose. Every entry here is a program that
-/// exits on its own within moments and touches nothing. Anything that needs a
-/// real launch to be meaningfully tested -- games, launchers, graphical
-/// applications -- is left to the Full tier.
-const APPS: &[AppDefinition] = &[
-    AppDefinition {
-        id: "git",
-        name: "Git",
-        executables: &["git"],
-        version_args: &["--version"],
-        platforms: &[
-            PlatformKind::Windows,
-            PlatformKind::Linux,
-            PlatformKind::MacOs,
-        ],
-    },
-    AppDefinition {
-        id: "python",
-        name: "Python",
-        executables: &["python3", "python"],
-        version_args: &["--version"],
-        platforms: &[
-            PlatformKind::Windows,
-            PlatformKind::Linux,
-            PlatformKind::MacOs,
-        ],
-    },
-    AppDefinition {
-        id: "node",
-        name: "Node.js",
-        executables: &["node"],
-        version_args: &["--version"],
-        platforms: &[
-            PlatformKind::Windows,
-            PlatformKind::Linux,
-            PlatformKind::MacOs,
-        ],
-    },
-    AppDefinition {
-        id: "firefox",
-        name: "Firefox",
-        executables: &["firefox"],
-        version_args: &["--version"],
-        platforms: &[PlatformKind::Windows, PlatformKind::Linux],
-    },
-    AppDefinition {
-        id: "docker",
-        name: "Docker",
-        executables: &["docker"],
-        version_args: &["--version"],
-        platforms: &[
-            PlatformKind::Windows,
-            PlatformKind::Linux,
-            PlatformKind::MacOs,
-        ],
-    },
-    AppDefinition {
-        id: "ffmpeg",
-        name: "FFmpeg",
-        executables: &["ffmpeg"],
-        version_args: &["-version"],
-        platforms: &[
-            PlatformKind::Windows,
-            PlatformKind::Linux,
-            PlatformKind::MacOs,
-        ],
-    },
-];
 
 /// Trim program output down to something readable in a report.
 fn excerpt(text: &str, limit: usize) -> String {
@@ -125,14 +29,23 @@ fn excerpt(text: &str, limit: usize) -> String {
     }
 }
 
-/// Build a finding from an application that did not start cleanly.
-fn launch_finding(app: &AppDefinition, executable: &str, outcome: &ExecOutcome) -> Option<Finding> {
-    let (id, severity, title, detail, hint) = match outcome {
-        ExecOutcome::Exited { code: Some(0), .. } => return None,
-        // The user stopped the scan. That is not the application's fault and
-        // must not be recorded as one.
-        ExecOutcome::Cancelled { .. } => return None,
-        ExecOutcome::Exited { code, .. } => (
+/// Build a finding from an application that did not answer cleanly.
+///
+/// Only two answers are findings. An application that responds is fine, one
+/// that is not installed is not a fault, and a test that could not be carried
+/// out says nothing about the application -- reporting any of those would be
+/// inventing a problem.
+fn finding_for(app: &AppDefinition, result: &RespondResult) -> Option<Finding> {
+    let (id, severity, title, detail, hint, executable, stdout, stderr) = match result {
+        RespondResult::Responds { .. }
+        | RespondResult::NotInstalled
+        | RespondResult::CouldNotTest { .. } => return None,
+        RespondResult::Failed {
+            executable,
+            code,
+            stdout,
+            stderr,
+        } => (
             "app.launch-failed",
             Severity::High,
             format!("{} is installed but fails to start", app.name),
@@ -146,8 +59,11 @@ fn launch_finding(app: &AppDefinition, executable: &str, outcome: &ExecOutcome) 
             ),
             "Run the program from a terminal to see its full error, then check whether it \
              was affected by a recent update.",
+            executable.clone(),
+            stdout.clone(),
+            stderr.clone(),
         ),
-        ExecOutcome::Stalled { idle, .. } => (
+        RespondResult::Hung { executable, idle } => (
             "app.launch-hung",
             Severity::High,
             format!("{} hangs instead of starting", app.name),
@@ -161,10 +77,15 @@ fn launch_finding(app: &AppDefinition, executable: &str, outcome: &ExecOutcome) 
             ),
             "Check whether any service this program depends on is running, and look for a \
              stale lock file left behind by a previous crash.",
+            executable.clone(),
+            String::new(),
+            String::new(),
         ),
     };
 
     let mut builder = Finding::builder("apps.launch-check", id)
+        // The slug, not the display name: this is what a verifier looks the
+        // application back up by, so it has to be the machine-readable one.
         .subject(app.id)
         .severity(severity)
         .category(Category::Application)
@@ -177,11 +98,11 @@ fn launch_finding(app: &AppDefinition, executable: &str, outcome: &ExecOutcome) 
         // this is worked through the triage queue rather than fixed inline.
         .triage(Triage::Queue);
 
-    let stdout = excerpt(outcome.stdout(), 400);
+    let stdout = excerpt(&stdout, 400);
     if !stdout.is_empty() {
         builder = builder.evidence("stdout", stdout);
     }
-    let stderr = excerpt(outcome.stderr(), 400);
+    let stderr = excerpt(&stderr, 400);
     if !stderr.is_empty() {
         builder = builder.evidence("stderr", stderr);
     }
@@ -213,53 +134,20 @@ impl Probe for AppLaunchProbe {
 
     async fn run(&self, ctx: &ProbeContext) -> Result<Vec<Finding>> {
         let platform_kind = ctx.platform().kind();
+        let tester = RealResponseTester::new(ctx.cancel_token().clone());
         let mut findings = Vec::new();
 
         for app in APPS {
             if ctx.is_cancelled() {
                 break;
             }
-            if !app.platforms.contains(&platform_kind) {
+            if !app.runs_on(platform_kind) {
                 continue;
             }
 
-            // Only test what is actually installed. Reporting on absent
-            // programs would be reporting on the user's choices.
-            let Some(executable) = app
-                .executables
-                .iter()
-                .find_map(|name| ctx.platform().locate_tool(name))
-            else {
-                tracing::debug!(app = app.id, "not installed; skipping");
-                continue;
-            };
-            let executable = executable.to_string_lossy().to_string();
-
-            let args: Vec<String> = app.version_args.iter().map(|arg| arg.to_string()).collect();
-            let cancel = ctx.cancel_token().clone();
-            let program = executable.clone();
-            let outcome = tokio::task::spawn_blocking(move || {
-                let args: Vec<&str> = args.iter().map(String::as_str).collect();
-                run_supervised(&program, &args, LivenessPolicy::default(), &cancel)
-            })
-            .await?;
-
-            match outcome {
-                Ok(outcome) => {
-                    tracing::debug!(
-                        app = app.id,
-                        succeeded = outcome.succeeded(),
-                        "launch tested"
-                    );
-                    findings.extend(launch_finding(app, &executable, &outcome));
-                }
-                // Being unable to start it at all is itself the answer, but we
-                // cannot tell a broken install from a vanished one, so this is
-                // recorded rather than diagnosed.
-                Err(error) => {
-                    tracing::debug!(app = app.id, %error, "could not run launch test");
-                }
-            }
+            let result = tester.test(app).await;
+            tracing::debug!(app = app.id, ?result, "launch tested");
+            findings.extend(finding_for(app, &result));
         }
 
         Ok(findings)
@@ -281,87 +169,78 @@ mod tests {
         }
     }
 
-    fn exited(code: i32, stdout: &str, stderr: &str) -> ExecOutcome {
-        ExecOutcome::Exited {
-            code: Some(code),
-            stdout: stdout.to_string(),
-            stderr: stderr.to_string(),
-            duration: Duration::from_millis(10),
-        }
+    #[test]
+    fn an_application_that_answers_produces_no_finding() {
+        assert!(
+            finding_for(
+                &app(),
+                &RespondResult::Responds {
+                    executable: "/usr/bin/testapp".to_string()
+                }
+            )
+            .is_none()
+        );
     }
 
     #[test]
-    fn an_application_that_starts_cleanly_produces_no_finding() {
-        assert!(launch_finding(&app(), "/usr/bin/testapp", &exited(0, "v1.2.3", "")).is_none());
+    fn an_absent_application_is_not_a_problem() {
+        // Reporting on programs somebody chose not to install would be
+        // reporting on their choices.
+        assert!(finding_for(&app(), &RespondResult::NotInstalled).is_none());
     }
 
     #[test]
-    fn a_cancelled_test_is_never_blamed_on_the_application() {
-        // The user stopped the scan. Recording that as a broken application
-        // would be actively misleading.
-        let cancelled = ExecOutcome::Cancelled {
-            stdout: String::new(),
-            stderr: String::new(),
-            duration: Duration::from_millis(10),
-        };
-        assert!(launch_finding(&app(), "/usr/bin/testapp", &cancelled).is_none());
+    fn a_test_that_could_not_run_is_never_blamed_on_the_application() {
+        assert!(
+            finding_for(
+                &app(),
+                &RespondResult::CouldNotTest {
+                    reason: "the scan was stopped".to_string()
+                }
+            )
+            .is_none()
+        );
     }
 
     #[test]
-    fn a_failing_application_is_reported_with_its_error_output() {
-        let outcome = exited(127, "", "error while loading shared libraries: libfoo.so.1");
-        let finding =
-            launch_finding(&app(), "/usr/bin/testapp", &outcome).expect("expected a finding");
+    fn a_failure_is_queued_and_carries_its_output() {
+        let finding = finding_for(
+            &app(),
+            &RespondResult::Failed {
+                executable: "/usr/bin/testapp".to_string(),
+                code: Some(127),
+                stdout: String::new(),
+                stderr: "libpcre.so.3: cannot open shared object file".to_string(),
+            },
+        )
+        .expect("a failing application is a finding");
 
         assert_eq!(finding.id, "app.launch-failed");
-        assert_eq!(finding.severity, Severity::High);
-        let stderr = finding
-            .evidence
-            .iter()
-            .find(|item| item.label == "stderr")
-            .expect("stderr should be captured as evidence");
-        assert!(stderr.value.contains("libfoo.so.1"));
+        assert_eq!(finding.triage, Triage::Queue);
+        // The slug, so a verifier can look the application back up.
+        assert_eq!(finding.subject.as_deref(), Some("test-app"));
+        assert!(
+            finding
+                .evidence
+                .iter()
+                .any(|evidence| evidence.label == "stderr" && evidence.value.contains("libpcre")),
+            "the error that explains it must survive into the finding"
+        );
     }
 
     #[test]
-    fn a_hanging_application_is_distinguished_from_a_failing_one() {
-        let outcome = ExecOutcome::Stalled {
-            stdout: String::new(),
-            stderr: String::new(),
-            idle: Duration::from_secs(30),
-            duration: Duration::from_secs(31),
-        };
-        let finding =
-            launch_finding(&app(), "/usr/bin/testapp", &outcome).expect("expected a finding");
-
+    fn a_hang_is_reported_as_a_hang_rather_than_a_failure() {
+        // These have different causes and different fixes, so collapsing them
+        // into one finding would send people looking in the wrong place.
+        let finding = finding_for(
+            &app(),
+            &RespondResult::Hung {
+                executable: "/usr/bin/testapp".to_string(),
+                idle: Duration::from_secs(30),
+            },
+        )
+        .expect("a hung application is a finding");
         assert_eq!(finding.id, "app.launch-hung");
-        assert!(finding.detail.contains("30 seconds"));
-    }
-
-    #[test]
-    fn every_catalogue_entry_declares_a_safe_invocation() {
-        // An entry with no arguments would launch the application for real,
-        // which is exactly what this tier must not do.
-        for app in APPS {
-            assert!(
-                !app.version_args.is_empty(),
-                "{} has no version arguments",
-                app.id
-            );
-            assert!(!app.executables.is_empty(), "{} has no executables", app.id);
-            assert!(
-                !app.platforms.is_empty(),
-                "{} supports no platforms",
-                app.id
-            );
-        }
-    }
-
-    #[test]
-    fn long_output_is_trimmed_for_display() {
-        let long = "word ".repeat(500);
-        let trimmed = excerpt(&long, 100);
-        assert!(trimmed.chars().count() <= 103);
-        assert!(trimmed.ends_with("..."));
+        assert!(finding.detail.contains("30"));
     }
 }

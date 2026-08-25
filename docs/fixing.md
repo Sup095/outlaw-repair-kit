@@ -127,6 +127,7 @@ describes them, and it grows as verifiers are written.
 | --- | --- |
 | A stale lock or cache file | The file is gone |
 | A service that should be running is not | The service manager is asked again |
+| An installed program fails or hangs when run | It is asked to report itself again, the same way |
 | Steam will not start | Steam is started, and watched |
 
 **Every verifier re-runs the same test that found the problem.** That sounds
@@ -135,6 +136,29 @@ that declares it repaired are different tests, then "fixed" quietly comes to
 mean something other than "not found any more". The launch test lives in the
 core for exactly this reason, shared by the scan that reports Steam broken and
 the verifier that later says it works.
+
+### Applications, in detail
+
+Two different tests sit behind the same pair of findings, and which one applies
+depends on the program.
+
+Most programs can be asked to report themselves and exit -- `git --version` and
+its relatives. That is cheap, changes nothing, and runs in a quick scan.
+Re-testing is a matter of asking again.
+
+Programs with no such invocation -- launchers, clients, anything that only
+really has a "start" -- have to be started and watched instead, which is the
+full-tier launch test described below.
+
+The two tables are kept apart deliberately: a program appears in one or the
+other, never both, so which test applies is a property of the program rather
+than of the order the verifiers happen to be registered in. There is a test
+that fails the build if they ever overlap.
+
+One answer is worth calling out. If the program is **no longer installed** when
+the re-test runs, that is reported as "cannot tell", never as fixed. Gone is not
+the same as mended, and a change that made a program disappear is one to undo
+rather than congratulate.
 
 ### Services, in detail
 

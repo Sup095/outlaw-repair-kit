@@ -25,11 +25,14 @@ use crate::engine::{Verdict, Verifier};
 use crate::store::TriageItem;
 
 pub mod launch;
+pub mod responds;
 
 pub use launch::LaunchVerifier;
+pub use responds::RespondsVerifier;
 // Re-exported so a caller does not have to know that the launch test itself
 // lives in the core, while the judgement about it lives here.
 pub use ork_core::launch::{LaunchResult, LaunchTarget, LaunchTester, RealLaunchTester};
+pub use ork_core::respond::{RealResponseTester, RespondResult, ResponseTester};
 
 /// How much captured output to quote back when reporting a failure.
 const EXCERPT: usize = 400;
@@ -74,6 +77,11 @@ impl VerifierRegistry {
         Self {
             verifiers: vec![
                 Box::new(LaunchVerifier::new(RealLaunchTester::default())),
+                // Both of these claim the same finding ids and are told apart
+                // by the application slug. The tables they read from are kept
+                // disjoint, so the order here does not decide anything -- see
+                // the test that holds them apart.
+                Box::new(RespondsVerifier::new(RealResponseTester::default())),
                 Box::new(ServiceRunningVerifier),
                 Box::new(FileGoneVerifier),
             ],
