@@ -10,6 +10,7 @@ authors.workspace = true
 
 [dependencies]
 ork-core.workspace = true
+ork-ai.workspace = true
 
 dirs.workspace = true
 

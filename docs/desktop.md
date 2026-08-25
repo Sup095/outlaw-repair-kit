@@ -23,7 +23,7 @@ Checks pass, warn, or fail, and the difference matters:
 | --- | --- | --- |
 | **ok** | Working | — |
 | **warn** | Degraded but usable — say, an unreadable settings file, so defaults are in use | Start-up continues |
-| **fail** | Something the tool depends on is broken — say, a snapshot folder it cannot write to | Start-up continues, but `outlaw fix` refuses to change anything |
+| **fail** | Something the tool depends on is broken — say, a snapshot folder it cannot write to | Start-up continues, but nothing is allowed to change your system |
 
 That last row is the important one. If the tool cannot write a backup, its
 promise to roll a failed fix back is empty, so it will not start applying
@@ -57,7 +57,7 @@ outlaw boot
 | Screen | What it is for |
 | --- | --- |
 | **Scan** | Pick how thorough to be, watch checks report as they finish, read the findings, and ask for an explanation |
-| **Queue** | Problems waiting to be worked through, worst first |
+| **Queue** | Problems waiting to be worked through, worst first — and the buttons that work them |
 | **Models** | Which model would handle this run, and exactly why the others were passed over |
 | **Machines** | Pair with another computer so one can lend the other a model, and see what is wrong over there |
 | **Settings** | Everything you would otherwise hand-edit a file for: routing, endpoints, API keys |
@@ -81,16 +81,48 @@ a key is stored, not what it is.
 
 ## Fixing, from the app
 
-Working the queue is still a command-line action:
+The Queue screen has two buttons.
+
+**Preview** works the whole queue without being allowed to change anything. It
+is not a separate code path pretending to be a rehearsal — it takes exactly the
+same route as a real run and is simply never given permission, so what it shows
+is what would actually have happened.
+
+**Work the queue** allows changes, and asks before every single one:
+
+> **This would change your system**
+> Restart the service `spooler`
+> to address: A service that should be running is not
+
+Nothing happens until that question is answered. Three things are worth knowing
+about it:
+
+- **Only "Allow it" is consent.** Closing the window, an answer that arrives
+  garbled, a stopped run — all of them decline. There is no path through this
+  code where silence or confusion means yes.
+- **Every question is answered once, by name.** A click that arrives after the
+  question has moved on is discarded rather than applied to whatever is on
+  screen now.
+- **There is no time limit on answering.** A prompt about changing your computer
+  that answers itself because you went to make a cup of tea is not a prompt.
+  **Stop** is available the whole time instead.
+
+Before it starts, the screen says how many of the waiting problems can actually
+be tested after a change — because only those can be fixed rather than
+explained, and that number is the honest measure of what this tool is doing for
+you. If no system-level snapshot tool was found, it says that too, rather than
+letting you assume a safety net that is not there.
+
+The command line does the identical thing, and both go through the same engine
+and the same queue:
 
 ```bash
 outlaw fix          # a dry run: shows what it would do
 outlaw fix --apply  # confirms each change individually before making it
 ```
 
-This is deliberate for now. The confirmation step before a system-level change
-is the safety rail that matters most, and it is worth getting the window's
-version of it right rather than shipping it early. See [fixing.md](fixing.md).
+See [fixing.md](fixing.md) for what happens between the confirmation and the
+result: the snapshot, the test, and the rollback when the test does not pass.
 
 ## Building it yourself
 

@@ -7,6 +7,7 @@ use ork_core::finding::Triage;
 use ork_core::scan::ScanReport;
 use ork_fix::action::FixAction;
 use ork_fix::engine::{Approval, Approver, DryRun, FixEngine, ItemOutcome};
+use ork_fix::plan::candidates_for;
 use ork_fix::snapshot::detect_system_snapshot_support;
 use ork_fix::store::{FixStore, ItemState, TriageItem};
 use ork_fix::verify::VerifierRegistry;
@@ -41,52 +42,6 @@ pub fn enqueue_from_scan(report: &ScanReport) -> Result<usize> {
         }
     }
     Ok(added)
-}
-
-/// Candidate fixes for one queued problem.
-///
-/// Runbook fixes arrive as prose plus, sometimes, a suggested command. They
-/// become [`FixAction::Manual`] -- described for a person to carry out --
-/// rather than being executed. Running a command string from a text file
-/// automatically would defeat the entire typed-action safety model, so the
-/// tool does not do it.
-fn candidates_for(item: &TriageItem, library: &RunbookLibrary, platform: &str) -> Vec<FixAction> {
-    let Some(entry) = library.lookup(&item.finding) else {
-        return Vec::new();
-    };
-
-    entry
-        .fixes_for(platform)
-        .into_iter()
-        .map(|fix| {
-            // A fix that names something the engine can carry out becomes a
-            // real action. Everything else stays advice for a person, which is
-            // the majority and always will be.
-            if let Some(recipe) = &fix.action {
-                match FixAction::from_recipe_for(&recipe.kind, &recipe.target, &item.finding) {
-                    Ok(action) => return action,
-                    Err(refusal) => {
-                        // A runbook asking for something outside the closed
-                        // set is a fault in the runbook, not a reason to do
-                        // something approximate. It is logged and demoted to
-                        // advice.
-                        tracing::warn!(
-                            entry = entry.id,
-                            kind = recipe.kind,
-                            %refusal,
-                            "runbook recipe refused"
-                        );
-                    }
-                }
-            }
-
-            let instruction = match &fix.command {
-                Some(command) => format!("{}\n    suggested command: {command}", fix.description),
-                None => fix.description.clone(),
-            };
-            FixAction::Manual { instruction }
-        })
-        .collect()
 }
 
 /// `outlaw queue` -- what is waiting to be worked.
@@ -233,7 +188,7 @@ pub async fn work_queue(apply: bool, json: bool) -> Result<()> {
         println!(
             "{}",
             dim(&format!(
-                "{testable} of {} can be tested after a change, so only those can be fixed                  automatically. The rest are explained instead.",
+                "{testable} of {} can be tested after a change, so only those can be fixed automatically. The rest are explained instead.",
                 items.len()
             ))
         );

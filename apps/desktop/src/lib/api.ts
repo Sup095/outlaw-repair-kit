@@ -46,7 +46,7 @@ export interface Finding {
   severity: Severity;
   category: string;
   triage: string;
-  evidence: { label: string; detail: string }[];
+  evidence: { label: string; value: string }[];
   remediation_hint?: string | null;
   observed_at?: string;
 }
@@ -102,6 +102,10 @@ export const api = {
   secretClear: (which: string) => invoke<void>("secret_clear", { which }),
   routing: () => invoke<any>("routing_status"),
   queue: () => invoke<any[]>("queue_list"),
+  // Returns once the run has finished. `true` means it was stopped early.
+  fixRun: (apply: boolean) => invoke<boolean>("fix_run", { apply }),
+  fixAnswer: (id: number, answer: FixAnswer) => invoke<boolean>("fix_answer", { id, answer }),
+  fixCancel: () => invoke<boolean>("fix_cancel"),
   linkStatus: () => invoke<any>("link_status"),
   linkHostStart: (port?: number, modelUrl?: string) =>
     invoke<string>("link_host_start", { port, modelUrl }),
@@ -126,6 +130,52 @@ export type LinkEvent =
 
 export function onLinkEvent(handler: (event: LinkEvent) => void): Promise<UnlistenFn> {
   return listen<LinkEvent>("link://event", (message) => handler(message.payload));
+}
+
+export type ItemOutcome =
+  | { outcome: "resolved"; action: string }
+  | { outcome: "exhausted"; tried: number }
+  | { outcome: "needs-a-person"; instructions: string[] }
+  | { outcome: "stopped" }
+  | { outcome: "no-candidates" };
+
+export type FixEvent =
+  | {
+      event: "started";
+      total: number;
+      testable: number;
+      apply: boolean;
+      snapshot_warning: string | null;
+    }
+  | {
+      event: "item";
+      index: number;
+      total: number;
+      occurrence_key: string;
+      title: string;
+      severity: Severity;
+    }
+  | { event: "outcome"; occurrence_key: string; outcome: ItemOutcome }
+  | { event: "finished"; resolved: number; stopped: boolean };
+
+/// A change waiting on permission. Nothing happens until this is answered.
+export interface FixAsk {
+  id: number;
+  action: string;
+  title: string;
+  occurrence_key: string;
+}
+
+// Anything the backend does not recognise is a refusal, so there is no answer
+// string that accidentally means yes.
+export type FixAnswer = "approve" | "decline" | "stop";
+
+export function onFixEvent(handler: (event: FixEvent) => void): Promise<UnlistenFn> {
+  return listen<FixEvent>("fix://event", (message) => handler(message.payload));
+}
+
+export function onFixAsk(handler: (ask: FixAsk) => void): Promise<UnlistenFn> {
+  return listen<FixAsk>("fix://ask", (message) => handler(message.payload));
 }
 
 export function onScanEvent(handler: (event: ScanEvent) => void): Promise<UnlistenFn> {

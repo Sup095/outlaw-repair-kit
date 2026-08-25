@@ -115,6 +115,17 @@ impl FixEngine {
         }
     }
 
+    /// Use a token that already exists, rather than the engine's own.
+    ///
+    /// A front-end that has to hand out the "stop" button before the engine
+    /// is built needs the token first. Without this it would have to bridge
+    /// two tokens with a task, and a stop that depends on a task getting
+    /// scheduled is not a stop you can rely on.
+    pub fn with_cancel_token(mut self, cancel: CancellationToken) -> Self {
+        self.cancel = cancel;
+        self
+    }
+
     pub fn store(&self) -> &FixStore {
         &self.store
     }

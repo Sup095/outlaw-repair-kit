@@ -2982,6 +2982,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "dirs",
+ "ork-ai",
  "ork-core",
  "rusqlite",
  "serde",

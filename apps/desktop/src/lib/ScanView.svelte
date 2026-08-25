@@ -108,7 +108,7 @@
       {#if finding.evidence?.length}
         <dl>
           {#each finding.evidence as item (item.label)}
-            <div><dt class="dim">{item.label}</dt><dd>{item.detail}</dd></div>
+            <div><dt class="dim">{item.label}</dt><dd>{item.value}</dd></div>
           {/each}
         </dl>
       {/if}

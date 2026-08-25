@@ -13,6 +13,10 @@ outlaw fix --apply   # allow changes, confirming each one
 outlaw audit         # everything that has been done
 ```
 
+The desktop window does the identical thing from the Queue screen -- the same
+engine, the same queue, the same confirmation before every change -- so nothing
+below is specific to the terminal. See [desktop.md](desktop.md#fixing-from-the-app).
+
 `outlaw fix` on its own is a **dry run**. It never changes anything, whatever
 it finds.
 

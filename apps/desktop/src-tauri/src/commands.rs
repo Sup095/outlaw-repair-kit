@@ -24,15 +24,17 @@ pub fn fail(error: impl std::fmt::Display) -> String {
     format!("{error:#}")
 }
 
-/// What a running scan needs so the user can stop it, and what a lending
-/// session needs so it can be stopped too.
+/// What a running scan needs so the user can stop it, what a lending session
+/// needs so it can be stopped too, and what a fix run needs so its questions
+/// can be answered.
 #[derive(Default)]
 pub struct AppState {
     scan: Mutex<Option<CancellationToken>>,
     pub link: crate::linking::LinkState,
+    pub fix: crate::fixing::FixState,
 }
 
-fn state_dir() -> anyhow::Result<std::path::PathBuf> {
+pub(crate) fn state_dir() -> anyhow::Result<std::path::PathBuf> {
     let path = Config::default_path()?;
     Ok(path
         .parent()
@@ -40,11 +42,11 @@ fn state_dir() -> anyhow::Result<std::path::PathBuf> {
         .unwrap_or_default())
 }
 
-fn runbook_dir() -> Option<std::path::PathBuf> {
+pub(crate) fn runbook_dir() -> Option<std::path::PathBuf> {
     state_dir().ok().map(|dir| dir.join("runbooks"))
 }
 
-fn open_store() -> anyhow::Result<FixStore> {
+pub(crate) fn open_store() -> anyhow::Result<FixStore> {
     FixStore::open(&state_dir()?.join("state.db"))
 }
 

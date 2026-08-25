@@ -21,6 +21,7 @@
 
 pub mod action;
 pub mod engine;
+pub mod plan;
 pub mod snapshot;
 pub mod store;
 pub mod verify;

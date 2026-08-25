@@ -47,3 +47,24 @@ jobs:
       # on a clean machine, something is wrong with the build, not the machine.
       - name: Smoke-test start-up
         run: cargo run --bin outlaw -- boot
+
+  window:
+    name: desktop window
+    runs-on: ubuntu-latest
+    # Type-checking the window needs no webview and no Rust, so it is its own
+    # job: a mistake in the front-end should be reported in seconds rather than
+    # waiting behind a full workspace build. Before this existed the only thing
+    # that checked these files was the release build, which is much too late to
+    # find out.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+      - name: Check the window
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          npm run check

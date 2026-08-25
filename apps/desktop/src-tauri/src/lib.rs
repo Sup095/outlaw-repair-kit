@@ -9,6 +9,7 @@
 //! can be cancelled at any point. Nothing here has a time limit.
 
 mod commands;
+mod fixing;
 mod linking;
 
 /// Build and run the desktop application.
@@ -38,6 +39,9 @@ pub fn run() {
             commands::routing_status,
             commands::queue_list,
             commands::audit_list,
+            fixing::fix_run,
+            fixing::fix_answer,
+            fixing::fix_cancel,
             linking::link_status,
             linking::link_host_start,
             linking::link_host_stop,
