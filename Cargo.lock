@@ -1522,7 +1522,7 @@ dependencies = [
 
 [[package]]
 name = "ork-ai"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1539,7 +1539,7 @@ dependencies = [
 
 [[package]]
 name = "ork-cli"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1554,7 +1554,7 @@ dependencies = [
 
 [[package]]
 name = "ork-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1572,7 +1572,7 @@ dependencies = [
 
 [[package]]
 name = "ork-fix"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
