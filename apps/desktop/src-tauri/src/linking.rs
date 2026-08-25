@@ -19,6 +19,10 @@ use crate::commands::{AppState, CmdResult, fail};
 pub struct Hosting {
     state: Arc<HostState>,
     stop: Option<tokio::sync::oneshot::Sender<()>>,
+    /// Stops answering discovery. Separate from `stop` because they are two
+    /// listeners, and a machine that has stopped lending must also stop
+    /// telling the network that it lends.
+    stop_discovery: Option<tokio::sync::oneshot::Sender<()>>,
     port: u16,
     /// Kept so the screen can still show it after a refresh. It is already on
     /// this machine's display; remembering it changes nothing about who can
@@ -111,6 +115,7 @@ pub async fn link_host_start(
 
     // Answering on the local network is what saves the other machine's owner
     // typing an address.
+    let (stop_discovery, discovery_stopped) = tokio::sync::oneshot::channel();
     let announcing = host.clone();
     tokio::spawn(async move {
         let describe = move || discovery::Discovered {
@@ -123,7 +128,10 @@ pub async fn link_host_start(
             pairing_open: announcing.pairing_open(),
             address: String::new(),
         };
-        let _ = discovery::respond(port, describe, std::future::pending()).await;
+        let _ = discovery::respond(port, describe, async {
+            let _ = discovery_stopped.await;
+        })
+        .await;
     });
 
     *state
@@ -133,6 +141,7 @@ pub async fn link_host_start(
         .map_err(|_| "the link lock was poisoned".to_string())? = Some(Hosting {
         state: host,
         stop: Some(stop),
+        stop_discovery: Some(stop_discovery),
         port,
         code: code.display(),
     });
@@ -152,6 +161,9 @@ pub fn link_host_stop(state: State<'_, AppState>) -> CmdResult<bool> {
         Some(mut session) => {
             session.state.close_pairing();
             if let Some(stop) = session.stop.take() {
+                let _ = stop.send(());
+            }
+            if let Some(stop) = session.stop_discovery.take() {
                 let _ = stop.send(());
             }
             Ok(true)
