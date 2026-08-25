@@ -1,0 +1,31 @@
+[package]
+name = "ork-ai"
+description = "Model routing and AI analysis for the Outlaw Repair Kit."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+ork-core.workspace = true
+
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+tracing.workspace = true
+async-trait.workspace = true
+time.workspace = true
+
+# The credential store is platform-specific by nature. On Linux this talks to
+# the desktop secret service (GNOME Keyring, KWallet); on Windows, to the
+# Credential Manager. crypto-rust avoids pulling in an OpenSSL build.
+[target.'cfg(windows)'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["sync-secret-service", "crypto-rust"] }

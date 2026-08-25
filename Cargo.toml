@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/ork-core", "crates/ork-cli"]
+members = ["crates/ork-core", "crates/ork-ai", "crates/ork-cli"]
 
 [workspace.package]
 version = "0.2.0"
@@ -12,6 +12,7 @@ authors = ["Outlaw Programming"]
 
 [workspace.dependencies]
 ork-core = { path = "crates/ork-core" }
+ork-ai = { path = "crates/ork-ai" }
 
 anyhow = "1"
 thiserror = "2"
@@ -23,6 +24,17 @@ async-trait = "0.1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 clap = { version = "4", features = ["derive"] }
+toml = "1"
+dirs = "6"
+# rustls with bundled roots rather than native-tls: a diagnostic tool people
+# download and run should not depend on whichever OpenSSL happens to be
+# installed, nor on the system certificate store being populated.
+reqwest = { version = "0.13", default-features = false, features = [
+    "json",
+    "rustls",
+    "webpki-roots",
+    "http2",
+] }
 sysinfo = "0.33"
 time = { version = "0.3", features = ["serde", "formatting", "parsing", "macros"] }
 

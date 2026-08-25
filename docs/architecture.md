@@ -9,9 +9,15 @@ no capability exists in a front-end that is not reachable programmatically.
          \                   |                       /
           +----------- ork-core / daemon ------------+
                               |
-     +----------+-------------+-------------+----------+
-     |          |             |             |          |
-  probes    model router  AI analysis   fix layer   platform
+              +---------------+---------------+
+              |                               |
+        ork-core                          ork-ai
+     probes, platform,              router, runbooks,
+     scan orchestration            analysis, secrets
+
+  The dependency runs one way. ork-core does the detection and must keep
+  working with no model available at all, so it does not depend on ork-ai
+  and does not link an HTTP client.
 ```
 
 ## 1. Interface layer
@@ -51,7 +57,7 @@ Restore versus btrfs snapshots -- each implementation does its own thing.
 already declare support and the compiler will point at everything that needs
 attention when it lands.
 
-## 4. Model router (not built)
+## 4. Model router
 
 Decision order, each step tried only if the previous is unavailable and the
 user has not overridden it:
@@ -61,16 +67,52 @@ user has not overridden it:
 2. A local model sized to detected VRAM.
 3. A cloud API.
 
-The user can always force a specific tier. Because LM Studio, Ollama, and
-vLLM all speak the OpenAI wire format, "local" versus "remote" is a base URL
-rather than a code path.
+The user can always force a specific tier, and forcing one means the router will
+not fall through to another. That matters for more than convenience: someone who
+pinned `local` must never have their diagnostics sent to a cloud provider
+because their local server happened to be down.
 
-## 5. AI analysis layer (not built)
+Because LM Studio, Ollama, and vLLM all speak the OpenAI wire format, "local"
+versus "remote" is a base URL rather than a code path.
+
+Every routing decision is recorded and shown. A tool that silently picks a
+different model than the user expects -- and silently sends their data somewhere
+else -- is worse than one that fails loudly.
+
+Reachability is a real request for the model list, not a socket connect: a port
+that accepts connections but has no model loaded is not a usable endpoint. This
+is the one place in the tool with a genuine timeout, because a socket waiting on
+a server that will never answer is indistinguishable from one waiting on a
+server that is thinking.
+
+## 5. AI analysis layer
 
 Input is structured probe output -- never live system access. It correlates
 findings across sources, explains them in priority order, and matches symptoms
 against a local runbook library *first*, falling back to open-ended reasoning
 only when nothing matches.
+
+Three rules hold this together:
+
+* **Runbooks win.** A model answer never overwrites a runbook answer for the
+  same finding. Runbook entries are deterministic and have been reviewed; a
+  model's opinion does not get to replace one.
+* **Invented findings are dropped.** Model answers are matched back to real
+  findings by identifier. Anything that does not correspond to a finding the
+  probes produced is discarded rather than displayed, because a hallucinated
+  problem shown beside real ones would poison the credibility of the report.
+* **The model cannot propose a command.** Runbook fixes carry commands, written
+  by a person and reviewed. Model suggestions stay prose that a human reads and
+  decides on.
+
+Runbooks are TOML rather than YAML. YAML would be the obvious choice for
+multi-line prose, but the maintained Rust YAML parsers are in flux, and adding
+a second configuration language parsed by an unmaintained crate is a poor trade
+for a tool that runs on other people's systems.
+
+The library ships embedded in the binary, so a fresh install has answers
+immediately. User entries in the configuration directory are loaded afterwards
+and replace built-ins with the same id.
 
 ## 6. Fix layer (not built)
 

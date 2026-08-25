@@ -217,7 +217,7 @@ pub fn host(json: bool) -> Result<()> {
 }
 
 /// Wrap text to `width` columns on word boundaries.
-fn wrap(text: &str, width: usize) -> Vec<String> {
+pub fn wrap(text: &str, width: usize) -> Vec<String> {
     let mut lines = Vec::new();
     let mut current = String::new();
     for word in text.split_whitespace() {

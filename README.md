@@ -48,10 +48,13 @@ skipped check with the reason, never as a silent gap.
 ## What works today
 
 ```bash
-outlaw host          # what the tool detected about this machine
-outlaw probes        # the checks this build knows how to run
-outlaw scan          # run a quick scan
-outlaw scan --json   # same, machine-readable
+outlaw host             # what the tool detected about this machine
+outlaw probes           # the checks this build knows how to run
+outlaw scan             # run a quick scan
+outlaw scan --explain   # scan, then explain the findings in plain language
+outlaw models           # which model would be used, and why
+outlaw config           # where settings live and what they say
+outlaw set-key cloud    # store an API key in the OS credential store
 ```
 
 Every command accepts `--json`, because nothing in the interface layer is
@@ -71,6 +74,42 @@ The Quick tier runs these checks:
 Checks that cannot run -- wrong platform, missing tool, elevation not granted --
 are reported as skipped with the reason. A scan never quietly covers less than
 you think it did.
+
+## Explaining findings
+
+Detection is deterministic. Explanation happens in two stages, in this order:
+
+1. **The runbook library**, consulted first. Known problems have written-down
+   answers with ranked fixes, least disruptive first. This needs no model, no
+   network, and no money, and it produces the same answer twice.
+2. **A model**, for what the library does not cover, and to correlate findings
+   that share a cause across different subsystems.
+
+If no model is available, the runbook answers still stand. The tool is fully
+useful with the AI layer switched off, which is the property that keeps the AI
+layer honest.
+
+The model receives the structured findings the probes already produced. It has
+no access to the machine and cannot ask for more.
+
+### Which model
+
+The router tries three tiers in order, and you can pin any one of them:
+
+| Tier | What it is | Default |
+| --- | --- | --- |
+| Remote | A model on another machine you own, over your own network | Off until you set an address |
+| Local | A model on this machine (LM Studio, Ollama, vLLM, anything OpenAI-compatible) | On |
+| Cloud | A hosted model | **Off** |
+
+That order is about where your data goes: a machine you own first, this machine
+second, and a third party only if you have explicitly turned it on. Pinning a
+tier means the router will never silently fall through to another one -- if you
+pin `local` and your local server is down, the scan runs without a model rather
+than sending your diagnostics to a cloud provider.
+
+`outlaw models` shows exactly which tier was chosen and why each other one was
+not.
 
 ## Design commitments
 
@@ -119,9 +158,8 @@ cargo test
 ## Roadmap
 
 1. **Diagnostic core, Quick tier** -- done. See the table above.
-2. **Model router and AI analysis** -- a remote endpoint over a private
-   network, a local model sized to available VRAM, or a cloud API, in that
-   order, with a manual override.
+2. **Model router and AI analysis** -- done. See
+   [Explaining findings](#explaining-findings).
 3. **Triage queue and fix-attempt loop** -- snapshot, apply one candidate,
    test, roll back on failure, iterate.
 4. **Full and Deep tiers, plus a background watcher.**
@@ -130,10 +168,18 @@ cargo test
 
 ## Privacy
 
-The tool collects information about the machine it runs on. Nothing is
-transmitted anywhere unless you configure an AI endpoint, and which endpoint is
-always your choice, including a fully local one. API keys are stored in the
-operating system's credential store, never in a configuration file.
+The tool collects information about the machine it runs on.
+
+Nothing leaves your machine unless you ask for an explanation, and even then
+where it goes is your choice. The cloud tier is off by default and has to be
+turned on deliberately; the local and remote tiers keep everything on hardware
+you own. What a model receives is the structured findings -- titles,
+severities, and captured evidence -- not raw access to your system.
+
+API keys are stored in the operating system's credential store (Credential
+Manager on Windows, the desktop secret service on Linux), never in a
+configuration file. `outlaw config` will show you what is stored without
+showing you the values.
 
 ## Built in collaboration with AI
 

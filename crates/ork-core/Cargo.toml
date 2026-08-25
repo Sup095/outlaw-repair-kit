@@ -18,4 +18,6 @@ tokio-util.workspace = true
 async-trait.workspace = true
 tracing.workspace = true
 sysinfo.workspace = true
+toml.workspace = true
+dirs.workspace = true
 time.workspace = true

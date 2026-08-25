@@ -4,6 +4,7 @@
 //! `ork-core`, so the desktop app and the daemon expose the same capabilities
 //! without reimplementing anything.
 
+mod ai;
 mod render;
 mod style;
 
@@ -39,6 +40,27 @@ enum Command {
         /// How thorough to be. No tier has a time limit; press Ctrl-C to stop.
         #[arg(long, short, default_value = "quick")]
         tier: ScanTier,
+
+        /// Also explain the findings, using runbooks and, if one is
+        /// configured, a model.
+        #[arg(long)]
+        explain: bool,
+    },
+    /// Show which model would be used, and why.
+    Models,
+    /// Show where settings live and what they currently say.
+    Config,
+    /// Store a credential in the system credential store.
+    ///
+    /// The value is read from standard input, never from an argument, so it
+    /// does not end up in shell history.
+    SetKey {
+        /// Which credential: `cloud` or `remote`.
+        which: String,
+
+        /// Remove the stored credential instead of setting one.
+        #[arg(long)]
+        remove: bool,
     },
     /// List the checks this build knows how to run.
     Probes,
@@ -59,13 +81,22 @@ async fn main() -> Result<()> {
         .init();
 
     match cli.command {
-        Command::Scan { tier } => run_scan(tier, cli.json).await,
+        Command::Scan { tier, explain } => run_scan(tier, cli.json, explain).await,
         Command::Probes => render::probes(cli.json),
         Command::Host => render::host(cli.json),
+        Command::Models => ai::show_models(cli.json).await,
+        Command::Config => ai::show_config(cli.json),
+        Command::SetKey { which, remove } => {
+            if remove {
+                ai::clear_key(&which)
+            } else {
+                ai::set_key(&which)
+            }
+        }
     }
 }
 
-async fn run_scan(tier: ScanTier, json: bool) -> Result<()> {
+async fn run_scan(tier: ScanTier, json: bool, explain: bool) -> Result<()> {
     let (events_tx, mut events_rx) = mpsc::unbounded_channel();
     let scanner = Scanner::new()?.with_events(events_tx);
 
@@ -97,6 +128,10 @@ async fn run_scan(tier: ScanTier, json: bool) -> Result<()> {
         println!("{}", serde_json::to_string_pretty(&report)?);
     } else {
         render::report(&report);
+    }
+
+    if explain {
+        ai::explain(&report, json).await?;
     }
 
     // A non-zero exit code lets this be used in a script or a scheduled task

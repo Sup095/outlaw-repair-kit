@@ -256,6 +256,17 @@ pub struct DeviceIssue {
     pub code: Option<String>,
 }
 
+/// A graphics processor.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GpuInfo {
+    pub name: String,
+    /// Total video memory. `None` when the vendor's tools are not installed
+    /// and the amount cannot be determined honestly.
+    pub vram_total_bytes: Option<u64>,
+    pub vram_used_bytes: Option<u64>,
+    pub driver_version: Option<String>,
+}
+
 /// Everything OS-specific that the diagnostic core needs.
 ///
 /// Methods are blocking and are expected to be called from a blocking context
@@ -292,6 +303,15 @@ pub trait Platform: Send + Sync + 'static {
     /// kernel or distribution update produces and what users experience as the
     /// machine becoming unstable for no visible reason.
     fn device_issues(&self) -> Result<Vec<DeviceIssue>>;
+
+    /// Graphics processors and how much memory they have.
+    ///
+    /// Used to size a local model to the hardware, and later to target GPU
+    /// stress tests. Returns an empty list rather than failing when no vendor
+    /// tooling is installed -- not knowing is a normal state.
+    fn gpus(&self) -> Result<Vec<GpuInfo>> {
+        Ok(common::detect_gpus())
+    }
 
     /// Whether an external tool is present and runnable.
     ///

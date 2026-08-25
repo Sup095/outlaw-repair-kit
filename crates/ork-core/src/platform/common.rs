@@ -13,7 +13,9 @@ use sysinfo::{Disks, ProcessStatus, System};
 use anyhow::Context;
 
 use crate::Result;
-use crate::platform::{HostInfo, MemoryInfo, ProcessInfo, ProcessState, Volume, VolumeRole};
+use crate::platform::{
+    GpuInfo, HostInfo, MemoryInfo, ProcessInfo, ProcessState, Volume, VolumeRole,
+};
 
 /// Filesystem types that exist in the mount table but are not real storage.
 /// Reporting on these produces nothing but noise -- `tmpfs` sitting at 100%
@@ -231,6 +233,61 @@ pub fn run_capture(program: &str, args: &[&str]) -> Result<CommandOutput> {
         stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
         success: output.status.success(),
     })
+}
+
+/// Ask NVIDIA's own tool what its cards have.
+///
+/// `nvidia-smi` ships with every NVIDIA driver on both supported platforms and
+/// reports exactly what we need, which makes it far more trustworthy than
+/// inferring video memory from a generic device inventory.
+fn nvidia_gpus() -> Vec<GpuInfo> {
+    let Some(_) = which("nvidia-smi") else {
+        return Vec::new();
+    };
+    let Ok(output) = run_capture(
+        "nvidia-smi",
+        &[
+            "--query-gpu=name,memory.total,memory.used,driver_version",
+            "--format=csv,noheader,nounits",
+        ],
+    ) else {
+        return Vec::new();
+    };
+    if !output.success {
+        return Vec::new();
+    }
+
+    output
+        .stdout
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .filter_map(|line| {
+            let fields: Vec<&str> = line.split(',').map(str::trim).collect();
+            // Anything shorter is a format we do not recognise, and guessing
+            // which field is which would produce confidently wrong numbers.
+            if fields.len() < 4 {
+                return None;
+            }
+            // nvidia-smi reports mebibytes when asked for no units.
+            let mib = |value: &str| value.parse::<u64>().ok().map(|mib| mib * 1024 * 1024);
+            Some(GpuInfo {
+                name: fields[0].to_string(),
+                vram_total_bytes: mib(fields[1]),
+                vram_used_bytes: mib(fields[2]),
+                driver_version: Some(fields[3].to_string()).filter(|v| !v.is_empty()),
+            })
+        })
+        .collect()
+}
+
+/// Every graphics processor this machine has, as far as we can tell honestly.
+pub fn detect_gpus() -> Vec<GpuInfo> {
+    let gpus = nvidia_gpus();
+    if !gpus.is_empty() {
+        return gpus;
+    }
+    tracing::debug!("no GPU vendor tooling found; video memory is unknown");
+    Vec::new()
 }
 
 #[cfg(test)]

@@ -1,0 +1,428 @@
+# The runbook library that ships with the Outlaw Repair Kit.
+#
+# Every entry answers a finding the deterministic probes actually produce, so
+# the common problems never need a model at all. Entries are conservative on
+# purpose: a wrong runbook is worse than no runbook, because it sends someone
+# confidently in the wrong direction.
+#
+# To add your own, drop a .toml file with the same shape into the runbooks
+# directory beside your configuration file. An entry with an id matching one
+# here replaces it.
+
+[[entry]]
+id = "storage.volume-low-on-space"
+title = "A drive is running out of space"
+finding_ids = ["storage.volume-low-on-space"]
+explanation = """
+A drive that fills up causes symptoms that look nothing like a storage problem: \
+programs fail to start, updates break part-way through, and the system stops \
+being able to write its own logs. Reclaiming space is usually easy; the useful \
+part is finding out what took it."""
+
+[[entry.fixes]]
+description = "Find what is actually using the space before deleting anything, so you remove the cause rather than a symptom."
+invasiveness = "inspect"
+command = "du -h -d 2 / 2>/dev/null | sort -h | tail -40"
+platforms = ["linux"]
+
+[[entry.fixes]]
+description = "Open Storage Settings to see the breakdown by category."
+invasiveness = "inspect"
+command = "start ms-settings:storagesense"
+platforms = ["windows"]
+
+[[entry.fixes]]
+description = "Clear the package manager's download cache, which is safe to remove and is often several gigabytes."
+invasiveness = "low"
+command = "pacman -Sc"
+platforms = ["linux"]
+
+[[entry.fixes]]
+description = "Run Disk Cleanup against system files, including old Windows Update files."
+invasiveness = "low"
+command = "cleanmgr /sagerun:1"
+platforms = ["windows"]
+
+[[entry.fixes]]
+description = "Remove old journal logs, keeping the most recent week."
+invasiveness = "low"
+command = "journalctl --vacuum-time=7d"
+platforms = ["linux"]
+
+[[entry]]
+id = "memory.high-pressure"
+title = "The machine is short of memory"
+finding_ids = ["memory.high-pressure"]
+explanation = """
+Being briefly short of memory is normal under load. Being short of memory while \
+also swapping heavily is what makes an entire machine feel frozen, because every \
+program is waiting on the disk rather than one program being slow. The important \
+question is whether something is leaking or the workload is simply large."""
+
+[[entry.fixes]]
+description = "Identify the largest consumers, and whether their memory use grows without bound over time."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "Close or restart the largest consumer and see whether pressure returns. If it returns steadily, that program is leaking."
+invasiveness = "low"
+
+[[entry.fixes]]
+description = "If this happens under normal use rather than a heavy job, add swap space so the kernel has somewhere to fall back to instead of killing processes."
+invasiveness = "medium"
+platforms = ["linux"]
+
+[[entry]]
+id = "process.zombie-buildup"
+title = "Finished processes are not being cleaned up"
+finding_ids = ["process.zombie-buildup"]
+explanation = """
+These processes have already exited; what remains is an entry in the process \
+table that the parent program never collected. They use no memory or CPU, but \
+they occupy a finite resource, and a program leaking them steadily will \
+eventually stop the machine from starting anything new."""
+
+[[entry.fixes]]
+description = "Restart the parent program named in the finding. That clears every zombie it is holding."
+invasiveness = "low"
+
+[[entry.fixes]]
+description = "If they return, the parent has a bug worth reporting upstream. Restarting the machine clears them in the meantime."
+invasiveness = "medium"
+
+[[entry]]
+id = "device.driver-mismatch"
+title = "A driver no longer matches the system it is loaded into"
+finding_ids = ["device.driver-mismatch"]
+explanation = """
+This is the fault behind a great many "it worked until I updated" reports. The \
+driver and the system it plugs into have to agree on a version. When they stop \
+agreeing -- usually because an update replaced one half while the other was \
+still running -- the machine keeps working until something needs that driver, \
+and then behaves inexplicably. A restart resolves the common case, because it \
+loads both halves fresh from what is currently installed."""
+
+[[entry.fixes]]
+description = "Restart the machine. This resolves the majority of version mismatches, because both halves then load from what is actually installed."
+invasiveness = "medium"
+
+[[entry.fixes]]
+description = "Check which driver version is installed against the one the running kernel expects."
+invasiveness = "inspect"
+command = "mhwd -li && uname -r && cat /proc/driver/nvidia/version"
+platforms = ["linux"]
+
+[[entry.fixes]]
+description = "If the mismatch survives a restart, reinstall the driver against the running kernel using the distribution's own driver manager rather than the vendor installer."
+invasiveness = "high"
+command = "sudo mhwd -a pci nonfree 0300"
+platforms = ["linux"]
+
+[[entry.fixes]]
+description = "If the mismatch survives a restart, reinstall the graphics driver, choosing the clean-installation option."
+invasiveness = "high"
+platforms = ["windows"]
+
+[[entry]]
+id = "device.reboot-required"
+title = "An update is installed but not yet in use"
+finding_ids = ["device.reboot-required"]
+explanation = """
+Something newer is installed than what is currently running. Nothing is broken, \
+but until the machine restarts, newly installed drivers may not match the kernel \
+actually in use -- which is how a benign pending reboot turns into the driver \
+mismatch above."""
+
+[[entry.fixes]]
+description = "Restart the machine when convenient."
+invasiveness = "medium"
+
+[[entry]]
+id = "device.driver-missing"
+title = "A device has no driver"
+finding_ids = ["device.driver-missing"]
+explanation = """
+The system can see this device but has nothing to drive it with, so it is \
+present and unusable. This is normal immediately after a fresh installation and \
+abnormal on a machine that has been running for a while."""
+
+[[entry.fixes]]
+description = "Use the distribution's driver manager to install a matching driver."
+invasiveness = "high"
+command = "sudo mhwd -a pci free 0300"
+platforms = ["linux"]
+
+[[entry.fixes]]
+description = "Let Windows Update search for a driver, and if that fails, get one from the hardware vendor directly."
+invasiveness = "high"
+platforms = ["windows"]
+
+[[entry]]
+id = "device.not-working"
+title = "A device is present but will not start"
+finding_ids = ["device.not-working"]
+keywords = ["reported a problem", "43"]
+explanation = """
+The system tried to start this device and it reported a fault. This particular \
+error frequently means genuinely failing hardware rather than a software \
+problem, especially if it survives a driver reinstall and a restart."""
+
+[[entry.fixes]]
+description = "Restart the machine, which clears transient faults."
+invasiveness = "medium"
+
+[[entry.fixes]]
+description = "Reseat the device physically if it is a card, and try a different port or slot."
+invasiveness = "medium"
+
+[[entry.fixes]]
+description = "Reinstall the driver. If the fault returns immediately afterwards, treat the hardware as suspect."
+invasiveness = "high"
+
+[[entry]]
+id = "app.launch-failed"
+title = "An installed application will not start"
+finding_ids = ["app.launch-failed"]
+explanation = """
+The program is installed but exits with an error instead of starting. The error \
+output captured with this finding usually names the cause outright -- most often \
+a missing shared library, a permissions problem, or a partially applied update."""
+
+[[entry.fixes]]
+description = "Read the captured error output first. A message naming a missing library file identifies the exact package that needs installing."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "Reinstall the application through the package manager, which repairs a partially applied update."
+invasiveness = "medium"
+
+[[entry]]
+id = "app.launch-missing-library"
+title = "An application is missing a shared library"
+finding_ids = ["app.launch-failed"]
+keywords = ["error while loading shared libraries", "cannot open shared object", "no such file or directory"]
+explanation = """
+The program cannot start because a library it was built against is not present. \
+On a rolling-release distribution this typically follows a system update that \
+moved a library to a new version. Applications needing 32-bit libraries are the \
+most common casualty, because those come from separate packages that are easy to \
+miss."""
+
+[[entry.fixes]]
+description = "Identify every unresolved library the program needs."
+invasiveness = "inspect"
+command = "ldd $(which the-program) | grep 'not found'"
+platforms = ["linux"]
+
+[[entry.fixes]]
+description = "Find which package provides the missing library and install it."
+invasiveness = "medium"
+command = "pacman -F the-missing-library.so"
+platforms = ["linux"]
+
+[[entry.fixes]]
+description = "If the missing libraries are 32-bit, enable the multilib repository and install the lib32 versions."
+invasiveness = "medium"
+platforms = ["linux"]
+
+[[entry]]
+id = "app.launch-hung"
+title = "An application hangs instead of starting"
+finding_ids = ["app.launch-hung"]
+explanation = """
+The program started and then stopped doing anything at all -- no processor use, \
+no disk activity, no output. That pattern means it is waiting for something that \
+is not coming: a service that is not running, a network resource, or a lock file \
+left behind by a previous crash."""
+
+[[entry.fixes]]
+description = "Check whether a previous run left a lock file behind, and remove it if the process that owned it is gone."
+invasiveness = "low"
+
+[[entry.fixes]]
+description = "Check whether any service the program depends on is actually running."
+invasiveness = "inspect"
+command = "systemctl --failed"
+platforms = ["linux"]
+
+[[entry.fixes]]
+description = "Start the program from a terminal, which often reveals what it is waiting on."
+invasiveness = "inspect"
+
+[[entry]]
+id = "logs.unexpected-shutdown"
+title = "The machine shut down without warning"
+finding_ids = ["logs.unexpected-shutdown"]
+explanation = """
+The system stopped without shutting down cleanly. From the log's point of view a \
+freeze, a hard lock-up, and a blue screen all look the same. A single occurrence \
+may be a power cut; a pattern of them points at a driver conflict, failing \
+memory, an overheating component, or an unstable power supply -- not at whatever \
+program happened to be on screen."""
+
+[[entry.fixes]]
+description = "Check what changed shortly before the first occurrence, particularly driver and kernel updates."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "Check component temperatures under load. Thermal shutdowns look exactly like this."
+invasiveness = "inspect"
+command = "sensors"
+platforms = ["linux"]
+
+[[entry.fixes]]
+description = "Remove any overclock or undervolt, including memory timing profiles, and see whether stability returns."
+invasiveness = "medium"
+
+[[entry.fixes]]
+description = "Test memory thoroughly. Faulty memory produces exactly this pattern of unpredictable, unexplained failures."
+invasiveness = "medium"
+
+[[entry]]
+id = "logs.bugcheck"
+title = "The system crashed with a blue screen"
+finding_ids = ["logs.bugcheck"]
+explanation = """
+Windows recorded a bug check. The stop code in the captured message identifies \
+which component failed, and it is far more often a driver than the hardware that \
+driver controls."""
+
+[[entry.fixes]]
+description = "Note the stop code and the faulting module from the captured message, then check whether that driver changed recently."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "Roll back or reinstall the driver named in the stop code."
+invasiveness = "high"
+
+[[entry]]
+id = "logs.hardware-error"
+title = "The processor reported a hardware error"
+finding_ids = ["logs.hardware-error"]
+explanation = """
+This came from the processor's own error reporting rather than from software \
+interpreting a symptom, which makes it one of the strongest signals available \
+that a component is genuinely failing or is unstable at its current settings. \
+Treat it as a hardware problem until proven otherwise."""
+
+[[entry.fixes]]
+description = "Remove every overclock and undervolt, including memory profiles, and return the machine to stock settings."
+invasiveness = "medium"
+
+[[entry.fixes]]
+description = "Verify cooling and power delivery -- fan operation, dust, and that the power supply is adequate."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "Test memory and the processor individually to find which component is at fault."
+invasiveness = "medium"
+
+[[entry]]
+id = "logs.display-driver-timeout"
+title = "The graphics driver stopped responding"
+finding_ids = ["logs.display-driver-timeout", "logs.gpu-fault"]
+explanation = """
+The display driver stopped responding for long enough that the system reset it. \
+Users see this as the screen going black briefly, a game crashing to the desktop, \
+or a full freeze. It is usually a driver version problem, an unstable GPU \
+overclock, or insufficient power delivery -- and it is one of the clearest signs \
+of a driver and system that do not match."""
+
+[[entry.fixes]]
+description = "Check the installed driver version and when it last changed."
+invasiveness = "inspect"
+command = "nvidia-smi --query-gpu=driver_version --format=csv,noheader"
+
+[[entry.fixes]]
+description = "Remove any GPU overclock or undervolt, including memory clocks, and retest."
+invasiveness = "low"
+
+[[entry.fixes]]
+description = "Install the driver version the distribution recommends for this card rather than the newest available one."
+invasiveness = "high"
+platforms = ["linux"]
+command = "sudo mhwd -a pci nonfree 0300"
+
+[[entry]]
+id = "logs.kernel-panic"
+title = "The kernel crashed"
+finding_ids = ["logs.kernel-panic"]
+explanation = """
+The kernel hit a fault it could not recover from, and the machine either froze or \
+rebooted at that moment. The module named in the captured message is where to \
+start, and a kernel or driver update shortly beforehand is the most common cause."""
+
+[[entry.fixes]]
+description = "Identify the module named in the captured message, and check when it or the kernel last changed."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "Boot the previous kernel from the boot menu. If the machine is stable on it, the new kernel or its drivers are the cause."
+invasiveness = "medium"
+platforms = ["linux"]
+
+[[entry]]
+id = "logs.oom-kill"
+title = "The system ran out of memory and killed a program"
+finding_ids = ["logs.oom-kill"]
+explanation = """
+The kernel ran out of usable memory and terminated a process to stay alive. The \
+program it killed is usually the largest one running rather than the one at \
+fault, which is why this so often looks like an unrelated application crashing at \
+random."""
+
+[[entry.fixes]]
+description = "Identify what consumed the memory rather than what was killed -- they are usually different programs."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "Add or enlarge swap so the kernel has somewhere to fall back to instead of killing processes."
+invasiveness = "medium"
+platforms = ["linux"]
+
+[[entry]]
+id = "logs.storage-error"
+title = "A drive reported read or write errors"
+finding_ids = ["logs.storage-error"]
+explanation = """
+The storage layer reported errors reaching a drive. Unlike most log noise, this \
+one predicts data loss: drives that report I/O errors frequently go on to fail \
+outright. Treat the backup as the urgent step and the diagnosis as the second \
+one."""
+
+[[entry.fixes]]
+description = "Back up anything irreplaceable from this drive now, before any further investigation."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "Read the drive's own health data, which reports reallocated sectors and pending failures."
+invasiveness = "inspect"
+command = "smartctl -a /dev/sda"
+
+[[entry.fixes]]
+description = "Check the cable and port before condemning the drive -- a failing cable produces identical errors."
+invasiveness = "medium"
+
+# A general fallback for a device that will not start. The entry above is more
+# specific -- it additionally requires the "reported a problem" wording -- and
+# wins when it matches, because that particular error means something stronger.
+[[entry]]
+id = "device.not-working-general"
+title = "A device will not start"
+finding_ids = ["device.not-working"]
+explanation = """
+The system can see this device but cannot bring it into service. The code \
+recorded with the finding narrows it down: a resource conflict, a driver that \
+will not load, or a device that is failing."""
+
+[[entry.fixes]]
+description = "Restart the machine, which clears transient resource conflicts."
+invasiveness = "medium"
+
+[[entry.fixes]]
+description = "Check whether this device worked before a recent update."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "Reinstall or roll back the driver for this device."
+invasiveness = "high"

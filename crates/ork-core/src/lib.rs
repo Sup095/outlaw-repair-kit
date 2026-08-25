@@ -14,6 +14,7 @@
 //!   OS APIs directly; they go through this trait, so adding a new operating
 //!   system is a new implementation rather than a rewrite.
 
+pub mod config;
 pub mod exec;
 pub mod finding;
 pub mod platform;
@@ -23,6 +24,7 @@ pub mod scan;
 pub mod tier;
 pub mod util;
 
+pub use config::Config;
 pub use finding::{Category, Evidence, Finding, Severity, Triage};
 pub use platform::{HostInfo, Platform, PlatformKind, ProcessInfo, Volume, VolumeRole};
 pub use probe::{Probe, ProbeContext, ProbeMeta, ProbeOutcome, SkipReason};

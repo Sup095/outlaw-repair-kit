@@ -14,6 +14,7 @@ path = "src/main.rs"
 
 [dependencies]
 ork-core.workspace = true
+ork-ai.workspace = true
 
 anyhow.workspace = true
 clap.workspace = true
