@@ -18,6 +18,7 @@ REPO="Sup095/outlaw-repair-kit"
 INSTALL_DIR="${OUTLAW_INSTALL_DIR:-$HOME/.local/bin}"
 VERSION="latest"
 WITH_MODEL="ask"
+WITH_DESKTOP="no"
 ASSUME_YES="no"
 
 say() { printf '%s\n' "$*"; }
@@ -31,6 +32,7 @@ Usage: install.sh [options]
 
   --version <tag>     Install a specific release (default: the newest)
   --dir <path>        Where to put the program (default: ~/.local/bin)
+  --desktop           Also install the desktop app (an AppImage, no root needed)
   --local-model       Also set up a local model, without asking
   --no-local-model    Skip the local-model question entirely
   --yes               Do not ask anything; take the safe default each time
@@ -42,6 +44,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --version) VERSION="${2:?--version needs a tag}"; shift 2 ;;
     --dir) INSTALL_DIR="${2:?--dir needs a path}"; shift 2 ;;
+    --desktop) WITH_DESKTOP="yes"; shift ;;
     --local-model) WITH_MODEL="yes"; shift ;;
     --no-local-model) WITH_MODEL="no"; shift ;;
     --yes) ASSUME_YES="yes"; shift ;;
@@ -142,6 +145,36 @@ case ":$PATH:" in
     say "    export PATH=\"\$PATH:$INSTALL_DIR\""
     ;;
 esac
+
+# --- optional: the desktop app ---------------------------------------------
+#
+# An AppImage into the same user-owned directory as the program. No package
+# manager, no root: the same promise the rest of this script makes.
+
+if [ "$WITH_DESKTOP" = "yes" ]; then
+  step "Installing the desktop app"
+  APPIMAGE="outlaw-repair-kit-${VERSION}-amd64.AppImage"
+  if curl -fSL --progress-bar "$BASE/$APPIMAGE" -o "$WORK/$APPIMAGE"; then
+    if [ -f "$WORK/SHA256SUMS" ]; then
+      expected=$(grep " \*\{0,1\}$APPIMAGE\$" "$WORK/SHA256SUMS" | cut -d' ' -f1 | head -n1)
+      actual=$(checksum_of "$WORK/$APPIMAGE")
+      if [ -n "$expected" ] && [ "$expected" != "$actual" ]; then
+        die "the desktop app does not match its published checksum -- not installing it"
+      fi
+    fi
+    install -m 0755 "$WORK/$APPIMAGE" "$INSTALL_DIR/outlaw-repair-kit"
+    say "  $INSTALL_DIR/outlaw-repair-kit"
+    say "  run it with: outlaw-repair-kit"
+    # An AppImage needs FUSE to mount itself. Said now rather than left as a
+    # baffling failure the first time somebody double-clicks it.
+    if ! command -v fusermount >/dev/null 2>&1 && ! command -v fusermount3 >/dev/null 2>&1; then
+      warn "FUSE does not appear to be installed, which an AppImage needs. Install it, or run the app with --appimage-extract-and-run."
+    fi
+  else
+    # Not fatal. The command-line program is installed and working.
+    warn "no desktop app was published for $VERSION -- see https://github.com/$REPO/releases"
+  fi
+fi
 
 # --- optional: a model on this machine -------------------------------------
 #

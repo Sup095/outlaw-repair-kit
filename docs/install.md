@@ -37,7 +37,7 @@ rights unless you ask it for the desktop app.
 | --- | --- | --- |
 | `-Version v0.4.0` | `--version v0.4.0` | Install a specific release |
 | `-Dir <path>` | `--dir <path>` | Install somewhere else |
-| `-Desktop` | — | Also install the desktop app |
+| `-Desktop` | `--desktop` | Also install the desktop app |
 | `-LocalModel` | `--local-model` | Set up a local model without asking |
 | `-NoLocalModel` | `--no-local-model` | Skip the local-model question |
 | `-Yes` | `--yes` | Do not ask anything; take the safe default each time |
@@ -60,6 +60,11 @@ Download the installer for your system from the
 | Linux | `outlaw-repair-kit-<version>-amd64.AppImage`, or the `.deb` |
 
 The desktop app includes everything the command line does.
+
+The installer can fetch it for you with `-Desktop` on Windows or `--desktop` on
+Linux. On Linux that installs the AppImage into the same user-owned directory
+as the program, so it still needs no root — run it with `outlaw-repair-kit`. An
+AppImage needs FUSE; the installer says so if it cannot find it.
 
 ## From source
 
