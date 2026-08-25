@@ -17,8 +17,6 @@
 //!   version, which produces freezes and crashes that look like application
 //!   bugs.
 
-use std::path::Path;
-
 use crate::Result;
 use crate::platform::{DeviceIssue, DeviceIssueKind, common};
 

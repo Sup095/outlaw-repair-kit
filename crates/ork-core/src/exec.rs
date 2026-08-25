@@ -309,19 +309,36 @@ mod tests {
         }
     }
 
-    /// A command that works steadily for longer than the stall window used in
-    /// these tests, without producing any output.
+    /// A command that stays busy for a fixed number of seconds without
+    /// producing any output.
     ///
-    /// The iteration counts are tuned so this takes a handful of seconds --
-    /// comfortably longer than the two-second stall window it is tested
-    /// against, and short enough not to dominate the test suite.
-    fn busy_command() -> (&'static str, Vec<&'static str>) {
+    /// This is deliberately wall-clock bound rather than a fixed iteration
+    /// count. An iteration count runs for however long the machine takes,
+    /// which on a fast CI runner can finish before the stall window it is
+    /// supposed to outlast -- leaving a test that passes without testing
+    /// anything.
+    fn busy_command(seconds: u32) -> (&'static str, Vec<String>) {
         if cfg!(windows) {
-            ("cmd", vec!["/C", "for /L %i in (1,1,3000000) do @rem"])
+            (
+                "powershell",
+                vec![
+                    "-NoProfile".to_string(),
+                    "-NonInteractive".to_string(),
+                    "-Command".to_string(),
+                    format!(
+                        "$end=(Get-Date).AddSeconds({seconds}); while((Get-Date) -lt $end){{}}"
+                    ),
+                ],
+            )
         } else {
             (
                 "sh",
-                vec!["-c", "i=0; while [ $i -lt 3000000 ]; do i=$((i+1)); done"],
+                vec![
+                    "-c".to_string(),
+                    format!(
+                        "end=$(($(date +%s)+{seconds})); while [ \"$(date +%s)\" -lt \"$end\" ]; do :; done"
+                    ),
+                ],
             )
         }
     }
@@ -366,13 +383,18 @@ mod tests {
     #[test]
     fn a_process_doing_real_work_is_never_declared_stuck() {
         // This is the whole point of a liveness check rather than a timeout.
-        // The process produces no output at all and runs well past the stall
+        // The process produces no output at all and runs for twice the stall
         // window, but it is busy, so it must be allowed to finish.
-        let (program, args) = busy_command();
+        const STALL_SECS: u64 = 2;
+        const WORK_SECS: u32 = 4;
+
+        let (program, args) = busy_command(WORK_SECS);
+        let args: Vec<&str> = args.iter().map(String::as_str).collect();
         let policy = LivenessPolicy {
-            stall_window: Duration::from_secs(2),
+            stall_window: Duration::from_secs(STALL_SECS),
             poll_interval: Duration::from_millis(100),
         };
+
         let started = Instant::now();
         let outcome = run_supervised(program, &args, policy, &CancellationToken::new())
             .expect("command should run");
@@ -381,9 +403,12 @@ mod tests {
             matches!(outcome, ExecOutcome::Exited { .. }),
             "a busy process must not be treated as stuck, got {outcome:?}"
         );
+        // Guard against the test silently proving nothing: the work has to
+        // have actually outlasted the stall window.
         assert!(
-            started.elapsed() > Duration::from_secs(2),
-            "the test command finished too quickly to prove anything"
+            started.elapsed() > Duration::from_secs(STALL_SECS),
+            "the workload finished in {:?}, which is inside the stall window, so this run              did not test anything",
+            started.elapsed()
         );
     }
 
