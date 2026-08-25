@@ -210,6 +210,8 @@ pub enum Refusal {
     NotRemovable { path: String },
     #[error("a path must be absolute, and {path} is not")]
     RelativePath { path: String },
+    #[error("`{kind}` is not a kind of fix this tool knows how to carry out")]
+    UnknownRecipe { kind: String },
     #[error("the instruction is empty")]
     Empty,
 }
@@ -391,8 +393,186 @@ impl FixAction {
     }
 }
 
+/// Turning a runbook's written-down fix into something the engine can carry
+/// out.
+///
+/// Runbooks are text, edited by people who are not compiling anything. They
+/// name a fix in this vocabulary and the fix layer decides what that means --
+/// which keeps the closed set of possible actions owned by the code that has
+/// to execute them safely, rather than by whoever wrote the file.
+///
+/// A recipe naming something outside the set is refused, not approximated.
+/// There is deliberately no "run this command" recipe, for the same reason
+/// there is no such [`FixAction`].
+impl FixAction {
+    /// Build an action from a runbook recipe.
+    ///
+    /// `target` is expanded first: `~` becomes the user's home directory and
+    /// `%VAR%`/`$VAR` become the environment's value, because a runbook cannot
+    /// know where anybody's home directory is. The result still goes through
+    /// [`FixAction::validate`] before the engine will touch it.
+    pub fn from_recipe(kind: &str, target: &str) -> std::result::Result<Self, Refusal> {
+        let expanded = expand(target);
+        if expanded.trim().is_empty() {
+            return Err(Refusal::Empty);
+        }
+
+        match kind {
+            "restart-service" => Ok(FixAction::RestartService { service: expanded }),
+            "remove-stale-file" => Ok(FixAction::RemoveStaleFile {
+                path: std::path::PathBuf::from(&expanded),
+                reason: "named by a runbook as safe to remove when stale".to_string(),
+            }),
+            other => Err(Refusal::UnknownRecipe {
+                kind: other.to_string(),
+            }),
+        }
+    }
+}
+
+/// Expand `~`, `$VAR`, and `%VAR%` so a runbook can name a path without
+/// knowing whose machine it will run on.
+///
+/// An unset variable expands to nothing, which leaves a path that will fail
+/// validation rather than one that quietly points somewhere unintended.
+fn expand(input: &str) -> String {
+    let mut text = input.trim().to_string();
+
+    if let Some(rest) = text.strip_prefix("~/").or_else(|| text.strip_prefix("~\\"))
+        && let Some(home) = dirs::home_dir()
+    {
+        text = home.join(rest).to_string_lossy().into_owned();
+    }
+
+    // %VAR% on Windows, $VAR elsewhere. Both are accepted everywhere so one
+    // runbook entry can serve both platforms.
+    let mut out = String::with_capacity(text.len());
+    let bytes: Vec<char> = text.chars().collect();
+    let mut index = 0;
+    while index < bytes.len() {
+        match bytes[index] {
+            '%' => match bytes[index + 1..].iter().position(|c| *c == '%') {
+                Some(offset) => {
+                    let name: String = bytes[index + 1..index + 1 + offset].iter().collect();
+                    out.push_str(&std::env::var(&name).unwrap_or_default());
+                    index += offset + 2;
+                }
+                None => {
+                    out.push('%');
+                    index += 1;
+                }
+            },
+            '$' => {
+                let start = index + 1;
+                let mut end = start;
+                while end < bytes.len() && (bytes[end].is_alphanumeric() || bytes[end] == '_') {
+                    end += 1;
+                }
+                if end == start {
+                    out.push('$');
+                    index += 1;
+                } else {
+                    let name: String = bytes[start..end].iter().collect();
+                    out.push_str(&std::env::var(&name).unwrap_or_default());
+                    index = end;
+                }
+            }
+            other => {
+                out.push(other);
+                index += 1;
+            }
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_recipe_naming_something_outside_the_closed_set_is_refused() {
+        // The whole point of the closed set. A runbook is text; it does not
+        // get to invent new powers by naming them.
+        for kind in [
+            "run-command",
+            "delete-directory",
+            "install-package",
+            "",
+            "RESTART-SERVICE",
+        ] {
+            assert!(
+                FixAction::from_recipe(kind, "anything").is_err(),
+                "`{kind}` was accepted as a kind of fix"
+            );
+        }
+    }
+
+    #[test]
+    fn a_service_recipe_becomes_a_service_restart() {
+        let action = FixAction::from_recipe("restart-service", "cups").expect("valid");
+        assert!(matches!(action, FixAction::RestartService { ref service } if service == "cups"));
+        assert!(action.validate().is_ok());
+    }
+
+    #[test]
+    fn a_recipe_still_has_to_pass_the_safety_checks() {
+        // Coming from a runbook buys a recipe nothing. Validation runs on the
+        // result exactly as it would on anything else.
+        let action = FixAction::from_recipe("remove-stale-file", "/etc/passwd").expect("built");
+        assert!(
+            action.validate().is_err(),
+            "a protected path was accepted from a runbook"
+        );
+
+        let relative = FixAction::from_recipe("remove-stale-file", "steam.pid").expect("built");
+        assert!(
+            relative.validate().is_err(),
+            "a relative path was accepted from a runbook"
+        );
+    }
+
+    #[test]
+    fn an_empty_target_is_refused_rather_than_expanded_into_nothing() {
+        assert!(FixAction::from_recipe("remove-stale-file", "   ").is_err());
+        // An unset variable expands to nothing, which must not become a fix
+        // that acts on some unintended path.
+        assert!(
+            FixAction::from_recipe("remove-stale-file", "$ORK_DEFINITELY_UNSET_VARIABLE").is_err()
+        );
+    }
+
+    #[test]
+    fn a_home_relative_path_is_expanded_to_this_users_home() {
+        let Some(home) = dirs::home_dir() else {
+            eprintln!("skipped: this machine has no home directory");
+            return;
+        };
+        let action = FixAction::from_recipe("remove-stale-file", "~/.steam/steam.pid").unwrap();
+        match action {
+            FixAction::RemoveStaleFile { path, .. } => {
+                assert!(path.is_absolute(), "expansion produced {path:?}");
+                assert!(path.starts_with(&home), "{path:?} is not under {home:?}");
+            }
+            other => panic!("expected a file removal, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn environment_variables_are_expanded_in_both_notations() {
+        unsafe {
+            std::env::set_var("ORK_TEST_DIR", "/tmp/ork-test");
+        }
+        for written in ["$ORK_TEST_DIR/steam.pid", "%ORK_TEST_DIR%/steam.pid"] {
+            let action = FixAction::from_recipe("remove-stale-file", written).unwrap();
+            match action {
+                FixAction::RemoveStaleFile { path, .. } => assert!(
+                    path.to_string_lossy().contains("ork-test"),
+                    "{written} expanded to {path:?}"
+                ),
+                other => panic!("expected a file removal, got {other:?}"),
+            }
+        }
+    }
+
     use super::*;
 
     fn inspect(program: &str, args: &[&str]) -> FixAction {

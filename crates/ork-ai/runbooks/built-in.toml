@@ -197,6 +197,32 @@ description = "Reinstall the application through the package manager, which repa
 invasiveness = "medium"
 
 [[entry]]
+id = "app.launch-steam-stale-lock"
+title = "Steam will not start because a previous session left a lock behind"
+finding_ids = ["app.launch-failed", "app.launch-hung"]
+keywords = ["steam"]
+explanation = """
+Steam records the process that owns a session in a small file. If the client was killed, ran out of memory, or the machine lost power, that file is left behind pointing at a process that no longer exists, and the next start refuses to go any further. The file is rebuilt automatically, so removing a stale one costs nothing -- but it must not be removed while Steam is genuinely running, which is why the check that follows a fix starts Steam and watches it."""
+
+[[entry.fixes]]
+description = "Remove the leftover session lock. Steam rebuilds it on the next start."
+invasiveness = "low"
+platforms = ["linux"]
+action = { kind = "remove-stale-file", target = "~/.steam/steam.pid" }
+
+[[entry.fixes]]
+description = "Remove the leftover process lock in Steam's data directory."
+invasiveness = "low"
+platforms = ["linux"]
+action = { kind = "remove-stale-file", target = "~/.local/share/Steam/.steampid" }
+
+[[entry.fixes]]
+description = "Check whether a Steam process is still running and holding the lock."
+invasiveness = "inspect"
+command = "ps -ef | grep -i steam"
+platforms = ["linux"]
+
+[[entry]]
 id = "app.launch-missing-library"
 title = "An application is missing a shared library"
 finding_ids = ["app.launch-failed"]

@@ -99,13 +99,65 @@ built.
 **A change is only applied if its result can be tested.** "One change at a
 time, always testable and reversible" is not satisfied by a change nobody can
 measure. A candidate with no way to test the outcome is offered as advice
-instead of being applied. This is why a lot of what the tool suggests is
-currently advice rather than action.
+instead of being applied. This is still why most of what the tool suggests is
+advice rather than action -- see [What can be tested](#what-can-be-tested).
 
 **"I could not tell" is treated as failure.** If the test cannot be carried
 out, the change is rolled back rather than kept. Keeping it would mean the tool
 had modified your computer and could not say whether that helped -- which is
 exactly the state this loop exists to avoid.
+
+## What can be tested
+
+`outlaw fix` tells you this before it starts:
+
+```text
+1 of 4 can be tested after a change, so only those can be fixed automatically.
+The rest are explained instead.
+```
+
+That number is the honest measure of how much of this tool fixes things versus
+describes them, and it grows as verifiers are written.
+
+| Problem | How it is re-tested |
+| --- | --- |
+| A stale lock or cache file | The file is gone |
+| Steam will not start | Steam is started, and watched |
+
+**Every verifier re-runs the same test that found the problem.** That sounds
+obvious and is easy to get wrong: if the check that finds a fault and the check
+that declares it repaired are different tests, then "fixed" quietly comes to
+mean something other than "not found any more". The launch test lives in the
+core for exactly this reason, shared by the scan that reports Steam broken and
+the verifier that later says it works.
+
+### The Steam case, in detail
+
+Steam is a launcher, so it cannot be tested the way `git --version` is. It has
+to be started and watched. Three things can happen:
+
+- **it exits with an error** -- still broken, and the error usually names why;
+- **it stays up** -- it started, and the tool closes it again;
+- **it exits straight away reporting success** -- and this one is *ambiguous*,
+  because a launcher handing off to a copy of itself that was already running
+  also exits successfully. That is reported as "cannot tell", never as fixed.
+
+That last case is the one worth labouring. Reading it as success would be the
+single easiest way for this tool to tell you your problem is solved when it is
+not, so it is read as not knowing, and the change is rolled back.
+
+Two more rules apply to the launch test:
+
+- **Nothing is ever killed for being slow.** The tool watches for a failure for
+  a period; a program still running at the end of it has *passed*. It is not a
+  deadline on the work.
+- **Only a process the tool started is ever stopped.** If Steam was already
+  running before the test, the test does not run at all -- it would prove
+  nothing, and closing something you are using is not the tool's business.
+
+Because this test starts real applications, it belongs to the **full** scan
+tier, never the quick one. A scan you asked to be quick has no business opening
+windows on your desktop.
 
 ## Snapshots and rollback
 

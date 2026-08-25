@@ -18,11 +18,13 @@ output, never the live system.
 > is complete; the Full and Deep tiers and the background watcher are not built
 > yet.
 >
-> The honest caveat: the fix engine can carry out only two kinds of change so
-> far -- restarting a service and removing a stale file -- and it has no
-> verifiers wired up, so it reports most problems as needing a person. That is
-> a real limit, not a rough edge. See [Fixing problems safely](docs/fixing.md)
-> and the [Roadmap](#roadmap).
+> The honest caveat: the fix engine can carry out only two kinds of change --
+> restarting a service and removing a stale file -- and it will not apply even
+> those unless it can re-test the result afterwards. Two kinds of problem can
+> currently be re-tested: a stale lock file, and Steam failing to start. Every
+> other problem is explained rather than fixed, and `outlaw fix` tells you how
+> many of yours fall on each side before it does anything. See
+> [Fixing problems safely](docs/fixing.md) and the [Roadmap](#roadmap).
 
 > **Built in collaboration with AI.** This project is developed by a human
 > author working together with Claude (Anthropic). Design decisions are made
@@ -89,8 +91,13 @@ The Quick tier runs these checks:
 | Memory pressure | Being short of memory, and the much worse state of being short of memory *and* swapping heavily |
 | Running processes | Processes stuck, leaking memory, or piling up unreaped |
 | Device and driver health | Devices the system cannot start, and drivers that no longer match the running kernel -- the cause behind "it broke after I updated" |
-| Application launch check | Installed applications that no longer start, or that hang on startup |
+| Application launch check | Installed command-line programs that no longer start, or that hang on startup |
 | Recent system log errors | Crashes, driver faults, and hardware errors, with repeats grouped together |
+
+A **full** scan adds the application launch test, which starts catalogued
+applications such as Steam to see whether they actually open, and closes them
+again. That one is not part of a quick scan on purpose: a scan you asked to be
+quick should not open windows on your desktop.
 
 Checks that cannot run -- wrong platform, missing tool, elevation not granted --
 are reported as skipped with the reason. A scan never quietly covers less than
@@ -229,10 +236,13 @@ cargo test
 6. **Linking two machines** -- done. Pair two computers with a code so one can
    lend the other a model, no private network required. See
    [Linking two machines](docs/linking.md).
-7. **Full and Deep tiers, plus a background watcher.**
-8. **Verifiers for the fix engine**, starting with the Steam-will-not-launch
-   case, so the fix loop can test its own work rather than reporting most
-   things as needing a person.
+7. **Full and Deep tiers, plus a background watcher.** The Full tier now runs
+   the application launch test; the stress and burn-in work for Deep is not
+   built yet.
+8. **Verifiers for the fix engine** -- started. A stale lock file and the
+   Steam-will-not-launch case can now be re-tested, so the loop can act on
+   them rather than only describing them. Each new verifier moves another
+   class of problem from "explained" to "fixed".
 9. **Escalation mode** -- to be proposed and reviewed for safety before it is
    built, not bolted on.
 

@@ -151,3 +151,84 @@ async fn a_problem_is_queued_worked_fixed_and_recorded() {
 
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// The real registry, exercised end to end: a stale lock file is removed, the
+/// shipped verifier confirms it is gone, and the item is recorded as resolved.
+///
+/// The point of this test is that nothing here is a stand-in. The verifier is
+/// the one the tool ships with, the file is a real file on disk, and the
+/// engine is asked for a verifier the same way the command line asks.
+#[tokio::test]
+async fn a_stale_lock_is_removed_and_the_shipped_verifier_confirms_it() {
+    use ork_fix::verify::VerifierRegistry;
+
+    let dir = std::env::temp_dir().join(format!("ork-verify-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let lock = dir.join("steam.pid");
+    std::fs::write(&lock, "12345").unwrap();
+
+    let store = FixStore::in_memory().unwrap();
+    let problem = Finding::builder("apps.launcher-check", "app.launch-stale-lock")
+        .subject("steam")
+        .severity(Severity::High)
+        .category(Category::Application)
+        .title("Steam left a lock behind")
+        .detail("a previous session did not shut down cleanly")
+        .evidence("path", lock.display().to_string())
+        .triage(Triage::Queue)
+        .build();
+    store.enqueue(&problem).unwrap();
+
+    let item = store.pending().unwrap().into_iter().next().expect("queued");
+    let registry = VerifierRegistry::standard();
+    let verifier = registry
+        .for_item(&item)
+        .expect("a stale-file problem must be testable");
+
+    let engine = FixEngine::new(store, dir.join("snapshots"));
+    let action = FixAction::RemoveStaleFile {
+        path: lock.clone(),
+        reason: "left behind by a previous session".to_string(),
+    };
+
+    let outcome = engine
+        .work_item(&item, vec![action], Some(verifier), &AlwaysApprove)
+        .await
+        .unwrap();
+
+    assert!(
+        matches!(outcome, ItemOutcome::Resolved { .. }),
+        "got {outcome:?}"
+    );
+    assert!(!lock.exists(), "the lock file is still there");
+
+    let state = engine
+        .store()
+        .all()
+        .unwrap()
+        .into_iter()
+        .find(|entry| entry.occurrence_key == item.occurrence_key)
+        .expect("the item is still recorded");
+    assert_eq!(state.state, ItemState::Resolved);
+
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A problem the tool cannot re-test is never acted on, however confident a
+/// runbook is about the answer.
+#[tokio::test]
+async fn a_problem_with_no_verifier_is_left_alone() {
+    use ork_fix::verify::VerifierRegistry;
+
+    let registry = VerifierRegistry::standard();
+    let problem = finding("memory.pressure", "system", Severity::High, Triage::Queue);
+    let store = FixStore::in_memory().unwrap();
+    store.enqueue(&problem).unwrap();
+    let item = store.pending().unwrap().into_iter().next().unwrap();
+
+    assert!(
+        registry.for_item(&item).is_none(),
+        "claiming to test this would make the engine change the machine and undo it again"
+    );
+    assert_eq!(registry.coverage([&item]), 0);
+}

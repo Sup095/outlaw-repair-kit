@@ -56,6 +56,28 @@ pub struct CandidateFix {
     /// Platforms this fix applies to. Empty means all of them.
     #[serde(default)]
     pub platforms: Vec<String>,
+    /// How the fix layer should carry this out, if it can.
+    ///
+    /// Without one, a fix is advice: written down for a person to act on. With
+    /// one, the engine can attempt it -- but only if something can also test
+    /// the result afterwards, and only after the person confirms it.
+    #[serde(default)]
+    pub action: Option<Recipe>,
+}
+
+/// A fix named in the vocabulary the fix layer understands.
+///
+/// Deliberately just two strings. The set of things that can actually be done
+/// to a machine is decided by the code that has to do them safely, not by
+/// whoever edits a runbook file -- so an unrecognised `kind` is refused rather
+/// than approximated, and there is no "run this command" kind at all.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Recipe {
+    /// `restart-service` or `remove-stale-file`.
+    pub kind: String,
+    /// What to act on: a service name, or a path. `~` and environment
+    /// variables in a path are expanded on the machine it runs on.
+    pub target: String,
 }
 
 fn default_invasiveness() -> Invasiveness {

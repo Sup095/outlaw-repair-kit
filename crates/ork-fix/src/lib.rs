@@ -23,6 +23,7 @@ pub mod action;
 pub mod engine;
 pub mod snapshot;
 pub mod store;
+pub mod verify;
 
 /// Result type used throughout this crate.
 pub type Result<T> = anyhow::Result<T>;

@@ -8,6 +8,7 @@
 pub mod apps;
 pub mod devices;
 pub mod disk_space;
+pub mod launchers;
 pub mod logs;
 pub mod memory;
 pub mod processes;
@@ -31,6 +32,9 @@ pub fn default_registry() -> Vec<Box<dyn Probe>> {
         // Reading the system log costs a process spawn and a parse, so it
         // goes last among the Quick checks.
         Box::new(logs::RecentLogErrorsProbe),
+        // Starts real applications, so it runs after everything else and only
+        // in the Full tier.
+        Box::new(launchers::LauncherProbe),
     ]
 }
 

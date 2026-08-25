@@ -2981,6 +2981,7 @@ version = "0.5.1"
 dependencies = [
  "anyhow",
  "async-trait",
+ "dirs",
  "ork-core",
  "rusqlite",
  "serde",

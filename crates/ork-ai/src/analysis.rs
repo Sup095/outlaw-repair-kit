@@ -403,6 +403,11 @@ fn apply_model_analysis(items: &mut [AnalysedFinding], analysis: &ModelAnalysis,
                 // decides on.
                 command: None,
                 platforms: Vec::new(),
+                // Nor can it name a fix for the engine to carry out. Recipes
+                // come only from runbooks, which are reviewed text in the
+                // repository -- a model's output is never a reviewed thing,
+                // and this is the boundary that keeps it from becoming one.
+                action: None,
             })
             .collect();
         item.fixes.sort_by_key(|fix| fix.invasiveness);

@@ -9,6 +9,7 @@ use ork_fix::action::FixAction;
 use ork_fix::engine::{Approval, Approver, DryRun, FixEngine, ItemOutcome};
 use ork_fix::snapshot::detect_system_snapshot_support;
 use ork_fix::store::{FixStore, ItemState, TriageItem};
+use ork_fix::verify::VerifierRegistry;
 
 use crate::render::wrap;
 use crate::style::{bold, dim, severity_label};
@@ -58,6 +59,27 @@ fn candidates_for(item: &TriageItem, library: &RunbookLibrary, platform: &str) -
         .fixes_for(platform)
         .into_iter()
         .map(|fix| {
+            // A fix that names something the engine can carry out becomes a
+            // real action. Everything else stays advice for a person, which is
+            // the majority and always will be.
+            if let Some(recipe) = &fix.action {
+                match FixAction::from_recipe(&recipe.kind, &recipe.target) {
+                    Ok(action) => return action,
+                    Err(refusal) => {
+                        // A runbook asking for something outside the closed
+                        // set is a fault in the runbook, not a reason to do
+                        // something approximate. It is logged and demoted to
+                        // advice.
+                        tracing::warn!(
+                            entry = entry.id,
+                            kind = recipe.kind,
+                            %refusal,
+                            "runbook recipe refused"
+                        );
+                    }
+                }
+            }
+
             let instruction = match &fix.command {
                 Some(command) => format!("{}\n    suggested command: {command}", fix.description),
                 None => fix.description.clone(),
@@ -192,6 +214,7 @@ pub async fn work_queue(apply: bool, json: bool) -> Result<()> {
         RunbookLibrary::load(state_dir().ok().map(|dir| dir.join("runbooks")).as_deref())?;
     let platform = ork_core::platform::detect()?.kind().to_string();
     let engine = FixEngine::new(open_store()?, state_dir()?.join("snapshots"));
+    let verifiers = VerifierRegistry::standard();
 
     // Ctrl-C stops after the current step rather than mid-change.
     let cancel = engine.cancel_token();
@@ -201,6 +224,21 @@ pub async fn work_queue(apply: bool, json: bool) -> Result<()> {
             cancel.cancel();
         }
     });
+
+    if !json {
+        // Said up front, because it is the difference between "this tool will
+        // fix things" and "this tool will tell me about things", and people
+        // deserve to know which one they are getting before they start.
+        let testable = verifiers.coverage(&items);
+        println!(
+            "{}",
+            dim(&format!(
+                "{testable} of {} can be tested after a change, so only those can be fixed                  automatically. The rest are explained instead.",
+                items.len()
+            ))
+        );
+        println!();
+    }
 
     if !apply && !json {
         println!("{}", bold("Dry run -- nothing will be changed."));
@@ -233,11 +271,17 @@ pub async fn work_queue(apply: bool, json: bool) -> Result<()> {
             println!("{}  {}", severity_label(item.severity), bold(&item.title));
         }
 
-        // No verifier exists for these problems yet, so the engine will offer
-        // advice rather than applying anything. That restriction is in the
-        // engine itself, not here -- see its module documentation.
+        // A problem with no verifier gets advice rather than a change. That
+        // restriction lives in the engine, not here: asking the registry for
+        // `None` is how this front-end says "there is no way to test this",
+        // and the engine is what refuses to touch the machine on that basis.
         let outcome = engine
-            .work_item(item, candidates, None, approver.as_ref())
+            .work_item(
+                item,
+                candidates,
+                verifiers.for_item(item),
+                approver.as_ref(),
+            )
             .await?;
 
         if !json {
