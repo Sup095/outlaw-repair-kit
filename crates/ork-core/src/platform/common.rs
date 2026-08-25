@@ -420,16 +420,52 @@ mod tests {
         }
     }
 
+    /// A second, independent way of asking the same question.
+    ///
+    /// `None` when it could not be asked at all, which is not a failure --
+    /// only a reason this test cannot judge.
+    fn elevated_according_to_something_else() -> Option<bool> {
+        #[cfg(windows)]
+        {
+            // The high-integrity group is present in an elevated process's
+            // token and absent otherwise. `whoami` itself needs no rights.
+            let output = run_capture("whoami", &["/groups"]).ok()?;
+            Some(output.stdout.contains("S-1-16-12288"))
+        }
+        #[cfg(unix)]
+        {
+            let output = run_capture("id", &["-u"]).ok()?;
+            Some(output.stdout.trim() == "0")
+        }
+        #[cfg(not(any(windows, unix)))]
+        {
+            None
+        }
+    }
+
     #[test]
-    fn asking_whether_we_are_elevated_gives_a_definite_answer() {
-        // Whatever it says, it must say it without panicking and without
-        // hanging: this runs on the way into every scan. The suite is not run
-        // with administrator rights, and a build that thinks it has them
-        // would silently stop skipping the checks that need them.
-        assert!(
-            !is_elevated(),
-            "the test process reported itself elevated; either the check is              wrong or the suite is being run with rights it does not need"
+    fn elevation_is_reported_the_same_way_something_else_reports_it() {
+        // Deliberately not an assertion about *which* answer: CI runners are
+        // elevated on Windows and are not on Linux, and a test that expects
+        // one of those is testing the runner rather than the code. What
+        // matters is that this agrees with an independent way of asking --
+        // getting it wrong in the optimistic direction means telling somebody
+        // a check needs rights they had already given it.
+        let ours = is_elevated();
+        let Some(theirs) = elevated_according_to_something_else() else {
+            return;
+        };
+        assert_eq!(
+            ours, theirs,
+            "is_elevated() said {ours}, but asking another way said {theirs}"
         );
+    }
+
+    #[test]
+    fn asking_twice_gives_the_same_answer() {
+        // This runs on the way into every scan, so it must be cheap and it
+        // must not wander.
+        assert_eq!(is_elevated(), is_elevated());
     }
 
     #[test]
