@@ -35,8 +35,12 @@ jobs:
         with:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
+      # Only the command-line program. Building the whole workspace here would
+      # drag in the desktop app, which needs a system webview that this job has
+      # no reason to install -- it packages one binary. The desktop bundles are
+      # built by the job below.
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release -p ork-cli --target ${{ matrix.target }}
       - name: Package
         shell: bash
         run: |
