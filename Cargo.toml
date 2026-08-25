@@ -7,8 +7,8 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT"
-repository = "https://github.com/USER/outlaw-repair-kit"
-authors = ["Outlaw Repair Kit contributors"]
+repository = "https://github.com/Sup095/outlaw-repair-kit"
+authors = ["Outlaw Programming"]
 
 [workspace.dependencies]
 ork-core = { path = "crates/ork-core" }
