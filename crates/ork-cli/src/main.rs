@@ -5,6 +5,7 @@
 //! without reimplementing anything.
 
 mod ai;
+mod fix;
 mod render;
 mod style;
 
@@ -48,6 +49,23 @@ enum Command {
     },
     /// Show which model would be used, and why.
     Models,
+    /// Show problems waiting to be worked through.
+    Queue,
+    /// Work through the triage queue.
+    ///
+    /// A dry run unless --apply is given. Even then, every change is
+    /// confirmed individually before it happens.
+    Fix {
+        /// Allow changes to be made, after confirming each one.
+        #[arg(long)]
+        apply: bool,
+    },
+    /// Show everything the tool has checked, found, attempted, and changed.
+    Audit {
+        /// How many entries to show.
+        #[arg(long, default_value = "40")]
+        limit: usize,
+    },
     /// Show where settings live and what they currently say.
     Config,
     /// Store a credential in the system credential store.
@@ -85,6 +103,9 @@ async fn main() -> Result<()> {
         Command::Probes => render::probes(cli.json),
         Command::Host => render::host(cli.json),
         Command::Models => ai::show_models(cli.json).await,
+        Command::Queue => fix::show_queue(cli.json),
+        Command::Fix { apply } => fix::work_queue(apply, cli.json).await,
+        Command::Audit { limit } => fix::show_audit(limit, cli.json),
         Command::Config => ai::show_config(cli.json),
         Command::SetKey { which, remove } => {
             if remove {
@@ -128,6 +149,20 @@ async fn run_scan(tier: ScanTier, json: bool, explain: bool) -> Result<()> {
         println!("{}", serde_json::to_string_pretty(&report)?);
     } else {
         render::report(&report);
+    }
+
+    // Complex problems go on the triage queue rather than blocking the scan.
+    match fix::enqueue_from_scan(&report) {
+        Ok(added) if added > 0 && !json => {
+            println!(
+                "{} added to the triage queue. Run `outlaw fix` to work through them.",
+                added
+            );
+            println!();
+        }
+        Ok(_) => {}
+        // Failing to queue must not lose the user their scan results.
+        Err(error) => tracing::warn!(%error, "could not update the triage queue"),
     }
 
     if explain {

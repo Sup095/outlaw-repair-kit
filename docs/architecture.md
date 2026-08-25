@@ -9,15 +9,16 @@ no capability exists in a front-end that is not reachable programmatically.
          \                   |                       /
           +----------- ork-core / daemon ------------+
                               |
-              +---------------+---------------+
-              |                               |
-        ork-core                          ork-ai
-     probes, platform,              router, runbooks,
-     scan orchestration            analysis, secrets
+       +----------------+----------------+
+       |                |                |
+   ork-core          ork-ai          ork-fix
+  probes,          router,          triage queue,
+  platform,        runbooks,        snapshots,
+  orchestration    analysis         fix engine, audit
 
-  The dependency runs one way. ork-core does the detection and must keep
-  working with no model available at all, so it does not depend on ork-ai
-  and does not link an HTTP client.
+  Dependencies run one way, towards ork-core. The detection core must keep
+  working with no model available and no fixes attempted, so it depends on
+  neither of the others and does not link an HTTP client.
 ```
 
 ## 1. Interface layer
@@ -114,18 +115,48 @@ The library ships embedded in the binary, so a fresh install has answers
 immediately. User entries in the configuration directory are loaded afterwards
 and replace built-ins with the same id.
 
-## 6. Fix layer (not built)
+## 6. Fix layer
 
-Simple deterministic issues are fixed inline during the scan. Complex or
-ambiguous ones go on a triage queue with full context and are worked one at a
-time after the scan: snapshot, apply one candidate, run a test specific to that
-issue, roll back on failure, try the next candidate. Successes are recorded per
-machine so a repeat occurrence resolves on the first try.
+`crates/ork-fix`. Complex or ambiguous problems go on a triage queue with full
+context and are worked one at a time after the scan: snapshot, apply one
+candidate, run a test specific to that problem, roll back on failure, try the
+next candidate. Successes are recorded per machine so a repeat occurrence
+resolves on the first try. There is no time limit on the loop.
 
-Safety rails apply everywhere, in every mode: snapshot before any change, a
-dry-run diff before anything non-trivial, explicit confirmation for anything
-system-level, one change at a time, never an automatic destructive operation,
-and a full audit log.
+The central design decision is that **fixes are a closed set of typed
+operations**, not commands. Candidates arrive from two places -- runbooks
+written by people, and a model reasoning about a novel problem -- and only the
+first has been reviewed. If the executor accepted arbitrary shell, every safety
+rule below would be advice rather than a guarantee, and one confidently wrong
+model output could destroy a user's data. There is deliberately no variant that
+means "run this string", for runbooks or for a model. Anything that cannot be
+expressed as a typed operation becomes an instruction for a person.
+
+Three layers of defence, in order: the type system, validation at construction
+and again immediately before execution, and execution without a shell (programs
+are launched with an argument list, so there is nothing to escape from).
+
+Two rules follow from the brief's "one change at a time, always testable and
+reversible":
+
+* A change is only applied when its result **can be tested**. A candidate with
+  no verifier is offered as advice rather than applied, because a change nobody
+  can measure does not satisfy "always testable".
+* A verifier returning "I could not tell" causes a **rollback**, not a shrug.
+  Keeping an unverified change would leave the tool having modified a machine
+  without being able to say whether it helped.
+
+Safety rails apply everywhere, in every mode: snapshot before any change,
+explicit confirmation for anything that modifies the system, one change at a
+time, never a destructive operation, and an audit log that is never pruned.
+
+Snapshots come in two kinds and the distinction matters. A **targeted backup**
+copies aside exactly the files a fix will touch; it is always available, needs
+no privileges, and is what rollback actually uses. A **system-level snapshot**
+(restore point, btrfs, Timeshift) is broader but needs administrator rights and
+prior setup, so the tool reports whether one appears to exist and never assumes
+it does -- claiming a safety net that turns out to be absent is worse than
+admitting there is none.
 
 ## Privilege model
 

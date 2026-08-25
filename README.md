@@ -48,14 +48,17 @@ skipped check with the reason, never as a silent gap.
 ## What works today
 
 ```bash
-outlaw host             # what the tool detected about this machine
-outlaw probes           # the checks this build knows how to run
-outlaw scan             # run a quick scan
-outlaw scan --explain   # scan, then explain the findings in plain language
+outlaw scan             # look for problems
+outlaw scan --explain   # ...and explain what they mean
+outlaw queue            # problems waiting to be worked through
+outlaw fix              # show what would be done -- changes nothing
+outlaw fix --apply      # allow changes, confirming each one
+outlaw audit            # everything the tool has done
 outlaw models           # which model would be used, and why
 outlaw config           # where settings live and what they say
-outlaw set-key cloud    # store an API key in the OS credential store
 ```
+
+Full reference: [docs/commands.md](docs/commands.md).
 
 Every command accepts `--json`, because nothing in the interface layer is
 allowed to do something the core cannot do programmatically.
@@ -74,6 +77,19 @@ The Quick tier runs these checks:
 Checks that cannot run -- wrong platform, missing tool, elevation not granted --
 are reported as skipped with the reason. A scan never quietly covers less than
 you think it did.
+
+## Documentation
+
+| | |
+| --- | --- |
+| [Getting started](docs/getting-started.md) | Install it and run your first scan |
+| [Command reference](docs/commands.md) | What every command does |
+| [Setting up a model](docs/ai-setup.md) | Local, another machine, or hosted |
+| [Using another machine](docs/remote-machine.md) | Borrow a stronger computer's model |
+| [Fixing problems safely](docs/fixing.md) | What it will and will not change |
+| [Writing runbooks](docs/runbooks.md) | Teach it about a problem it does not know |
+| [Troubleshooting](docs/troubleshooting.md) | When something is not working |
+| [Architecture](docs/architecture.md) | How the pieces fit together |
 
 ## Explaining findings
 
@@ -110,6 +126,29 @@ than sending your diagnostics to a cloud provider.
 
 `outlaw models` shows exactly which tier was chosen and why each other one was
 not.
+
+## Fixing problems
+
+Problems needing investigation go on a triage queue rather than blocking the
+scan. Afterwards the queue is worked one item at a time, worst first: snapshot,
+apply one change, test whether it worked, roll back if it did not, then try the
+next candidate.
+
+`outlaw fix` is a **dry run**. With `--apply` it still asks before every
+individual change.
+
+What it will do is deliberately a short list -- remove a stale lock file after
+backing it up, restart a service, run read-only inspection commands. Installing
+drivers, changing packages, and anything else arrives as an instruction for you
+to carry out. Fixes are a closed set of typed operations; there is no "run this
+command" operation at all, for runbooks or for a model, because that would turn
+every safety rule here into advice rather than a guarantee.
+
+Two rules that may surprise you: a change is only applied if its result can be
+*tested*, and "I could not tell whether that worked" is treated as failure and
+rolled back.
+
+[Fixing problems safely](docs/fixing.md) has the details.
 
 ## Design commitments
 
@@ -160,8 +199,8 @@ cargo test
 1. **Diagnostic core, Quick tier** -- done. See the table above.
 2. **Model router and AI analysis** -- done. See
    [Explaining findings](#explaining-findings).
-3. **Triage queue and fix-attempt loop** -- snapshot, apply one candidate,
-   test, roll back on failure, iterate.
+3. **Triage queue and fix-attempt loop** -- done. See
+   [Fixing problems safely](docs/fixing.md).
 4. **Full and Deep tiers, plus a background watcher.**
 5. **Desktop application** -- everything configurable from the interface, with
    no file editing required.

@@ -1,0 +1,25 @@
+[package]
+name = "ork-fix"
+description = "Triage queue and safety-railed fix engine for the Outlaw Repair Kit."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+ork-core.workspace = true
+
+anyhow.workspace = true
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+time.workspace = true
+# `bundled` compiles SQLite in, so there is no system library to install and
+# no version to be incompatible with.
+rusqlite = { version = "0.32", features = ["bundled"] }
