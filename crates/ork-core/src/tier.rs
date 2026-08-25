@@ -22,6 +22,12 @@ pub enum ScanTier {
     /// Everything in `Full`, plus stress-testing and burn-in of CPU, memory,
     /// and GPU, an exhaustive rootkit scan, and system file checksum
     /// verification.
+    ///
+    /// **Nothing declares this tier yet.** The variant exists and is wired all
+    /// the way through, but no probe has `min_tier: Deep`, so a deep scan runs
+    /// exactly what a full one runs. Both front-ends say so where the tier is
+    /// chosen, rather than letting somebody pick it and wonder why it finished
+    /// so quickly.
     Deep,
 }
 

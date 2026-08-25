@@ -66,7 +66,7 @@
     <select bind:value={tier} disabled={running}>
       <option value="quick">Quick — minutes</option>
       <option value="full">Full — tens of minutes</option>
-      <option value="deep">Deep — hours, no cap</option>
+      <option value="deep">Deep — same as Full, for now</option>
     </select>
   </label>
   <button class="primary" onclick={run} disabled={running}>{running ? "Scanning…" : "Run scan"}</button>
@@ -76,6 +76,21 @@
     {explaining ? "Thinking…" : "Explain findings"}
   </button>
 </div>
+
+{#if tier === "deep"}
+  <!-- The tier is real and wired through; nothing has been written that only
+       runs at it yet. Saying so beats letting somebody pick it and wonder why
+       it finished in the same time as Full. -->
+  <p class="dim note">
+    Nothing runs at this tier yet that does not also run at Full. The stress and burn-in
+    tests it is meant for are not built. Picking it today does the same work Full does.
+  </p>
+{:else if tier === "full"}
+  <p class="dim note">
+    Adds the disk health check and the application launch test, which starts catalogued
+    applications such as Steam and closes them again.
+  </p>
+{/if}
 
 {#if progress}
   <div class="progress panel">
@@ -143,6 +158,7 @@
 {/if}
 
 <style>
+  .note { max-width: 66ch; margin: 0.4rem 0 0.8rem; font-size: 12.5px; }
   .controls {
     display: flex;
     align-items: end;

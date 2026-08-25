@@ -14,6 +14,8 @@
   let error = $state<string | null>(null);
   let loaded = $state(false);
 
+  const pending = $derived(items.filter((item) => item.state === "pending").length);
+
   let running = $state(false);
   let applying = $state(false);
   let coverage = $state<{ total: number; testable: number } | null>(null);
@@ -124,10 +126,10 @@
 <div class="head">
   <h2>Triage queue</h2>
   <button onclick={load} disabled={running}>Refresh</button>
-  <button onclick={() => work(false)} disabled={running || items.length === 0}>
+  <button onclick={() => work(false)} disabled={running || pending === 0}>
     Preview
   </button>
-  <button class="apply" onclick={() => work(true)} disabled={running || items.length === 0}>
+  <button class="apply" onclick={() => work(true)} disabled={running || pending === 0}>
     Work the queue
   </button>
   {#if running}
@@ -136,7 +138,8 @@
 </div>
 
 <p class="dim intro">
-  Problems that are not safe to fix inline wait here, worst first. Working through the
+  Problems that are not safe to fix inline wait here, worst first. Ones that have been
+  worked already stay in the list with what happened to them. Working through the
   queue applies one change at a time, with a snapshot taken first and a rollback if the
   test that follows fails. <strong>Preview</strong> takes exactly the same path but is
   never given permission, so it shows what would happen without touching anything.
@@ -161,6 +164,10 @@
   <div class="panel bad">{error}</div>
 {:else if loaded && items.length === 0}
   <div class="panel dim">Nothing is waiting. Run a scan to fill this.</div>
+{:else if loaded && pending === 0}
+  <div class="panel dim">
+    Nothing is still waiting. The items below have been worked already.
+  </div>
 {:else}
   {#each items as item (item.occurrence_key)}
     <article class="panel row" class:active={current === item.occurrence_key}>
@@ -228,7 +235,10 @@
   .outcome { margin-top: 0.5rem; font-size: 12.5px; border-left: 2px solid var(--text-dim); padding-left: 0.6rem; }
   .outcome.good { border-left-color: var(--cyan); color: var(--cyan); }
   .outcome ol { margin: 0.3rem 0 0; padding-left: 1.1rem; }
-  .outcome li { margin-bottom: 0.25rem; }
+  /* A manual instruction may carry its suggested command on a second,
+     indented line. HTML would collapse that into the sentence, running the
+     command on to the end of the prose where it reads as part of it. */
+  .outcome li { margin-bottom: 0.25rem; white-space: pre-wrap; }
   .apply { border-color: var(--cyan); color: var(--cyan); }
   .stop { border-color: var(--red); color: var(--red); }
   .sev { text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.14em; padding: 0.1rem 0.45rem; border: 1px solid currentColor; }

@@ -270,11 +270,17 @@ pub async fn routing_status() -> CmdResult<serde_json::Value> {
     }))
 }
 
-/// Problems waiting to be worked through.
+/// Everything on the triage queue, whatever state it is in.
+///
+/// All of it, not only what is still pending -- the same list `outlaw queue`
+/// prints. The window works the queue now, and an item that vanishes the
+/// instant it is fixed takes the evidence of the fix with it, leaving only the
+/// audit log to say anything happened. Each row carries its own state, so
+/// showing the finished ones costs nothing and answers "did that work?".
 #[tauri::command]
 pub fn queue_list() -> CmdResult<serde_json::Value> {
     let store = open_store().map_err(fail)?;
-    let items = store.pending().map_err(fail)?;
+    let items = store.all().map_err(fail)?;
     Ok(serde_json::json!(items))
 }
 

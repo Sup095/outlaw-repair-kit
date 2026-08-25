@@ -45,7 +45,11 @@ struct Cli {
 enum Command {
     /// Run a scan and report what is wrong.
     Scan {
-        /// How thorough to be. No tier has a time limit; press Ctrl-C to stop.
+        /// How thorough to be: quick, full, or deep.
+        ///
+        /// No tier has a time limit; press Ctrl-C to stop. `deep` currently
+        /// runs exactly what `full` runs -- the stress and burn-in checks it
+        /// is meant for are not built yet.
         #[arg(long, short, default_value = "quick")]
         tier: ScanTier,
 
