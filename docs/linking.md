@@ -181,5 +181,11 @@ fresh one.
 **"no model is running on that machine"** — the link is fine; the lender's LM
 Studio or Ollama is not running. Check with `outlaw models` over there.
 
+**"this machine has no credential store running"** — there is nowhere safe to
+keep the access token, so pairing stops before it starts rather than burning a
+single-use code on a link that would not work. On a Linux desktop, start a
+secret service (GNOME Keyring or KWallet). A headless server has none by
+default.
+
 **"that machine no longer recognises this one"** — the link was removed at the
 other end. Pair again.

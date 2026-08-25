@@ -190,11 +190,30 @@ fn entry(peer_id: &str) -> Result<keyring::Entry> {
         .context("could not reach the credential store")
 }
 
+/// Whether this machine has a credential store to keep tokens in.
+///
+/// A headless server, or a Linux desktop with no secret service running, has
+/// nowhere safe to put one. Worth knowing before pairing rather than after:
+/// the alternative is a link that appears to work until the next time it is
+/// used.
+pub fn credential_store_available() -> bool {
+    let probe = "availability-probe";
+    match entry(probe) {
+        // Reading a credential that was never set is the cheapest question
+        // that still reaches the store itself.
+        Ok(entry) => !matches!(
+            entry.get_password(),
+            Err(keyring::Error::PlatformFailure(_))
+        ),
+        Err(_) => false,
+    }
+}
+
 /// Remember the token for talking to a lender.
 pub fn store_token(peer_id: &str, token: &str) -> Result<()> {
-    entry(peer_id)?
-        .set_password(token)
-        .context("could not save the access token")
+    entry(peer_id)?.set_password(token).context(
+        "could not save the access token -- this machine has no credential store          running to keep it in",
+    )
 }
 
 /// The token for talking to a lender, if there is one.

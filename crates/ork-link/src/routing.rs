@@ -84,8 +84,22 @@ mod tests {
         assert!(config.ai.remote.endpoint.is_none());
     }
 
+    /// Some machines -- headless servers, and CI runners -- have no credential
+    /// store. These tests need a real one, so they say so and stop rather than
+    /// failing for a reason that is nothing to do with what they check.
+    fn needs_credential_store() -> bool {
+        if peer::credential_store_available() {
+            return true;
+        }
+        eprintln!("skipped: this machine has no credential store to keep a token in");
+        false
+    }
+
     #[test]
     fn a_linked_machine_fills_in_the_remote_tier() {
+        if !needs_credential_store() {
+            return;
+        }
         let id = "routing-test-peer";
         peer::store_token(id, "a-token").unwrap();
 
@@ -109,6 +123,9 @@ mod tests {
 
     #[test]
     fn the_token_never_lands_in_the_settings_file() {
+        if !needs_credential_store() {
+            return;
+        }
         let id = "routing-secrecy-peer";
         peer::store_token(id, "super-secret-token").unwrap();
 

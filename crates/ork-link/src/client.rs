@@ -99,6 +99,15 @@ impl LinkClient {
 /// system's credential store. The token is derived, never received, so it does
 /// not travel over the network at any point.
 pub async fn join(book: &mut PeerBook, address: &str, code: PairingCode) -> Result<Peer> {
+    // Checked before the handshake, not after. Pairing succeeds, the token is
+    // derived, and then there is nowhere to keep it -- which would burn a
+    // single-use code and leave a link that does not work.
+    anyhow::ensure!(
+        peer::credential_store_available(),
+        "this machine has no credential store running, so there is nowhere safe to keep          the access token.
+On Linux, start a secret service (GNOME Keyring or KWallet)          and try again."
+    );
+
     let base = normalise_address(address);
     let handshake = ClientHandshake::start(code, &book.machine_id, &book.machine_name);
 

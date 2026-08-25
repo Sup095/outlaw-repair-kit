@@ -49,6 +49,17 @@ async fn start_host(machine_id: &str) -> (Arc<HostState>, String, tempfile::Temp
     (state, address, dir)
 }
 
+/// Pairing stores a token, and a headless machine has nowhere to put one.
+/// Tests that need a real credential store say so and stop, rather than
+/// failing for a reason that has nothing to do with what they check.
+fn needs_credential_store() -> bool {
+    if ork_link::peer::credential_store_available() {
+        return true;
+    }
+    eprintln!("skipped: this machine has no credential store to keep a token in");
+    false
+}
+
 async fn attempt(address: &str, request: &PairRequest) -> reqwest::Response {
     reqwest::Client::new()
         .post(format!("{address}/ork/v1/pair"))
@@ -60,6 +71,9 @@ async fn attempt(address: &str, request: &PairRequest) -> reqwest::Response {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_machine_that_types_the_code_correctly_is_linked() {
+    if !needs_credential_store() {
+        return;
+    }
     let (state, address, _dir) = start_host("host-a-0").await;
     let code = state.open_pairing();
 
@@ -86,6 +100,9 @@ async fn a_machine_that_types_the_code_correctly_is_linked() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn the_token_it_ends_up_with_actually_opens_the_door() {
+    if !needs_credential_store() {
+        return;
+    }
     let (state, address, _dir) = start_host("host-the-1").await;
     let code = state.open_pairing();
 
