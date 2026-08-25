@@ -10,8 +10,10 @@ use std::path::Path;
 
 use sysinfo::{Disks, System};
 
+use anyhow::Context;
+
 use crate::Result;
-use crate::platform::{HostInfo, ProcessInfo, Volume, VolumeRole};
+use crate::platform::{HostInfo, MemoryInfo, ProcessInfo, Volume, VolumeRole};
 
 /// Filesystem types that exist in the mount table but are not real storage.
 /// Reporting on these produces nothing but noise -- `tmpfs` sitting at 100%
@@ -176,6 +178,47 @@ pub fn tool_on_path(tool: &str) -> bool {
         extensions
             .iter()
             .any(|ext| base.with_extension(ext.trim_start_matches('.')).is_file())
+    })
+}
+
+/// Current memory and swap pressure.
+pub fn memory_info() -> Result<MemoryInfo> {
+    let mut system = System::new();
+    system.refresh_memory();
+    Ok(MemoryInfo {
+        total_bytes: system.total_memory(),
+        available_bytes: system.available_memory(),
+        swap_total_bytes: system.total_swap(),
+        swap_used_bytes: system.used_swap(),
+    })
+}
+
+/// Output of an external command we shelled out to.
+pub struct CommandOutput {
+    pub stdout: String,
+    pub stderr: String,
+    pub success: bool,
+}
+
+/// Run an external tool and capture what it said.
+///
+/// Every command the tool runs goes through here, so there is one place to
+/// hang audit logging off once the fix layer exists. Output is decoded lossily
+/// on purpose: a log message containing one malformed byte should not cost us
+/// the whole diagnostic.
+pub fn run_capture(program: &str, args: &[&str]) -> Result<CommandOutput> {
+    use std::process::Command;
+
+    tracing::debug!(program, ?args, "running external command");
+    let output = Command::new(program)
+        .args(args)
+        .output()
+        .with_context(|| format!("could not run `{program}`"))?;
+
+    Ok(CommandOutput {
+        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+        success: output.status.success(),
     })
 }
 

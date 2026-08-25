@@ -11,6 +11,10 @@ mod common;
 
 #[cfg(target_os = "linux")]
 mod linux;
+#[cfg(target_os = "linux")]
+mod linux_journal;
+#[cfg(target_os = "windows")]
+mod win_eventlog;
 #[cfg(target_os = "windows")]
 mod windows;
 
@@ -119,6 +123,78 @@ pub struct ProcessInfo {
     pub run_time_secs: u64,
 }
 
+/// Memory pressure at a moment in time.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryInfo {
+    pub total_bytes: u64,
+    /// Memory genuinely available to a new allocation. On Linux this is
+    /// `MemAvailable`, not `MemFree` -- reclaimable cache is available, and
+    /// treating it as used is how people talk themselves into believing a
+    /// healthy Linux box is out of memory.
+    pub available_bytes: u64,
+    pub swap_total_bytes: u64,
+    pub swap_used_bytes: u64,
+}
+
+impl MemoryInfo {
+    pub fn used_bytes(&self) -> u64 {
+        self.total_bytes.saturating_sub(self.available_bytes)
+    }
+
+    /// Fraction of memory in use, 0.0 to 1.0.
+    pub fn used_fraction(&self) -> Option<f64> {
+        if self.total_bytes == 0 {
+            return None;
+        }
+        Some(self.used_bytes() as f64 / self.total_bytes as f64)
+    }
+
+    /// Fraction of swap in use, or `None` when there is no swap or page file.
+    pub fn swap_used_fraction(&self) -> Option<f64> {
+        if self.swap_total_bytes == 0 {
+            return None;
+        }
+        Some(self.swap_used_bytes as f64 / self.swap_total_bytes as f64)
+    }
+}
+
+/// How serious the operating system considered a log entry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LogLevel {
+    Warning,
+    Error,
+    Critical,
+}
+
+/// One entry from the system log.
+///
+/// Deliberately flat and source-agnostic: the Windows Event Log and journald
+/// disagree about almost everything, and the correlation logic should not have
+/// to care which one it is reading.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogRecord {
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub timestamp: Option<time::OffsetDateTime>,
+    /// The provider, unit, or kernel subsystem that emitted this.
+    pub source: String,
+    pub level: LogLevel,
+    /// Windows event ID, or the syslog identifier on Linux. This is what makes
+    /// repeated occurrences of the same fault groupable.
+    pub event_id: Option<String>,
+    pub message: String,
+}
+
+impl LogRecord {
+    /// Key used to group repeats of the same fault together.
+    pub fn signature(&self) -> String {
+        match &self.event_id {
+            Some(id) => format!("{}/{id}", self.source),
+            None => self.source.clone(),
+        }
+    }
+}
+
 /// Everything OS-specific that the diagnostic core needs.
 ///
 /// Methods are blocking and are expected to be called from a blocking context
@@ -137,6 +213,16 @@ pub trait Platform: Send + Sync + 'static {
 
     /// Every running process.
     fn processes(&self) -> Result<Vec<ProcessInfo>>;
+
+    /// Current memory and swap pressure.
+    fn memory(&self) -> Result<MemoryInfo>;
+
+    /// Warning-and-worse entries from the system log, going back `since`.
+    ///
+    /// This is the check that catches driver, kernel, and hardware faults that
+    /// the user experiences as "it randomly freezes" -- the correlation is in
+    /// the log long before anyone thinks to look there.
+    fn recent_log_errors(&self, since: std::time::Duration) -> Result<Vec<LogRecord>>;
 
     /// Whether an external tool is present and runnable.
     ///

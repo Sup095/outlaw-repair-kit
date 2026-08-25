@@ -1,7 +1,10 @@
 //! Linux implementation of the platform layer.
 
 use crate::Result;
-use crate::platform::{HostInfo, Platform, PlatformKind, ProcessInfo, Volume, VolumeRole, common};
+use crate::platform::{
+    HostInfo, LogRecord, MemoryInfo, Platform, PlatformKind, ProcessInfo, Volume, VolumeRole,
+    common, linux_journal,
+};
 
 pub struct LinuxPlatform {
     _private: (),
@@ -43,5 +46,13 @@ impl Platform for LinuxPlatform {
 
     fn processes(&self) -> Result<Vec<ProcessInfo>> {
         common::processes()
+    }
+
+    fn memory(&self) -> Result<MemoryInfo> {
+        common::memory_info()
+    }
+
+    fn recent_log_errors(&self, since: std::time::Duration) -> Result<Vec<LogRecord>> {
+        linux_journal::recent_errors(since)
     }
 }

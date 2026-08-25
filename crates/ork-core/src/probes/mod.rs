@@ -6,6 +6,8 @@
 //! orchestrator.
 
 pub mod disk_space;
+pub mod logs;
+pub mod memory;
 
 use crate::probe::{Probe, ProbeMeta};
 
@@ -15,7 +17,13 @@ use crate::probe::{Probe, ProbeMeta};
 /// a scan sees results immediately rather than staring at a spinner while an
 /// expensive check runs.
 pub fn default_registry() -> Vec<Box<dyn Probe>> {
-    vec![Box::new(disk_space::DiskSpaceProbe)]
+    vec![
+        Box::new(disk_space::DiskSpaceProbe),
+        Box::new(memory::MemoryPressureProbe),
+        // Reading the system log costs a process spawn and a parse, so it
+        // goes last among the Quick checks.
+        Box::new(logs::RecentLogErrorsProbe),
+    ]
 }
 
 /// Metadata for every known probe, for settings screens and `--list-probes`.
