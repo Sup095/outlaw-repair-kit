@@ -42,6 +42,21 @@ Pairing code
 The code lasts ten minutes, works **once**, and stops accepting guesses after
 five wrong tries. Stop lending with Ctrl-C.
 
+It tells you what happens as it happens — a machine linking, a wrong code and
+how many tries are left, a model being run for somebody:
+
+```text
+  wrong pairing code -- 4 attempt(s) left
+  linked work rig
+  that machine can now ask this one to run its model
+```
+
+**One code links one machine.** To link a second, press Ctrl-C and run
+`outlaw link host` again for a fresh code. In the desktop app there is a
+**Show a new code** button, so the lending does not have to stop. The code is
+not reopened automatically on purpose: a code nobody is watching is a standing
+invitation.
+
 ## Borrowing one
 
 On the other machine:

@@ -50,6 +50,18 @@
     }
   }
 
+  async function reopen() {
+    // A code is good for one machine. Linking a second should not mean
+    // stopping and starting the whole thing.
+    try {
+      await api.linkPairReopen();
+      await load();
+      error = null;
+    } catch (problem) {
+      error = String(problem);
+    }
+  }
+
   async function stopHosting() {
     await api.linkHostStop();
     await load();
@@ -117,6 +129,13 @@
   link can change the machine at the other end.
 </p>
 
+{#if status && status.credential_store === false}
+  <div class="panel bad">
+    This machine has no credential store running, so there is nowhere safe to keep an
+    access token — linking will not work until there is one. On Linux, start a secret
+    service such as GNOME Keyring or KWallet.
+  </div>
+{/if}
 {#if error}<div class="panel bad">{error}</div>{/if}
 {#if notice}<div class="panel good">{notice}</div>{/if}
 
@@ -129,7 +148,12 @@
         Listening on port {status.hosting.port}.
         {status.hosting.pairing_open ? "A pairing code is showing." : "The code has been used or has expired."}
       </p>
-      <button class="danger" onclick={stopHosting}>Stop lending</button>
+      <div class="row">
+        {#if !status.hosting.pairing_open}
+          <button class="primary" onclick={reopen}>Show a new code</button>
+        {/if}
+        <button class="danger" onclick={stopHosting}>Stop lending</button>
+      </div>
       {#if activity.length}
         <div class="activity">
           {#each activity as line, index (line + index)}<div>{line}</div>{/each}

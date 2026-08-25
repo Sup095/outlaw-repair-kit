@@ -41,6 +41,7 @@ pub fn run() {
             linking::link_status,
             linking::link_host_start,
             linking::link_host_stop,
+            linking::link_pair_reopen,
             linking::link_find,
             linking::link_join,
             linking::link_remove,

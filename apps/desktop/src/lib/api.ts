@@ -106,6 +106,7 @@ export const api = {
   linkHostStart: (port?: number, modelUrl?: string) =>
     invoke<string>("link_host_start", { port, modelUrl }),
   linkHostStop: () => invoke<boolean>("link_host_stop"),
+  linkPairReopen: () => invoke<string>("link_pair_reopen"),
   linkFind: (port?: number) => invoke<Discovered[]>("link_find", { port }),
   linkJoin: (code: string, address: string) => invoke<any>("link_join", { code, address }),
   linkRemove: (name: string) => invoke<number>("link_remove", { name }),

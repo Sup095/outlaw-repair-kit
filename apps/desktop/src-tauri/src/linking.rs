@@ -56,6 +56,9 @@ pub fn link_status(state: State<'_, AppState>) -> CmdResult<serde_json::Value> {
     Ok(serde_json::json!({
         "machine_id": book.machine_id,
         "machine_name": book.machine_name,
+        // Worth knowing before pairing rather than after: without somewhere to
+        // keep a token, a link cannot be made at all.
+        "credential_store": ork_link::peer::credential_store_available(),
         "peers": book.peers,
         "hosting": hosting.as_ref().map(|session| serde_json::json!({
             "port": session.port,
@@ -183,6 +186,25 @@ pub fn link_host_stop(state: State<'_, AppState>) -> CmdResult<bool> {
         }
         None => Ok(false),
     }
+}
+
+/// Show a fresh pairing code on a host that is already lending.
+///
+/// A code is good for one machine. Linking a second one should not mean
+/// stopping and starting the whole thing.
+#[tauri::command]
+pub fn link_pair_reopen(state: State<'_, AppState>) -> CmdResult<String> {
+    let mut slot = state
+        .link
+        .hosting
+        .lock()
+        .map_err(|_| "the link lock was poisoned".to_string())?;
+    let session = slot
+        .as_mut()
+        .ok_or_else(|| "this machine is not lending its model".to_string())?;
+    let code = session.state.open_pairing();
+    session.code = code.display();
+    Ok(session.code.clone())
 }
 
 /// Who on this network is lending a model.
