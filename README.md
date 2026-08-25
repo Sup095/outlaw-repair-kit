@@ -12,9 +12,17 @@ correlate findings across sources, explain them, and reason through fixes for
 problems that have no known deterministic answer -- it reads structured probe
 output, never the live system.
 
-> **Status: early.** The diagnostic core and the CLI exist and work. The model
-> router, AI analysis, triage queue, fix layer, and desktop app are not built
-> yet. See [Roadmap](#roadmap).
+> **Status: usable, still young.** The diagnostic core, the command line, the
+> desktop app, the model router, the AI analysis layer, the triage queue, the
+> fix engine, and linking two machines all exist and work. The Quick scan tier
+> is complete; the Full and Deep tiers and the background watcher are not built
+> yet.
+>
+> The honest caveat: the fix engine can carry out only two kinds of change so
+> far -- restarting a service and removing a stale file -- and it has no
+> verifiers wired up, so it reports most problems as needing a person. That is
+> a real limit, not a rough edge. See [Fixing problems safely](docs/fixing.md)
+> and the [Roadmap](#roadmap).
 
 > **Built in collaboration with AI.** This project is developed by a human
 > author working together with Claude (Anthropic). Design decisions are made
