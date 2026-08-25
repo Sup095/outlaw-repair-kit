@@ -56,8 +56,8 @@ Download the installer for your system from the
 
 | System | File |
 | --- | --- |
-| Windows | `Outlaw Repair Kit_<version>_x64-setup.exe` |
-| Linux | `outlaw-repair-kit_<version>_amd64.AppImage` or the `.deb` |
+| Windows | `outlaw-repair-kit-<version>-x64-setup.exe`, or the `.msi` |
+| Linux | `outlaw-repair-kit-<version>-amd64.AppImage`, or the `.deb` |
 
 The desktop app includes everything the command line does.
 

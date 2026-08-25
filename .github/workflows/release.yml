@@ -92,12 +92,32 @@ jobs:
         run: |
           npm ci
           npm run tauri build
+      # Renamed on the way out. Tauri names bundles after the product, which
+      # has spaces in it, and GitHub silently rewrites spaces to dots when it
+      # publishes an asset -- so the name in SHA256SUMS would not be the name
+      # anyone can download, and the installer would ask for a file that does
+      # not exist. Deterministic, space-free names avoid the whole question.
       - name: Collect the bundles
         shell: bash
         run: |
           set -euo pipefail
+          version="${GITHUB_REF_NAME:-${{ inputs.tag }}}"
           mkdir -p desktop-artifacts
           find target/release/bundle -type f -regex '.*\.\(msi\|exe\|AppImage\|deb\)$' -exec cp {} desktop-artifacts/ ';'
+          for path in desktop-artifacts/*; do
+            case "$path" in
+              *setup.exe) name="outlaw-repair-kit-${version}-x64-setup.exe" ;;
+              *.msi)      name="outlaw-repair-kit-${version}-x64.msi" ;;
+              *.AppImage) name="outlaw-repair-kit-${version}-amd64.AppImage" ;;
+              *.deb)      name="outlaw-repair-kit-${version}-amd64.deb" ;;
+              # Anything else the bundler produced is not something this
+              # release publishes. Dropped rather than shipped under a name
+              # nobody predicted -- SHA256SUMS and the download link have to
+              # agree, always.
+              *) rm -f "$path"; continue ;;
+            esac
+            [ "$path" = "desktop-artifacts/$name" ] || mv "$path" "desktop-artifacts/$name"
+          done
           ls -la desktop-artifacts
       - uses: actions/upload-artifact@v4
         with:

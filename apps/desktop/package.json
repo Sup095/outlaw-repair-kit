@@ -1,7 +1,7 @@
 {
   "name": "outlaw-repair-kit-desktop",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Desktop front-end for the Outlaw Repair Kit.",
   "license": "MIT",
   "type": "module",

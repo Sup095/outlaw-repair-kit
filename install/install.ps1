@@ -124,13 +124,10 @@ try {
 
     if ($Desktop) {
         Write-Step "Installing the desktop app"
-        $installer = "Outlaw Repair Kit_$($Version.TrimStart('v'))_x64-setup.exe"
+        $installer = "outlaw-repair-kit-$Version-x64-setup.exe"
         $downloaded = Join-Path $work $installer
-        # The published name contains spaces, which have to be escaped in a URL
-        # even though they are fine in a file name.
-        $url = "$base/" + [Uri]::EscapeDataString($installer)
         try {
-            Invoke-WebRequest -Uri $url -OutFile $downloaded -UseBasicParsing
+            Invoke-WebRequest -Uri "$base/$installer" -OutFile $downloaded -UseBasicParsing
             Write-Host "  starting the installer -- Windows will ask you to confirm it"
             # Started, not silenced: installing an application is the user's
             # decision to confirm, not this script's to make for them.
