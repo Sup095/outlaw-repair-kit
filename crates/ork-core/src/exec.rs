@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use anyhow::Context;
-use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
+use sysinfo::{MINIMUM_CPU_UPDATE_INTERVAL, Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 
 use crate::Result;
 
@@ -33,6 +33,9 @@ pub struct LivenessPolicy {
     /// something resets this window every time it does, and may run forever.
     pub stall_window: Duration,
     /// How often to look.
+    ///
+    /// Raised to [`LivenessPolicy::minimum_poll_interval`] in practice. See
+    /// that function for why a shorter one is worse than useless.
     pub poll_interval: Duration,
 }
 
@@ -44,6 +47,25 @@ impl Default for LivenessPolicy {
             stall_window: Duration::from_secs(30),
             poll_interval: Duration::from_millis(500),
         }
+    }
+}
+
+impl LivenessPolicy {
+    /// The shortest gap between looks that still measures CPU.
+    ///
+    /// Process CPU use is a rate, worked out from the difference between two
+    /// readings. Ask again too soon and the underlying counters have not moved
+    /// enough to say anything, so a process pinned at full tilt reads as
+    /// perfectly idle -- and the supervisor concludes that the busiest process
+    /// on the machine is stuck. That is the precise opposite of what a
+    /// liveness check is for, so the interval is raised rather than obeyed.
+    pub fn minimum_poll_interval() -> Duration {
+        MINIMUM_CPU_UPDATE_INTERVAL
+    }
+
+    /// How often this policy will actually look.
+    pub fn effective_poll_interval(&self) -> Duration {
+        self.poll_interval.max(Self::minimum_poll_interval())
     }
 }
 
@@ -282,7 +304,7 @@ pub fn run_supervised(
             });
         }
 
-        std::thread::sleep(policy.poll_interval);
+        std::thread::sleep(policy.effective_poll_interval());
     }
 }
 
@@ -378,6 +400,30 @@ mod tests {
             }
             other => panic!("expected the idle process to be declared stuck, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn an_impatient_poll_interval_is_raised_to_one_that_can_see_cpu() {
+        // Asking too often reads every process as idle, which would make the
+        // supervisor kill exactly the work it exists to protect.
+        let impatient = LivenessPolicy {
+            stall_window: Duration::from_secs(2),
+            poll_interval: Duration::from_millis(1),
+        };
+        assert_eq!(
+            impatient.effective_poll_interval(),
+            LivenessPolicy::minimum_poll_interval()
+        );
+
+        let patient = LivenessPolicy {
+            stall_window: Duration::from_secs(30),
+            poll_interval: Duration::from_secs(1),
+        };
+        assert_eq!(patient.effective_poll_interval(), Duration::from_secs(1));
+        assert!(
+            LivenessPolicy::default().poll_interval >= LivenessPolicy::minimum_poll_interval(),
+            "the default policy must not need raising"
+        );
     }
 
     #[test]
