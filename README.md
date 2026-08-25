@@ -23,25 +23,28 @@ output, never the live system.
 
 ## Install
 
-Download the build for your system from the
-[latest release](https://github.com/Sup095/outlaw-repair-kit/releases/latest),
-unpack it, and run it. There is no installer and no runtime to install first --
-it is a single binary.
-
-**Windows**
+**Windows**, in PowerShell:
 
 ```powershell
-# after unpacking the .zip
-.\outlaw.exe scan
+irm https://raw.githubusercontent.com/Sup095/outlaw-repair-kit/main/install/install.ps1 | iex
 ```
 
-**Linux**
+**Linux**:
 
-```bash
-tar xzf outlaw-*-x86_64-unknown-linux-gnu.tar.gz
-cd outlaw-*-x86_64-unknown-linux-gnu
-./outlaw scan
+```sh
+curl -fsSL https://raw.githubusercontent.com/Sup095/outlaw-repair-kit/main/install/install.sh | sh
 ```
+
+The installer checks what it downloaded against the checksum published with the
+release, puts `outlaw` on your PATH without needing administrator rights, and
+asks -- rather than assumes -- whether you also want a model running on this
+machine. It prints any command it is about to run that is not its own.
+
+Or download a build from the
+[latest release](https://github.com/Sup095/outlaw-repair-kit/releases/latest)
+and run it: it is a single binary with no runtime to install first. There is a
+desktop app there too. See [Installing](docs/install.md) for every option,
+including building from source.
 
 On Linux, install `systemd`'s `journalctl` (present on most distributions) for
 the log check to see beyond the current boot. Anything missing is reported as a
@@ -84,8 +87,10 @@ you think it did.
 
 | | |
 | --- | --- |
-| [Getting started](docs/getting-started.md) | Install it and run your first scan |
+| [Installing](docs/install.md) | The installer, the desktop app, or from source |
+| [Getting started](docs/getting-started.md) | Run your first scan |
 | [Command reference](docs/commands.md) | What every command does |
+| [The desktop app](docs/desktop.md) | The window, and the start-up self-test |
 | [Setting up a model](docs/ai-setup.md) | Local, another machine, or hosted |
 | [Using another machine](docs/remote-machine.md) | Borrow a stronger computer's model |
 | [Fixing problems safely](docs/fixing.md) | What it will and will not change |

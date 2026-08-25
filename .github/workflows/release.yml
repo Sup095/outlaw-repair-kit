@@ -58,14 +58,58 @@ jobs:
             *.zip
             *.tar.gz
 
+
+  desktop:
+    name: desktop bundle ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-22.04]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # The webview the desktop app draws into is a system library on Linux,
+      # so it has to be present at build time. Windows ships one already.
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - name: Build the desktop app
+        working-directory: apps/desktop
+        run: |
+          npm ci
+          npm run tauri build
+      - name: Collect the bundles
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p desktop-artifacts
+          find target/release/bundle -type f -regex '.*\.\(msi\|exe\|AppImage\|deb\)$' -exec cp {} desktop-artifacts/ ';'
+          ls -la desktop-artifacts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: desktop-artifacts/*
+
   publish:
-    needs: build
+    needs: [build, desktop]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
           path: artifacts
+      # The installers refuse to install anything whose checksum does not match
+      # this file, so it has to be published alongside the assets it covers.
+      - name: Write checksums
+        working-directory: artifacts
+        run: sha256sum * > SHA256SUMS
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Outlaw Repair Kit",
+  "version": "0.4.0",
+  "identifier": "systems.outlaw.repairkit",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:5183",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Outlaw Repair Kit",
+        "width": 1180,
+        "height": 780,
+        "minWidth": 900,
+        "minHeight": 620,
+        "resizable": true,
+        "theme": "Dark"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.png", "icons/icon.ico"],
+    "publisher": "Outlaw Systems",
+    "copyright": "Copyright (c) 2026 Outlaw Systems",
+    "shortDescription": "Scan a computer for problems, in plain language.",
+    "longDescription": "An AI-assisted diagnostic and repair tool. It scans for hardware and software problems, explains what it found in plain language, and can attempt fixes with a snapshot taken first and a rollback on failure."
+  }
+}

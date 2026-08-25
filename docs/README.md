@@ -10,8 +10,10 @@ your machine without asking.
 
 | If you want to... | Read |
 | --- | --- |
+| Install it | [Installing](install.md) |
 | Install it and run your first scan | [Getting started](getting-started.md) |
 | Know what every command does | [Command reference](commands.md) |
+| Use the window instead of the terminal | [The desktop app](desktop.md) |
 | Have findings explained in plain language | [Setting up a model](ai-setup.md) |
 | Use a stronger computer's model from a weaker one | [Using another machine](remote-machine.md) |
 | Understand what it will and will not change | [Fixing problems safely](fixing.md) |

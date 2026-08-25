@@ -1,0 +1,162 @@
+/* The look: dark, high-contrast, amber and cyan on near-black. Rugged rather
+   than glossy -- square corners, hard edges, visible structure. The palette is
+   shared with the terminal boot screen so the two front-ends feel like one
+   tool. */
+
+:root {
+  --bg: #0a0c10;
+  --bg-panel: #11141b;
+  --bg-raised: #171b24;
+  --line: #232a36;
+  --line-bright: #35405280;
+  --text: #d8dee9;
+  --text-dim: #8792a5;
+  --amber: #ffb000;
+  --amber-dim: #a87400;
+  --cyan: #22e0e2;
+  --green: #4ade80;
+  --yellow: #fbbf24;
+  --red: #ff4d5e;
+  --mono: "Cascadia Mono", "JetBrains Mono", "DejaVu Sans Mono", Consolas, monospace;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.5;
+  /* A faint scanline wash. Subtle enough to read through all day. */
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.014) 0px,
+    rgba(255, 255, 255, 0.014) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+h1,
+h2,
+h3 {
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 12px;
+  transition: border-color 120ms, color 120ms, background 120ms;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+button.primary {
+  border-color: var(--amber-dim);
+  color: var(--amber);
+}
+
+button.primary:hover:not(:disabled) {
+  background: #1d1708;
+}
+
+button.danger:hover:not(:disabled) {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  padding: 0.35rem 0.5rem;
+  width: 100%;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--cyan);
+}
+
+code {
+  color: var(--cyan);
+}
+
+a {
+  color: var(--cyan);
+}
+
+.dim {
+  color: var(--text-dim);
+}
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--line);
+  padding: 1rem 1.15rem;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--amber-dim);
+}
+
+::selection {
+  background: var(--amber);
+  color: #000;
+}
+
+/* Anyone who has asked their system not to animate things gets a still
+   screen. The boot sequence still runs; it just stops moving. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
