@@ -19,6 +19,32 @@ output, never the live system.
 > jointly and reviewed by a human; a substantial portion of the code is
 > AI-written. See [Built in collaboration with AI](#built-in-collaboration-with-ai).
 
+## Install
+
+Download the build for your system from the
+[latest release](https://github.com/Sup095/outlaw-repair-kit/releases/latest),
+unpack it, and run it. There is no installer and no runtime to install first --
+it is a single binary.
+
+**Windows**
+
+```powershell
+# after unpacking the .zip
+.\outlaw.exe scan
+```
+
+**Linux**
+
+```bash
+tar xzf outlaw-*-x86_64-unknown-linux-gnu.tar.gz
+cd outlaw-*-x86_64-unknown-linux-gnu
+./outlaw scan
+```
+
+On Linux, install `systemd`'s `journalctl` (present on most distributions) for
+the log check to see beyond the current boot. Anything missing is reported as a
+skipped check with the reason, never as a silent gap.
+
 ## What works today
 
 ```bash
@@ -77,9 +103,9 @@ cargo test
 
 ## Roadmap
 
-1. **Diagnostic core, Quick tier** -- in progress. Disk space lands first;
-   process inspection, recent log errors, driver and package sanity, and
-   application smoke-tests are next.
+1. **Diagnostic core, Quick tier** -- in progress. Disk space, memory
+   pressure, and system log correlation are done. Process inspection, driver
+   and package sanity, and application smoke-tests are next.
 2. **Model router and AI analysis** -- a remote endpoint over a private
    network, a local model sized to available VRAM, or a cloud API, in that
    order, with a manual override.
