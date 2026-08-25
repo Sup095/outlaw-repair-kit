@@ -16,7 +16,7 @@ use crate::render::wrap;
 use crate::style::{bold, dim, severity_label};
 
 /// Where the queue, history, and audit log are kept.
-fn state_dir() -> Result<std::path::PathBuf> {
+pub(crate) fn state_dir() -> Result<std::path::PathBuf> {
     let path = Config::default_path()?;
     Ok(path
         .parent()

@@ -20,6 +20,7 @@ your machine without asking.
 | Understand what it will and will not change | [Fixing problems safely](fixing.md) |
 | Teach it about a problem it does not know | [Writing runbooks](runbooks.md) |
 | Work out why something is not working | [Troubleshooting](troubleshooting.md) |
+| Report a crash or an error | [Reporting a problem](reporting.md) |
 | See how the pieces fit together | [Architecture](architecture.md) |
 
 ## The short version

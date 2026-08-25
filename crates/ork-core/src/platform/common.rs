@@ -290,6 +290,54 @@ pub fn detect_gpus() -> Vec<GpuInfo> {
     Vec::new()
 }
 
+/// Hand a link to whatever the user normally opens links with.
+///
+/// Spawned and let go rather than waited on: a browser started from here can
+/// live for hours, and the tool has no business holding on to it. Failing to
+/// open is not fatal anywhere it is used -- the link is always printed as
+/// well, so the worst case is somebody copying it themselves.
+///
+/// Only `http` and `https` links are accepted. Anything else could name a
+/// local program or a protocol handler, and "open whatever this text says" is
+/// not a thing a diagnostic tool should be able to do.
+pub fn open_url(url: &str) -> Result<()> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) {
+        anyhow::bail!("refusing to open {url}: only http and https links are opened");
+    }
+
+    #[cfg(windows)]
+    let mut command = {
+        // Not `cmd /c start`: `cmd` treats `&` in a URL as a command
+        // separator, which silently cuts a query string in half and would run
+        // whatever followed it.
+        let mut command = std::process::Command::new("rundll32.exe");
+        command.arg("url.dll,FileProtocolHandler").arg(url);
+        command
+    };
+
+    #[cfg(target_os = "macos")]
+    let mut command = {
+        let mut command = std::process::Command::new("open");
+        command.arg(url);
+        command
+    };
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let mut command = {
+        let mut command = std::process::Command::new("xdg-open");
+        command.arg(url);
+        command
+    };
+
+    command
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map(|_| ())
+        .map_err(|error| anyhow::anyhow!("could not open a browser: {error}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -300,6 +348,22 @@ mod tests {
         assert!(is_pseudo_filesystem("TmpFS"));
         assert!(!is_pseudo_filesystem("ext4"));
         assert!(!is_pseudo_filesystem("NTFS"));
+    }
+
+    #[test]
+    fn only_web_links_are_ever_opened() {
+        // "Open whatever this text says" would let a crafted link name a
+        // local program or a protocol handler.
+        for url in [
+            "file:///etc/passwd",
+            "javascript:alert(1)",
+            "ms-settings:privacy",
+            "steam://run/570",
+            "notepad.exe",
+            "",
+        ] {
+            assert!(open_url(url).is_err(), "{url} was accepted");
+        }
     }
 
     #[test]

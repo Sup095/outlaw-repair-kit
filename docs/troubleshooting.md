@@ -172,15 +172,46 @@ audit log; nothing else is affected.
 
 ## Reporting a bug
 
-Please include:
+```bash
+outlaw report --open
+```
+
+That builds a report from the errors and crashes recorded on your machine,
+shows you exactly what it would post with personal details already removed, and
+opens GitHub's issue form with it filled in. Nothing is sent until you press the
+button on that page yourself. In the window, it is the **Report a problem**
+screen.
+
+If you can make the problem happen again, do it with backtraces on first -- a
+crash with frames in it is worth several without:
+
+```bash
+RUST_BACKTRACE=1 outlaw scan
+outlaw report --open
+```
+
+For something the tool did not notice as an error -- a wrong answer, a missing
+check, a confusing message -- `outlaw report` still gives you a form with the
+version and machine details filled in, and you can describe the rest.
+
+These are worth attaching to almost any report:
 
 ```bash
 outlaw host --json
 outlaw probes --json
+```
+
+A full debug log is more than a report normally needs, but if one is asked for:
+
+```bash
 ORK_LOG=debug outlaw scan 2> scan-log.txt
 ```
 
-Check `scan-log.txt` before attaching it -- it contains hostnames, drive
-layouts, and log excerpts from your machine.
+Read `scan-log.txt` before attaching it. Unlike `outlaw report`, **it is not
+redacted** -- it contains hostnames, drive layouts, and log excerpts from your
+machine exactly as they were.
 
-Issues: https://github.com/Sup095/outlaw-repair-kit/issues
+See [Reporting a problem](reporting.md) for what the redactor removes and what
+it deliberately leaves alone.
+
+Issues: <https://github.com/Sup095/outlaw-repair-kit/issues>

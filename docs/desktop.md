@@ -62,6 +62,7 @@ outlaw boot
 | **Machines** | Pair with another computer so one can lend the other a model, and see what is wrong over there |
 | **Settings** | Everything you would otherwise hand-edit a file for: routing, endpoints, API keys |
 | **Audit** | Everything checked, found, attempted, and changed |
+| **Report a problem** | Turn a crash or an error into an issue you can post |
 
 ### Stopping a scan
 
@@ -123,6 +124,23 @@ outlaw fix --apply  # confirms each change individually before making it
 
 See [fixing.md](fixing.md) for what happens between the confirmation and the
 result: the snapshot, the test, and the rollback when the test does not pass.
+
+## Reporting a problem
+
+A window has no terminal behind it, so a crash there would otherwise leave
+nothing at all. Errors and crashes are recorded to a file as they happen, and
+the **Report a problem** screen turns that record into something postable.
+
+What it shows is exactly what would be posted, with personal details already
+taken out — home directory paths, account and machine names, email and network
+addresses, and anything shaped like a key. **The text is editable**, and what
+gets carried into the issue form is what is on screen when you press the button,
+not what the tool generated. There is also a folded-away view of the raw record
+so you can see what the report was built from.
+
+**Nothing is sent for you.** The button opens GitHub's issue form with the text
+filled in; you read it and press Submit there. See
+[Reporting a problem](reporting.md).
 
 ## Building it yourself
 

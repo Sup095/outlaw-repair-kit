@@ -376,6 +376,8 @@ impl ServiceStatus {
 ///
 /// Returns an error rather than panicking on an unsupported OS, so a
 /// front-end can report it as a normal failure.
+pub use common::open_url;
+
 pub fn detect() -> Result<Arc<dyn Platform>> {
     #[cfg(target_os = "windows")]
     {

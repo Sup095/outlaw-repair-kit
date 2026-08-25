@@ -9,6 +9,7 @@ mod boot;
 mod fix;
 mod link;
 mod render;
+mod report;
 mod style;
 
 use anyhow::Result;
@@ -71,6 +72,24 @@ enum Command {
         /// How many entries to show.
         #[arg(long, default_value = "40")]
         limit: usize,
+    },
+    /// Turn a crash or an error into a bug report you can post.
+    ///
+    /// Shows exactly what would be posted, with personal details removed, and
+    /// gives you a link that opens the form already filled in. Nothing is ever
+    /// sent for you.
+    Report {
+        /// Open the prefilled issue form in a browser.
+        #[arg(long)]
+        open: bool,
+
+        /// Also write the report to a file.
+        #[arg(long, value_name = "PATH")]
+        save: Option<std::path::PathBuf>,
+
+        /// Forget everything recorded so far, and report nothing.
+        #[arg(long)]
+        clear: bool,
     },
     /// Show where settings live and what they currently say.
     Config,
@@ -149,18 +168,54 @@ enum LinkAction {
     },
 }
 
+/// Set up logging, and start keeping a record of anything that goes wrong.
+///
+/// The console filter is attached to the console layer alone, so how chatty
+/// somebody asked the terminal to be has no bearing on what gets recorded. An
+/// error worth reporting is worth recording whether or not it was printed.
+fn start_recording(level: &str) {
+    use tracing_subscriber::Layer as _;
+    use tracing_subscriber::layer::SubscriberExt;
+    use tracing_subscriber::util::SubscriberInitExt;
+
+    let filter = tracing_subscriber::EnvFilter::try_from_env("ORK_LOG")
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(level));
+
+    let state_dir = fix::state_dir().ok();
+    if let Some(dir) = state_dir.clone() {
+        ork_core::incident::catch_crashes(dir);
+    }
+
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(std::io::stderr)
+                .with_filter(filter),
+        )
+        .with(state_dir.map(ork_core::incident::IncidentLayer::new))
+        .init();
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_env("ORK_LOG")
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(&cli.log)),
-        )
-        .with_writer(std::io::stderr)
-        .init();
+    start_recording(&cli.log);
 
+    let outcome = dispatch(cli).await;
+
+    // A command that fails is exactly the thing worth reporting, and until
+    // this point nothing had recorded it: an error returned up the stack is
+    // printed by the caller, never logged, so the layer above never saw it.
+    // Recorded here as an error like any other, so there is one path in.
+    if let Err(error) = &outcome {
+        tracing::error!(target: "outlaw::command", "{error:#}");
+        report::hint_if_anything_recorded();
+    }
+    outcome
+}
+
+async fn dispatch(cli: Cli) -> Result<()> {
     match cli.command {
         Command::Link { action } => match action {
             None => link::show(cli.json, false).await,
@@ -202,6 +257,7 @@ async fn main() -> Result<()> {
             fix::work_queue(apply, cli.json).await
         }
         Command::Audit { limit } => fix::show_audit(limit, cli.json),
+        Command::Report { open, save, clear } => report::run(open, save, clear, cli.json),
         Command::Config => ai::show_config(cli.json),
         Command::SetKey { which, remove } => {
             if remove {

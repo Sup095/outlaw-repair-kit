@@ -116,8 +116,39 @@ export const api = {
   linkRemove: (name: string) => invoke<number>("link_remove", { name }),
   linkView: (name?: string) => invoke<any>("link_view", { name }),
   linkCheck: (name: string) => invoke<any>("link_check", { name }),
+  reportBuild: () => invoke<ProblemReport>("report_build"),
+  reportIncidents: (limit: number) => invoke<Incident[]>("report_incidents", { limit }),
+  // Sends what the window is showing, not what the backend generated, so an
+  // edit made here is what gets carried into the form.
+  reportOpenIssue: (title: string, body: string) =>
+    invoke<string>("report_open_issue", { title, body }),
+  reportOpenForm: () => invoke<string>("report_open_form"),
+  reportSave: (body: string) => invoke<string>("report_save", { body }),
+  reportClear: () => invoke<void>("report_clear"),
   audit: (limit: number) => invoke<{ at: string; kind: string; message: string }[]>("audit_list", { limit }),
 };
+
+/// One thing that went wrong, as it was recorded at the time.
+export interface Incident {
+  at: string;
+  kind: "error" | "panic";
+  source: string;
+  message: string;
+  location?: string | null;
+  backtrace?: string | null;
+}
+
+/// A finished bug report. `body` is already redacted and is exactly what would
+/// be posted.
+export interface ProblemReport {
+  title: string;
+  body: string;
+  incident_count: number;
+  includes_crash: boolean;
+  /// Absent when the report is too long to carry in a link.
+  issue_url: string | null;
+  issue_form_url: string;
+}
 
 export function onBootEvent(handler: (event: BootEvent) => void): Promise<UnlistenFn> {
   return listen<BootEvent>("boot://event", (message) => handler(message.payload));

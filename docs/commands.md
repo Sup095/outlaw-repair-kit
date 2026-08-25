@@ -185,6 +185,25 @@ outlaw audit --json
 
 ---
 
+## `outlaw report`
+
+Turn a crash or an error into a bug report you can post.
+
+```bash
+outlaw report                    # show what would be posted, and the link
+outlaw report --open             # also open the form in a browser
+outlaw report --save report.md   # also write it to a file
+outlaw report --clear            # forget everything recorded so far
+outlaw report --json
+```
+
+Shows the finished report first, with personal details already removed, and
+then gives you a link that opens GitHub's issue form with it filled in. **It
+never posts anything** — you press the button on that page yourself. See
+[Reporting a problem](reporting.md) for exactly what is removed and why.
+
+---
+
 ## Scripting
 
 Every command has a `--json` form, because nothing in the interface is allowed

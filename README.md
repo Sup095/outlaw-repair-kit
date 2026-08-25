@@ -73,6 +73,7 @@ outlaw models           # which model would be used, and why
 outlaw config           # where settings live and what they say
 outlaw link             # pair with another computer to borrow its model
 outlaw boot             # self-test and update check
+outlaw report           # turn a crash or an error into a bug report
 ```
 
 There is a desktop app too, with the same abilities and a **Machines** screen
@@ -117,6 +118,7 @@ you think it did.
 | [Fixing problems safely](docs/fixing.md) | What it will and will not change |
 | [Writing runbooks](docs/runbooks.md) | Teach it about a problem it does not know |
 | [Troubleshooting](docs/troubleshooting.md) | When something is not working |
+| [Reporting a problem](docs/reporting.md) | Turn a crash into an issue, with your details taken out |
 | [Architecture](docs/architecture.md) | How the pieces fit together |
 
 ## Explaining findings

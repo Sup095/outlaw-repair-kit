@@ -17,6 +17,7 @@
 pub mod config;
 pub mod exec;
 pub mod finding;
+pub mod incident;
 pub mod launch;
 pub mod platform;
 pub mod probe;
@@ -33,5 +34,33 @@ pub use probe::{Probe, ProbeContext, ProbeMeta, ProbeOutcome, SkipReason};
 pub use scan::{ScanReport, Scanner};
 pub use tier::ScanTier;
 
+/// Where this project lives.
+///
+/// One constant, in the crate every front-end already depends on, because
+/// this address is used by the update check, the bug reporter, and the
+/// documentation links -- and three copies of it is three chances for one to
+/// go stale after a move.
+pub const REPOSITORY: &str = "https://github.com/Sup095/outlaw-repair-kit";
+
+/// Owner and name, for building API addresses.
+pub const REPOSITORY_SLUG: &str = "Sup095/outlaw-repair-kit";
+
 /// Result type used throughout the core.
 pub type Result<T> = anyhow::Result<T>;
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn the_two_forms_of_the_repository_address_agree() {
+        // They are used to build different kinds of link, and a mismatch
+        // would send the update check and the bug reporter to two different
+        // projects.
+        assert!(
+            super::REPOSITORY.ends_with(super::REPOSITORY_SLUG),
+            "{} does not end with {}",
+            super::REPOSITORY,
+            super::REPOSITORY_SLUG
+        );
+        assert!(super::REPOSITORY.starts_with("https://"));
+    }
+}

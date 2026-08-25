@@ -6,10 +6,13 @@
   import MachinesView from "./lib/MachinesView.svelte";
   import SettingsView from "./lib/SettingsView.svelte";
   import AuditView from "./lib/AuditView.svelte";
+  import ReportView from "./lib/ReportView.svelte";
   import type { BootReport } from "./lib/api";
 
   let booted = $state<BootReport | null>(null);
-  let view = $state<"scan" | "queue" | "models" | "machines" | "settings" | "audit">("scan");
+  let view = $state<
+    "scan" | "queue" | "models" | "machines" | "settings" | "audit" | "report"
+  >("scan");
   let updateDismissed = $state(false);
 
   const tabs = [
@@ -19,6 +22,7 @@
     { id: "machines", label: "Machines" },
     { id: "settings", label: "Settings" },
     { id: "audit", label: "Audit" },
+    { id: "report", label: "Report a problem" },
   ] as const;
 
   const warnings = $derived(
@@ -70,8 +74,10 @@
         <MachinesView />
       {:else if view === "settings"}
         <SettingsView />
-      {:else}
+      {:else if view === "audit"}
         <AuditView />
+      {:else}
+        <ReportView />
       {/if}
     </main>
 

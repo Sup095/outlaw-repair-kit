@@ -14,7 +14,14 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 /// Where release information is read from.
-const RELEASES_URL: &str = "https://api.github.com/repos/Sup095/outlaw-repair-kit/releases/latest";
+/// Built from the address in the core, so a move only has to be recorded in
+/// one place.
+fn releases_url() -> String {
+    format!(
+        "https://api.github.com/repos/{}/releases/latest",
+        ork_core::REPOSITORY_SLUG
+    )
+}
 
 /// The version this binary was built as.
 pub const CURRENT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -85,7 +92,7 @@ async fn try_check() -> anyhow::Result<UpdateStatus> {
         .build()?;
 
     let response = client
-        .get(RELEASES_URL)
+        .get(releases_url())
         .header("Accept", "application/vnd.github+json")
         .send()
         .await?
@@ -108,7 +115,7 @@ fn compare(current: &str, release: &Release) -> UpdateStatus {
             current: current.to_string(),
             latest: latest.to_string(),
             url: if release.html_url.is_empty() {
-                "https://github.com/Sup095/outlaw-repair-kit/releases".to_string()
+                format!("{}/releases", ork_core::REPOSITORY)
             } else {
                 release.html_url.clone()
             },
