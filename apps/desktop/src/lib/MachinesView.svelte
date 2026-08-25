@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { api, type Discovered } from "./api";
+  import { onMount } from "svelte";
+  import { api, onLinkEvent, type Discovered, type LinkEvent } from "./api";
 
   let status = $state<any | null>(null);
   let found = $state<Discovered[]>([]);
@@ -9,6 +10,26 @@
   let error = $state<string | null>(null);
   let notice = $state<string | null>(null);
   let viewing = $state<any | null>(null);
+  let activity = $state<string[]>([]);
+
+  onMount(() => {
+    let unlisten: (() => void) | undefined;
+    (async () => {
+      unlisten = await onLinkEvent((event: LinkEvent) => {
+        const line =
+          event.event === "linked"
+            ? `${event.name} linked — it can now ask this machine to run its model`
+            : event.event === "wrong-code"
+              ? event.attempts_left === 0
+                ? "Too many wrong codes — pairing closed. Show a new code to try again."
+                : `Wrong pairing code — ${event.attempts_left} attempt(s) left`
+              : `Running the model for ${event.name}`;
+        activity = [...activity, line].slice(-5);
+        if (event.event === "linked") load();
+      });
+    })();
+    return () => unlisten?.();
+  });
 
   async function load() {
     try {
@@ -109,6 +130,11 @@
         {status.hosting.pairing_open ? "A pairing code is showing." : "The code has been used or has expired."}
       </p>
       <button class="danger" onclick={stopHosting}>Stop lending</button>
+      {#if activity.length}
+        <div class="activity">
+          {#each activity as line, index (line + index)}<div>{line}</div>{/each}
+        </div>
+      {/if}
     {:else}
       <p class="dim">
         Start this, then type the code it shows on the other machine. It lasts ten
@@ -196,6 +222,14 @@
     letter-spacing: 0.25em;
     color: var(--amber);
     text-shadow: 0 0 18px rgba(255, 176, 0, 0.4);
+  }
+  .activity {
+    border-left: 2px solid var(--line);
+    padding-left: 0.8rem;
+    display: grid;
+    gap: 0.2rem;
+    font-size: 12px;
+    color: var(--cyan);
   }
   .row { display: flex; align-items: center; gap: 0.8rem; font-size: 12.5px; }
   .found {

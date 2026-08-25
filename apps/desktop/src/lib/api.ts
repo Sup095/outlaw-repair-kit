@@ -118,6 +118,15 @@ export function onBootEvent(handler: (event: BootEvent) => void): Promise<Unlist
   return listen<BootEvent>("boot://event", (message) => handler(message.payload));
 }
 
+export type LinkEvent =
+  | { event: "linked"; name: string }
+  | { event: "wrong-code"; attempts_left: number }
+  | { event: "model-requested"; name: string };
+
+export function onLinkEvent(handler: (event: LinkEvent) => void): Promise<UnlistenFn> {
+  return listen<LinkEvent>("link://event", (message) => handler(message.payload));
+}
+
 export function onScanEvent(handler: (event: ScanEvent) => void): Promise<UnlistenFn> {
   return listen<ScanEvent>("scan://event", (message) => handler(message.payload));
 }

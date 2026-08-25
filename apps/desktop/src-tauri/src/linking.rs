@@ -11,7 +11,7 @@ use ork_link::client::{self, LinkClient};
 use ork_link::peer::PeerBook;
 use ork_link::server::{HostState, serve};
 use ork_link::{DEFAULT_PORT, PairingCode, discovery};
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
 
 use crate::commands::{AppState, CmdResult, fail};
 
@@ -68,6 +68,7 @@ pub fn link_status(state: State<'_, AppState>) -> CmdResult<serde_json::Value> {
 /// Start lending this machine's model, and show a pairing code.
 #[tauri::command]
 pub async fn link_host_start(
+    app: AppHandle,
     state: State<'_, AppState>,
     port: Option<u16>,
     model_url: Option<String>,
@@ -99,6 +100,18 @@ pub async fn link_host_start(
     let machine_name = book.machine_name.clone();
     let host = Arc::new(HostState::new(book, path, upstream));
     let code = host.open_pairing();
+
+    // The window shows what happens as it happens: a machine linking, a wrong
+    // code being tried, a model being run for somebody. Otherwise the screen
+    // sits there while somebody in the next room types the code.
+    let mut events = host.events();
+    tokio::spawn(async move {
+        while let Some(event) = events.recv().await {
+            if let Err(error) = app.emit("link://event", &event) {
+                tracing::debug!(%error, "could not deliver a link event");
+            }
+        }
+    });
 
     let (stop, stopped) = tokio::sync::oneshot::channel();
     let serving = host.clone();
