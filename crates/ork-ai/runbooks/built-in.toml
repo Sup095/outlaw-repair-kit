@@ -470,3 +470,70 @@ invasiveness = "inspect"
 [[entry.fixes]]
 description = "Reinstall or roll back the driver for this device."
 invasiveness = "high"
+
+[[entry]]
+id = "storage.drive-failing"
+title = "A drive says it is failing"
+finding_ids = ["storage.drive-failing"]
+keywords = ["smart", "failing", "disk", "drive"]
+explanation = """
+This is the drive's own assessment of itself, not a guess made from the outside. \
+Its firmware tracks reallocated sectors, failed writes, and error rates against \
+thresholds the manufacturer set, and it has decided it is no longer reliable. \
+Drives that reach this point sometimes run for months and sometimes stop the same \
+day; there is no way to tell which from here.
+
+Two things follow from that. Get the data off first -- before diagnosing, before \
+repairing, before anything. And do not run a surface scan or a repair tool on it \
+in the meantime: those read the whole disk hard, which is exactly the load most \
+likely to finish it off, and they cannot fix a drive that has already exhausted its \
+spare sectors."""
+
+[[entry.fixes]]
+description = "Copy anything you care about off this drive now. A backup taken from a failing drive is worth more than any diagnosis of it."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "Once the data is safe, look at the drive's full report to see how far along it is."
+invasiveness = "inspect"
+command = "smartctl -a /dev/sda"
+platforms = ["linux"]
+
+[[entry.fixes]]
+description = "Once the data is safe, look at the drive's reliability counters. This needs an administrator terminal."
+invasiveness = "inspect"
+command = "Get-PhysicalDisk | Get-StorageReliabilityCounter"
+platforms = ["windows"]
+
+[[entry.fixes]]
+description = "Replace the drive. A drive that has failed its own self-assessment does not recover, and nothing you run on it will change that."
+invasiveness = "high"
+
+[[entry]]
+id = "storage.drive-warning"
+title = "A drive is reporting a problem"
+finding_ids = ["storage.drive-warning"]
+keywords = ["smart", "disk", "drive", "warning"]
+explanation = """
+The drive has not declared itself failing, but something is wrong enough for it to \
+say so. This covers two quite different situations, and the details on the finding \
+say which.
+
+A drive reporting a fault it then recovers from is common -- a cable that is not \
+seated properly, a controller that reset, a power interruption during a write. A \
+drive reporting a fault that gets worse between scans is the early part of the \
+previous entry. The way to tell them apart is to look again in a few days, which \
+is why the first thing to do is make sure you have a backup and the second is to \
+note where it is now."""
+
+[[entry.fixes]]
+description = "Make sure you have a current backup of this drive before investigating anything."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "Check the cabling and the power connection. A drive reported as healthy but unusable is very often a connection rather than the drive."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "Note the reallocated-sector and error counts on the finding, then scan again in a few days. A number that has not moved is a different problem from one that has."
+invasiveness = "inspect"

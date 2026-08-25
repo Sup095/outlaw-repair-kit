@@ -38,10 +38,20 @@ automatically.
 **Exit codes:** `0` nothing serious, `2` at least one high or critical finding,
 `1` the scan itself failed. Useful in scheduled tasks.
 
-> `full` adds the application launch test, which starts catalogued
-> applications such as Steam and closes them again -- which is why it is not
-> part of a quick scan. `deep` currently runs the same checks as `full`; the
-> stress and burn-in tests for that tier are not built yet.
+> `full` adds two things. **Disk health** asks every drive whether it considers
+> itself healthy -- cheap, but not something a quick look-around should be
+> telling you in passing. And the **application launch test** starts catalogued
+> applications such as Steam and closes them again, which is the reason it is
+> not part of a quick scan.
+>
+> On Linux, disk health needs `smartmontools` installed and root, because
+> talking to a drive means talking to the device node. Without both, the check
+> is skipped **with the reason shown** rather than quietly returning nothing --
+> a scan that could not look at your disks must not read as a clean bill of
+> health.
+>
+> `deep` currently runs the same checks as `full`; the stress and burn-in tests
+> for that tier are not built yet.
 
 ---
 

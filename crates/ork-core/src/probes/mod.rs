@@ -7,6 +7,7 @@
 
 pub mod apps;
 pub mod devices;
+pub mod disk_health;
 pub mod disk_space;
 pub mod launchers;
 pub mod logs;
@@ -28,6 +29,12 @@ pub fn default_registry() -> Vec<Box<dyn Probe>> {
         Box::new(processes::ProcessesProbe),
         Box::new(devices::DeviceHealthProbe),
         Box::new(services::FailedServicesProbe),
+        // Asking the drives about themselves. Cheap, but only in a Full scan:
+        // "your disk is dying" is not a thing to tell somebody in passing.
+        // Two probes, one per platform, because the two need different
+        // permissions to answer the same question.
+        Box::new(disk_health::DiskHealthProbe),
+        Box::new(disk_health::SmartHealthProbe),
         // Launch tests start real programs, so they go after everything
         // that only observes.
         Box::new(apps::AppLaunchProbe),

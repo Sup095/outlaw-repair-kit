@@ -8,6 +8,7 @@
 //! the seam stays, the duplication does not.
 
 pub(crate) mod common;
+pub mod disks;
 mod services;
 
 #[cfg(target_os = "linux")]

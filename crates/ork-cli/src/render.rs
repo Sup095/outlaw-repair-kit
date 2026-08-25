@@ -1,7 +1,7 @@
 //! Turning core types into something a person can read.
 
 use anyhow::Result;
-use ork_core::probe::ProbeStatus;
+use ork_core::probe::{ProbeStatus, SkipReason};
 use ork_core::scan::{ScanEvent, ScanReport};
 use ork_core::util::format_bytes;
 
@@ -87,7 +87,21 @@ pub fn report(report: &ScanReport) {
         }
     }
 
-    let skipped: Vec<_> = report.skipped().collect();
+    // A check that does not exist on this operating system is not a gap in
+    // what was looked at -- it is the same question asked a different way,
+    // and the other half of the pair ran. It is still reported on its own
+    // line as the scan goes past, so nothing is hidden; it is only kept out
+    // of the summary, which is there to list what could have been checked on
+    // *this* machine and was not.
+    let skipped: Vec<_> = report
+        .skipped()
+        .filter(|outcome| {
+            !matches!(
+                &outcome.status,
+                ProbeStatus::Skipped(SkipReason::UnsupportedPlatform { .. })
+            )
+        })
+        .collect();
     if !skipped.is_empty() {
         println!(
             "{}",

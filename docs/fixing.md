@@ -130,6 +130,19 @@ describes them, and it grows as verifiers are written.
 | An installed program fails or hangs when run | It is asked to report itself again, the same way |
 | Steam will not start | Steam is started, and watched |
 
+### Some things are deliberately not on that list
+
+A failing drive has no entry and never will. There is no change to a disk that
+makes it un-fail, and every operation that looks like one -- a surface scan, a
+repair pass, a reallocation sweep -- reads the whole drive hard, which is the
+load most likely to finish it off. The tool reports it, explains what it means,
+and tells you to copy your data off before doing anything else. That is the
+correct answer, not a missing feature.
+
+The same reasoning covers anything where the honest fix is a decision rather
+than a command. A verifier that cannot exist is not written, because the engine
+would then be willing to make a change it could not check.
+
 **Every verifier re-runs the same test that found the problem.** That sounds
 obvious and is easy to get wrong: if the check that finds a fault and the check
 that declares it repaired are different tests, then "fixed" quietly comes to
