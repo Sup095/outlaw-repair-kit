@@ -43,6 +43,32 @@ impl LinkClient {
         &self.token
     }
 
+    /// What is wrong with the machine at the other end.
+    ///
+    /// Read-only. This answers "what is going on over there", which is the
+    /// question you have when the other computer is somewhere you are not.
+    /// Doing something about it is a job for that machine's own keyboard.
+    pub async fn status(&self) -> Result<Value> {
+        let response = self
+            .http
+            .get(format!("{}/ork/v1/status", self.base))
+            .bearer_auth(&self.token)
+            .timeout(std::time::Duration::from_secs(15))
+            .send()
+            .await
+            .context("that machine did not answer")?;
+
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            anyhow::bail!("that machine no longer recognises this one -- link them again");
+        }
+        response
+            .error_for_status()
+            .context("that machine answered with an error")?
+            .json()
+            .await
+            .context("that machine answered with something unreadable")
+    }
+
     /// Ask the peer who it is. The cheapest way to find out whether a link
     /// still works.
     pub async fn hello(&self) -> Result<Value> {

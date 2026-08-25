@@ -41,7 +41,7 @@
       <div class="body">
         <strong>{item.title}</strong>
         <div class="dim">{item.subject ?? item.finding_id}</div>
-        <p>{item.finding?.summary ?? ""}</p>
+        <p>{item.finding?.detail ?? ""}</p>
       </div>
       <div class="side dim">
         <div>{item.state}</div>

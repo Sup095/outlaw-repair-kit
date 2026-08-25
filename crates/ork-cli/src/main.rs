@@ -137,6 +137,11 @@ enum LinkAction {
     },
     /// Ask every linked machine whether it is still answering.
     Check,
+    /// See what is wrong with a linked machine, without touching it.
+    View {
+        /// Which machine. The first linked one if left out.
+        name: Option<String>,
+    },
     /// Cut a link and forget its token.
     Remove {
         /// The machine's name, or its id.
@@ -165,6 +170,7 @@ async fn main() -> Result<()> {
             Some(LinkAction::Join { code, at, port }) => link::join(code, at, port).await,
             Some(LinkAction::Find { port }) => link::find(port, cli.json).await,
             Some(LinkAction::Check) => link::show(cli.json, true).await,
+            Some(LinkAction::View { name }) => link::view(name, cli.json).await,
             Some(LinkAction::Remove { name }) => link::remove(&name),
         },
         Command::Boot => {

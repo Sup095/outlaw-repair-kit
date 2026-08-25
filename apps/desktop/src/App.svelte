@@ -3,18 +3,20 @@
   import ScanView from "./lib/ScanView.svelte";
   import QueueView from "./lib/QueueView.svelte";
   import ModelsView from "./lib/ModelsView.svelte";
+  import MachinesView from "./lib/MachinesView.svelte";
   import SettingsView from "./lib/SettingsView.svelte";
   import AuditView from "./lib/AuditView.svelte";
   import type { BootReport } from "./lib/api";
 
   let booted = $state<BootReport | null>(null);
-  let view = $state<"scan" | "queue" | "models" | "settings" | "audit">("scan");
+  let view = $state<"scan" | "queue" | "models" | "machines" | "settings" | "audit">("scan");
   let updateDismissed = $state(false);
 
   const tabs = [
     { id: "scan", label: "Scan" },
     { id: "queue", label: "Queue" },
     { id: "models", label: "Models" },
+    { id: "machines", label: "Machines" },
     { id: "settings", label: "Settings" },
     { id: "audit", label: "Audit" },
   ] as const;
@@ -64,6 +66,8 @@
         <QueueView />
       {:else if view === "models"}
         <ModelsView />
+      {:else if view === "machines"}
+        <MachinesView />
       {:else if view === "settings"}
         <SettingsView />
       {:else}

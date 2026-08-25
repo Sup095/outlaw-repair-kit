@@ -111,6 +111,20 @@ tunnel — and then you type its address once with `--at`. See
 
 Linking does not replace that. It removes it from the common case.
 
+## Seeing what is wrong over there
+
+```bash
+outlaw link view            # the first linked machine
+outlaw link view main-pc    # a particular one
+```
+
+This is the "that computer is across town and something is wrong with it" case.
+It shows what that machine is, and what its scan left waiting in its queue.
+
+It is read-only, and that is the end of it: there is no route in the link that
+changes the machine at the other end. Fixing happens at that machine's own
+keyboard.
+
 ## Seeing and cutting links
 
 ```bash
@@ -134,6 +148,12 @@ It is not a new tier and not a new code path:
 
 An endpoint you set by hand always wins over a link. If you typed an address
 into your settings, you meant it.
+
+## From the window
+
+The desktop app has a **Machines** screen that does all of this: show a pairing
+code, find machines on the network, link, check, view, and unlink. Nobody
+should have to open a terminal to pair two computers.
 
 ## Options
 

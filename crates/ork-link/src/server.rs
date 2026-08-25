@@ -8,6 +8,7 @@
 //! | `GET /ork/v1/hello` | Says who this machine is |
 //! | `GET /ork/v1/models` | Lists the models it can run |
 //! | `POST /ork/v1/chat/completions` | Runs one |
+//! | `GET /ork/v1/status` | Says what is wrong with this machine |
 //!
 //! There is no route that changes this machine. That is the security model:
 //! not a permission that could be granted later, but a capability that was
@@ -250,12 +251,66 @@ async fn forward(state: &HostState, path: &str, body: Option<Value>) -> axum::re
     }
 }
 
+/// What is wrong with this machine, for a linked machine to read.
+///
+/// Read-only, and deliberately so. This is the "my other computer is across
+/// town and will not boot properly" case: you can see what it found, and then
+/// you go and deal with it. Nothing here offers to deal with it for you.
+async fn handle_status(
+    State(state): State<Arc<HostState>>,
+    headers: HeaderMap,
+) -> axum::response::Response {
+    if bearer(&headers).and_then(|token| state.authorised(&token)).is_none() {
+        return refuse(StatusCode::UNAUTHORIZED, "not linked to this machine");
+    }
+
+    let (_, host_name) = state.machine();
+    let host = ork_core::platform::detect().ok().and_then(|platform| platform.host().ok());
+
+    // A missing queue is a fact about that machine worth reporting, not an
+    // error worth refusing the whole request over.
+    let (queue, queue_error) = match queue_summary() {
+        Ok(items) => (items, None),
+        Err(error) => (Vec::new(), Some(format!("{error:#}"))),
+    };
+
+    Json(serde_json::json!({
+        "host_name": host_name,
+        "host": host,
+        "waiting": queue,
+        "queue_error": queue_error,
+        "version": env!("CARGO_PKG_VERSION"),
+        "at": now(),
+    }))
+    .into_response()
+}
+
+fn queue_summary() -> anyhow::Result<Vec<Value>> {
+    let path = ork_core::Config::default_path()?.with_file_name("state.db");
+    let store = ork_fix::store::FixStore::open(&path)?;
+    Ok(store
+        .pending()?
+        .into_iter()
+        .map(|item| {
+            serde_json::json!({
+                "title": item.title,
+                "subject": item.subject,
+                "severity": item.severity,
+                "state": item.state.as_str(),
+                "attempts": item.attempts,
+                "detail": item.finding.detail,
+            })
+        })
+        .collect())
+}
+
 /// Build the service.
 pub fn router(state: Arc<HostState>) -> Router {
     Router::new()
         .route("/ork/v1/pair", post(handle_pair))
         .route("/ork/v1/hello", get(handle_hello))
         .route("/ork/v1/models", get(handle_models))
+        .route("/ork/v1/status", get(handle_status))
         .route("/ork/v1/chat/completions", post(handle_completions))
         .with_state(state)
 }

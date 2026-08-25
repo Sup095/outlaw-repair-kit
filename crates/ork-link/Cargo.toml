@@ -10,6 +10,7 @@ authors.workspace = true
 
 [dependencies]
 ork-core.workspace = true
+ork-fix.workspace = true
 
 anyhow.workspace = true
 serde.workspace = true

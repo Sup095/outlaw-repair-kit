@@ -278,3 +278,65 @@ pub fn remove(name: &str) -> Result<()> {
     );
     Ok(())
 }
+
+/// `outlaw link view` -- what is wrong with a machine at the other end.
+///
+/// Read-only on purpose. This is the "that computer is across town" case: you
+/// can see what it found, and then you go and deal with it.
+pub async fn view(name: Option<String>, json: bool) -> Result<()> {
+    let book = load_book()?;
+    let peer = match &name {
+        Some(name) => book.find(name).with_context(|| format!("nothing here is linked as `{name}`"))?,
+        None => book
+            .lenders()
+            .next()
+            .context("this machine is not linked to anything -- see `outlaw link join`")?,
+    };
+
+    let link = LinkClient::for_peer(peer)?;
+    let status = link.status().await?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&status)?);
+        return Ok(());
+    }
+
+    println!("{}", bold(status["host_name"].as_str().unwrap_or(&peer.name)));
+    if let Some(host) = status.get("host") {
+        println!("  {:<14}{}", "system", host["os_name"].as_str().unwrap_or("unknown"));
+        println!("  {:<14}{}", "processor", host["cpu_brand"].as_str().unwrap_or("unknown"));
+    }
+    println!("  {:<14}{}", "version", status["version"].as_str().unwrap_or("unknown"));
+    println!();
+
+    // A machine whose queue could not be read is a fact worth stating, not a
+    // silence to be mistaken for good news.
+    if let Some(problem) = status["queue_error"].as_str() {
+        println!("{}", bold("Could not read what it found"));
+        println!("  {}", dim(problem));
+        return Ok(());
+    }
+
+    let waiting = status["waiting"].as_array().cloned().unwrap_or_default();
+    if waiting.is_empty() {
+        println!("{}", bold("Nothing is waiting on that machine"));
+        println!("  {}", dim("Run a scan over there to fill its queue."));
+        return Ok(());
+    }
+
+    println!("{}", bold(&format!("{} problem(s) waiting", waiting.len())));
+    for item in &waiting {
+        println!(
+            "  {:<10}{:<40}{}",
+            item["severity"].as_str().unwrap_or(""),
+            item["title"].as_str().unwrap_or(""),
+            dim(item["subject"].as_str().unwrap_or("")),
+        );
+    }
+    println!();
+    println!(
+        "  {}",
+        dim("Fixing is done at that machine's own keyboard. Nothing in a link can change it.")
+    );
+    Ok(())
+}

@@ -18,16 +18,18 @@ use tauri::{AppHandle, Emitter, State};
 use tokio_util::sync::CancellationToken;
 
 /// The error type crossing to the front-end: a readable message.
-type CmdResult<T> = Result<T, String>;
+pub type CmdResult<T> = Result<T, String>;
 
-fn fail(error: impl std::fmt::Display) -> String {
+pub fn fail(error: impl std::fmt::Display) -> String {
     format!("{error:#}")
 }
 
-/// What a running scan needs so the user can stop it.
+/// What a running scan needs so the user can stop it, and what a lending
+/// session needs so it can be stopped too.
 #[derive(Default)]
 pub struct AppState {
     scan: Mutex<Option<CancellationToken>>,
+    pub link: crate::linking::LinkState,
 }
 
 fn state_dir() -> anyhow::Result<std::path::PathBuf> {

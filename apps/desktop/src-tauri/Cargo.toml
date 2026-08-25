@@ -19,6 +19,7 @@ tauri-build = { version = "2", features = [] }
 ork-core.workspace = true
 ork-ai.workspace = true
 ork-fix.workspace = true
+ork-link.workspace = true
 ork-boot.workspace = true
 
 anyhow.workspace = true

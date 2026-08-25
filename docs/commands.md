@@ -141,6 +141,7 @@ outlaw link host               # lend this machine's model
 outlaw link join               # pair with a machine showing a code
 outlaw link find               # who on this network is lending
 outlaw link check              # ask each link whether it still answers
+outlaw link view [<name>]      # what is wrong with a linked machine
 outlaw link remove <name>      # cut a link and forget its token
 ```
 

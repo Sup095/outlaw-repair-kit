@@ -9,6 +9,7 @@
 //! can be cancelled at any point. Nothing here has a time limit.
 
 mod commands;
+mod linking;
 
 /// Build and run the desktop application.
 pub fn run() {
@@ -37,6 +38,14 @@ pub fn run() {
             commands::routing_status,
             commands::queue_list,
             commands::audit_list,
+            linking::link_status,
+            linking::link_host_start,
+            linking::link_host_stop,
+            linking::link_find,
+            linking::link_join,
+            linking::link_remove,
+            linking::link_view,
+            linking::link_check,
         ])
         .run(tauri::generate_context!())
         .expect("the desktop application could not start");

@@ -97,14 +97,14 @@
     </span>
   </div>
 
-  {#each findings as finding (finding.id + finding.subject)}
+  {#each findings as finding (finding.id + (finding.subject ?? ""))}
     <article class="finding panel">
       <header>
         <span class="sev {finding.severity}">{finding.severity}</span>
         <h3>{finding.title}</h3>
-        <span class="dim subject">{finding.subject}</span>
+        <span class="dim subject">{finding.subject ?? ""}</span>
       </header>
-      <p>{finding.summary}</p>
+      <p>{finding.detail}</p>
       {#if finding.evidence?.length}
         <dl>
           {#each finding.evidence as item (item.label)}
@@ -112,8 +112,8 @@
           {/each}
         </dl>
       {/if}
-      {#if finding.suggestion}
-        <p class="suggestion">{finding.suggestion}</p>
+      {#if finding.remediation_hint}
+        <p class="suggestion">{finding.remediation_hint}</p>
       {/if}
       {#if explanation?.analysis?.items}
         {#each explanation.analysis.items.filter((item: any) => item.finding_id === finding.id) as item (item.title)}

@@ -61,7 +61,12 @@ outlaw fix --apply      # allow changes, confirming each one
 outlaw audit            # everything the tool has done
 outlaw models           # which model would be used, and why
 outlaw config           # where settings live and what they say
+outlaw link             # pair with another computer to borrow its model
+outlaw boot             # self-test and update check
 ```
+
+There is a desktop app too, with the same abilities and a **Machines** screen
+for pairing two computers -- see [docs/desktop.md](docs/desktop.md).
 
 Full reference: [docs/commands.md](docs/commands.md).
 
@@ -209,9 +214,19 @@ cargo test
    [Explaining findings](#explaining-findings).
 3. **Triage queue and fix-attempt loop** -- done. See
    [Fixing problems safely](docs/fixing.md).
-4. **Full and Deep tiers, plus a background watcher.**
-5. **Desktop application** -- everything configurable from the interface, with
-   no file editing required.
+4. **Desktop application** -- done. Everything is configurable from the window,
+   with no file editing required. See [The desktop app](docs/desktop.md).
+5. **Start-up self-test, update check, and installers** -- done. See
+   [Installing](docs/install.md).
+6. **Linking two machines** -- done. Pair two computers with a code so one can
+   lend the other a model, no private network required. See
+   [Linking two machines](docs/linking.md).
+7. **Full and Deep tiers, plus a background watcher.**
+8. **Verifiers for the fix engine**, starting with the Steam-will-not-launch
+   case, so the fix loop can test its own work rather than reporting most
+   things as needing a person.
+9. **Escalation mode** -- to be proposed and reviewed for safety before it is
+   built, not bolted on.
 
 ## Privacy
 

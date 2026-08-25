@@ -59,6 +59,7 @@ outlaw boot
 | **Scan** | Pick how thorough to be, watch checks report as they finish, read the findings, and ask for an explanation |
 | **Queue** | Problems waiting to be worked through, worst first |
 | **Models** | Which model would handle this run, and exactly why the others were passed over |
+| **Machines** | Pair with another computer so one can lend the other a model, and see what is wrong over there |
 | **Settings** | Everything you would otherwise hand-edit a file for: routing, endpoints, API keys |
 | **Audit** | Everything checked, found, attempted, and changed |
 
