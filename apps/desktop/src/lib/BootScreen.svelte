@@ -28,20 +28,26 @@
     let unlisten: (() => void) | undefined;
 
     (async () => {
-      unlisten = await onBootEvent((event) => {
-        if (event.total_steps && event.step) {
-          progress = event.step / event.total_steps;
-        }
-        if (event.kind === "finished") progress = 1;
-
-        const text =
-          event.kind === "check" && event.result
-            ? `${event.result.name} — ${event.result.detail}`
-            : (event.line ?? "");
-        if (text) push(text, stateOf(event));
-      });
-
       try {
+        // Inside the try, and deliberately. Subscribing can fail on its own --
+        // it is a call into the shell like any other -- and when it did, the
+        // rejection escaped this function with nothing to catch it: no error,
+        // no log line, a progress bar frozen at nothing, and no way in. A
+        // start-up screen that can fail silently is worse than one that has no
+        // checks at all.
+        unlisten = await onBootEvent((event) => {
+          if (event.total_steps && event.step) {
+            progress = event.step / event.total_steps;
+          }
+          if (event.kind === "finished") progress = 1;
+
+          const text =
+            event.kind === "check" && event.result
+              ? `${event.result.name} — ${event.result.detail}`
+              : (event.line ?? "");
+          if (text) push(text, stateOf(event));
+        });
+
         const finished = await api.boot();
         report = finished;
         failed = !finished.selftest.checks.every((check) => check.state !== "fail");

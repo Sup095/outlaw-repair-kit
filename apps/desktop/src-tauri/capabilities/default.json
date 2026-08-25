@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The smallest set of built-in abilities the window actually uses. Everything this application does that matters -- scanning, fixing, reading the log -- goes through its own commands, which are reachable because this application defines them and for no other reason. Nothing here opens a door to the file system, the shell, or the network: those would be granted by plugins this build does not include.",
+  "windows": ["main"],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
+  ]
+}

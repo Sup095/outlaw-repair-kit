@@ -9,7 +9,12 @@ repository.workspace = true
 authors.workspace = true
 
 [lib]
-name = "ork_desktop"
+# Deliberately not `ork_desktop`. The binary target is `ork-desktop`, which
+# Cargo normalises to the same file stem, and the two then fight over
+# `ork_desktop.pdb` in the target directory -- a warning on every build, and
+# one target's debug symbols quietly overwriting the other's. Tauri's own
+# template renames the library for this exact reason.
+name = "ork_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
