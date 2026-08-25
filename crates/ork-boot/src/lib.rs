@@ -133,12 +133,21 @@ pub async fn boot(mut on_event: impl FnMut(BootEvent)) -> BootReport {
 
     let update_check = tokio::spawn(update::check());
 
-    // Buffered rather than reported from inside the closure, so that `boot`
-    // does not require its callback to be Send.
-    let mut steps = Vec::with_capacity(selftest::CHECK_COUNT);
-    let selftest = tokio::task::block_in_place(|| {
-        selftest::run(|result, index, _| steps.push((index, result.clone())))
-    });
+    // The checks touch the disk and the platform, so they run on a blocking
+    // thread. Their results are buffered rather than reported from inside the
+    // closure, which keeps `boot`'s own callback off that thread and means it
+    // does not have to be Send.
+    //
+    // `spawn_blocking` rather than `block_in_place`: the latter panics on a
+    // single-threaded runtime, and a start-up sequence that brings down the
+    // program depending on how the caller built its runtime is not one.
+    let (selftest, steps) = tokio::task::spawn_blocking(|| {
+        let mut steps = Vec::with_capacity(selftest::CHECK_COUNT);
+        let report = selftest::run(|result, index, _| steps.push((index, result.clone())));
+        (report, steps)
+    })
+    .await
+    .expect("the self-test panicked");
 
     for (index, result) in steps {
         let line = format!(
@@ -234,7 +243,9 @@ mod tests {
         assert_eq!(report.selftest.checks.len(), selftest::CHECK_COUNT);
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    /// Deliberately on a single-threaded runtime: start-up must not depend on
+    /// how the caller built theirs.
+    #[tokio::test(flavor = "current_thread")]
     async fn every_event_carries_a_line_for_the_log_pane() {
         let mut events = Vec::new();
         boot(|event| events.push(event)).await;
