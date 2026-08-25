@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 
 use ork_core::Severity;
 
-fn colour_enabled() -> bool {
+pub fn colour_enabled() -> bool {
     static ENABLED: OnceLock<bool> = OnceLock::new();
     *ENABLED.get_or_init(|| {
         if std::env::var_os("NO_COLOR").is_some() {
@@ -22,7 +22,7 @@ fn colour_enabled() -> bool {
     })
 }
 
-fn paint(code: &str, text: &str) -> String {
+pub fn paint(code: &str, text: &str) -> String {
     if colour_enabled() {
         format!("\u{1b}[{code}m{text}\u{1b}[0m")
     } else {

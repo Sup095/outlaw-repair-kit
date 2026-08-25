@@ -1,5 +1,7 @@
 # Outlaw Repair Kit
 
+**by Outlaw Systems**
+
 A cross-platform tool that scans a computer for hardware and software problems,
 explains what it found in plain language, and can attempt fixes with strong
 safety rails.
@@ -239,3 +241,5 @@ the code is deliberately commented to explain *why* rather than *what*.
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+Copyright (c) 2026 Outlaw Systems.

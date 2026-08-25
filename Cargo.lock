@@ -1538,12 +1538,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "ork-boot"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "ork-ai",
+ "ork-core",
+ "ork-fix",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "ork-cli"
 version = "0.4.0"
 dependencies = [
  "anyhow",
  "clap",
  "ork-ai",
+ "ork-boot",
  "ork-core",
  "ork-fix",
  "serde_json",

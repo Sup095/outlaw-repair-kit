@@ -5,6 +5,7 @@
 //! without reimplementing anything.
 
 mod ai;
+mod boot;
 mod fix;
 mod render;
 mod style;
@@ -29,6 +30,10 @@ struct Cli {
     /// Log level for internal diagnostics: error, warn, info, debug, trace.
     #[arg(long, global = true, default_value = "warn")]
     log: String,
+
+    /// Skip the start-up screen, self-test, and update check.
+    #[arg(long, global = true)]
+    no_boot: bool,
 
     #[command(subcommand)]
     command: Command,
@@ -80,6 +85,8 @@ enum Command {
         #[arg(long)]
         remove: bool,
     },
+    /// Run the start-up screen on its own: self-test and update check.
+    Boot,
     /// List the checks this build knows how to run.
     Probes,
     /// Show what this tool detected about the machine it is running on.
@@ -99,12 +106,28 @@ async fn main() -> Result<()> {
         .init();
 
     match cli.command {
-        Command::Scan { tier, explain } => run_scan(tier, cli.json, explain).await,
+        Command::Boot => {
+            let report = boot::run().await;
+            if cli.json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            }
+            if report.ready() { Ok(()) } else { std::process::exit(1) }
+        }
+        Command::Scan { tier, explain } => {
+            // The start-up screen belongs on the commands a person sits and
+            // watches. Putting a network update check in front of `config`
+            // would make a one-line answer take four seconds.
+            start_up(&cli, false).await;
+            run_scan(tier, cli.json, explain).await
+        }
         Command::Probes => render::probes(cli.json),
         Command::Host => render::host(cli.json),
         Command::Models => ai::show_models(cli.json).await,
         Command::Queue => fix::show_queue(cli.json),
-        Command::Fix { apply } => fix::work_queue(apply, cli.json).await,
+        Command::Fix { apply } => {
+            start_up(&cli, apply).await;
+            fix::work_queue(apply, cli.json).await
+        }
         Command::Audit { limit } => fix::show_audit(limit, cli.json),
         Command::Config => ai::show_config(cli.json),
         Command::SetKey { which, remove } => {
@@ -114,6 +137,23 @@ async fn main() -> Result<()> {
                 ai::set_key(&which)
             }
         }
+    }
+}
+
+/// Show the boot screen, unless this run has no business showing one.
+///
+/// `required` is set for runs that change the machine: if the tool cannot
+/// vouch for its own state database or snapshot area, it must not start
+/// applying fixes, because the promise to roll back would be empty.
+async fn start_up(cli: &Cli, required: bool) {
+    if cli.no_boot || cli.json {
+        return;
+    }
+
+    let report = boot::run().await;
+    if required && !report.ready() {
+        eprintln!("Refusing to change anything while the self-test is failing.");
+        std::process::exit(1);
     }
 }
 

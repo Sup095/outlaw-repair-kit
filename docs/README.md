@@ -1,5 +1,7 @@
 # Outlaw Repair Kit documentation
 
+*by Outlaw Systems*
+
 A tool that scans a computer for problems, explains what it found in plain
 language, and can help fix things -- with strong limits on what it will do to
 your machine without asking.

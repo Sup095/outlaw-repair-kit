@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/ork-core", "crates/ork-ai", "crates/ork-fix", "crates/ork-cli"]
+members = ["crates/ork-core", "crates/ork-ai", "crates/ork-fix", "crates/ork-boot", "crates/ork-cli"]
 
 [workspace.package]
 version = "0.4.0"
@@ -8,12 +8,13 @@ edition = "2024"
 rust-version = "1.85"
 license = "MIT"
 repository = "https://github.com/Sup095/outlaw-repair-kit"
-authors = ["Outlaw Programming"]
+authors = ["Outlaw Systems"]
 
 [workspace.dependencies]
 ork-core = { path = "crates/ork-core" }
 ork-ai = { path = "crates/ork-ai" }
 ork-fix = { path = "crates/ork-fix" }
+ork-boot = { path = "crates/ork-boot" }
 
 anyhow = "1"
 thiserror = "2"

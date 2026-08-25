@@ -1,6 +1,6 @@
 [package]
-name = "ork-cli"
-description = "Command-line front-end for the Outlaw Repair Kit."
+name = "ork-boot"
+description = "Startup self-test and update check for the Outlaw Repair Kit."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,19 +8,14 @@ license.workspace = true
 repository.workspace = true
 authors.workspace = true
 
-[[bin]]
-name = "outlaw"
-path = "src/main.rs"
-
 [dependencies]
 ork-core.workspace = true
 ork-ai.workspace = true
 ork-fix.workspace = true
-ork-boot.workspace = true
 
 anyhow.workspace = true
-clap.workspace = true
+serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
+reqwest.workspace = true
 tracing.workspace = true
-tracing-subscriber.workspace = true
