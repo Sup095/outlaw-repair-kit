@@ -38,23 +38,58 @@ pub fn status(name: &str) -> ServiceStatus {
 /// Ask systemd.
 #[cfg(target_os = "linux")]
 pub fn status(name: &str) -> ServiceStatus {
-    // `is-active` exits non-zero for anything that is not running, so the exit
-    // code says nothing useful on its own -- the word it prints does.
-    match run_capture("systemctl", &["is-active", name]) {
-        Ok(output) => {
-            let said = output.stdout.trim().to_string();
-            if said.is_empty() {
-                // No word at all usually means systemd is not the init system
-                // here, which is a real possibility on a container or a
-                // non-systemd distribution.
-                return ServiceStatus::Unknown {
-                    detail: output.stderr.trim().to_string(),
-                };
-            }
-            interpret_systemd(&said)
-        }
+    // Two properties, not one. `is-active` answers "inactive" for a unit
+    // systemd has never heard of, which is indistinguishable from a unit that
+    // exists and is stopped -- so a typo in a finding would look like a
+    // service waiting to be restarted. `LoadState` is what tells them apart.
+    match run_capture(
+        "systemctl",
+        &["show", "-p", "LoadState", "-p", "ActiveState", name],
+    ) {
+        Ok(output) => interpret_systemd_show(&output.stdout, output.stderr.trim()),
         Err(error) => ServiceStatus::Unknown {
             detail: error.to_string(),
+        },
+    }
+}
+
+/// What `systemctl show` reports, read as a whole.
+///
+/// `LoadState` is consulted first because it decides whether the answer from
+/// `ActiveState` means anything at all.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+pub fn interpret_systemd_show(stdout: &str, stderr: &str) -> ServiceStatus {
+    let property = |wanted: &str| {
+        stdout.lines().find_map(|line| {
+            let (key, value) = line.split_once('=')?;
+            (key.trim() == wanted).then(|| value.trim().to_ascii_lowercase())
+        })
+    };
+
+    match property("LoadState").as_deref() {
+        Some("loaded") => match property("ActiveState") {
+            Some(active) => interpret_systemd(&active),
+            // Loaded but no state reported at all. Nothing to go on.
+            None => ServiceStatus::Unknown {
+                detail: "systemd reported no state".to_string(),
+            },
+        },
+        Some("not-found") => ServiceStatus::NotFound,
+        // Masked, or a unit file systemd could not read. It exists in some
+        // sense but is not going to run, and "not found" would send someone
+        // looking for a spelling mistake that is not there.
+        Some(other) => ServiceStatus::Unknown {
+            detail: format!("the unit is {other}"),
+        },
+        // No LoadState line usually means systemd is not the init system
+        // here, which is a real possibility in a container or on a
+        // distribution that does not use it.
+        None => ServiceStatus::Unknown {
+            detail: if stderr.is_empty() {
+                "systemd did not answer".to_string()
+            } else {
+                stderr.to_string()
+            },
         },
     }
 }
@@ -168,6 +203,70 @@ mod tests {
             interpret_systemd("banana"),
             ServiceStatus::Unknown { .. }
         ));
+    }
+
+    #[test]
+    fn a_unit_systemd_has_never_heard_of_is_not_merely_stopped() {
+        // This is the one that matters. `is-active` says "inactive" for a
+        // name that does not exist, which would make a typo in a finding look
+        // like a service sitting there waiting to be restarted.
+        assert_eq!(
+            interpret_systemd_show(
+                "LoadState=not-found
+ActiveState=inactive
+",
+                ""
+            ),
+            ServiceStatus::NotFound
+        );
+    }
+
+    #[test]
+    fn a_loaded_unit_is_judged_on_its_active_state() {
+        assert_eq!(
+            interpret_systemd_show(
+                "LoadState=loaded
+ActiveState=active
+",
+                ""
+            ),
+            ServiceStatus::Running
+        );
+        assert_eq!(
+            interpret_systemd_show(
+                "LoadState=loaded
+ActiveState=failed
+",
+                ""
+            ),
+            ServiceStatus::Stopped
+        );
+    }
+
+    #[test]
+    fn a_masked_unit_is_not_reported_as_a_spelling_mistake() {
+        // It exists and will not run. Calling that "not found" sends someone
+        // hunting for a typo that is not there.
+        let answer = interpret_systemd_show(
+            "LoadState=masked
+ActiveState=inactive
+",
+            "",
+        );
+        assert!(
+            matches!(answer, ServiceStatus::Unknown { .. }),
+            "{answer:?}"
+        );
+        assert!(!answer.is_running());
+    }
+
+    #[test]
+    fn no_answer_at_all_is_not_read_as_anything() {
+        let answer = interpret_systemd_show("", "System has not been booted with systemd");
+        match answer {
+            ServiceStatus::Unknown { detail } => assert!(detail.contains("systemd")),
+            other => panic!("expected unknown, got {other:?}"),
+        }
     }
 
     /// Asks the real service control manager. The words above are only worth
