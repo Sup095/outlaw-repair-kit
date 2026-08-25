@@ -2,8 +2,8 @@
 
 use crate::Result;
 use crate::platform::{
-    HostInfo, LogRecord, MemoryInfo, Platform, PlatformKind, ProcessInfo, Volume, VolumeRole,
-    common, linux_journal,
+    DeviceIssue, HostInfo, LogRecord, MemoryInfo, Platform, PlatformKind, ProcessInfo, Volume,
+    VolumeRole, common, linux_devices, linux_journal,
 };
 
 pub struct LinuxPlatform {
@@ -46,6 +46,10 @@ impl Platform for LinuxPlatform {
 
     fn processes(&self) -> Result<Vec<ProcessInfo>> {
         common::processes()
+    }
+
+    fn device_issues(&self) -> Result<Vec<DeviceIssue>> {
+        linux_devices::device_issues()
     }
 
     fn memory(&self) -> Result<MemoryInfo> {

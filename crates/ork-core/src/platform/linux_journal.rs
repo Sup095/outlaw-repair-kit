@@ -142,7 +142,7 @@ pub fn recent_errors(since: Duration) -> Result<Vec<LogRecord>> {
     let seconds = format!("-{}s", since.as_secs().max(1));
     let max = MAX_ENTRIES.to_string();
 
-    if common::tool_on_path("journalctl") {
+    if common::which("journalctl").is_some() {
         let output = common::run_capture(
             "journalctl",
             &[
@@ -161,7 +161,7 @@ pub fn recent_errors(since: Duration) -> Result<Vec<LogRecord>> {
         tracing::debug!(stderr = %output.stderr.trim(), "journalctl failed, falling back to dmesg");
     }
 
-    if common::tool_on_path("dmesg") {
+    if common::which("dmesg").is_some() {
         let output =
             common::run_capture("dmesg", &["--level=emerg,alert,crit,err,warn", "--decode"])?;
         if output.success {

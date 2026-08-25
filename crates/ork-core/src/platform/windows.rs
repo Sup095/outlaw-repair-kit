@@ -2,8 +2,8 @@
 
 use crate::Result;
 use crate::platform::{
-    HostInfo, LogRecord, MemoryInfo, Platform, PlatformKind, ProcessInfo, Volume, VolumeRole,
-    common, win_eventlog,
+    DeviceIssue, HostInfo, LogRecord, MemoryInfo, Platform, PlatformKind, ProcessInfo, Volume,
+    VolumeRole, common, win_devices, win_eventlog,
 };
 
 pub struct WindowsPlatform {
@@ -56,6 +56,10 @@ impl Platform for WindowsPlatform {
 
     fn processes(&self) -> Result<Vec<ProcessInfo>> {
         common::processes()
+    }
+
+    fn device_issues(&self) -> Result<Vec<DeviceIssue>> {
+        win_devices::device_issues()
     }
 
     fn memory(&self) -> Result<MemoryInfo> {

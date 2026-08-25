@@ -234,3 +234,50 @@ fn wrap(text: &str, width: usize) -> Vec<String> {
     }
     lines
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn text_wraps_on_word_boundaries() {
+        let lines = wrap("the quick brown fox jumps over the lazy dog", 15);
+        assert!(lines.iter().all(|line| line.len() <= 15), "got {lines:?}");
+        assert_eq!(
+            lines.join(" "),
+            "the quick brown fox jumps over the lazy dog"
+        );
+    }
+
+    #[test]
+    fn empty_text_produces_no_lines() {
+        assert!(wrap("", 20).is_empty());
+        assert!(wrap("   \n  ", 20).is_empty());
+    }
+
+    #[test]
+    fn a_word_longer_than_the_width_is_not_lost() {
+        // Log messages contain paths and identifiers longer than any sensible
+        // wrap width. Dropping or panicking on them would lose the evidence.
+        let long = "a".repeat(200);
+        let lines = wrap(&long, 20);
+        assert_eq!(lines, vec![long]);
+    }
+
+    #[test]
+    fn multibyte_text_does_not_panic() {
+        // Log messages arrive in whatever language the system is set to.
+        let lines = wrap("ошибка драйвера видеокарты произошла снова", 20);
+        assert!(!lines.is_empty());
+        assert_eq!(
+            lines.join(" "),
+            "ошибка драйвера видеокарты произошла снова"
+        );
+    }
+
+    #[test]
+    fn newlines_in_source_text_are_normalised_away() {
+        let lines = wrap("first line\nsecond line", 100);
+        assert_eq!(lines, vec!["first line second line"]);
+    }
+}

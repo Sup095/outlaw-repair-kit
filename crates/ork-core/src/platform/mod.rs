@@ -12,7 +12,11 @@ mod common;
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
+mod linux_devices;
+#[cfg(target_os = "linux")]
 mod linux_journal;
+#[cfg(target_os = "windows")]
+mod win_devices;
 #[cfg(target_os = "windows")]
 mod win_eventlog;
 #[cfg(target_os = "windows")]
@@ -110,10 +114,25 @@ impl Volume {
     }
 }
 
+/// What state a process is in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ProcessState {
+    Running,
+    Sleeping,
+    /// Finished, but its parent has not collected the exit status. A handful
+    /// is normal and transient; a pile of them is a bug in the parent.
+    Zombie,
+    Stopped,
+    /// Some other or platform-specific state.
+    Other,
+}
+
 /// A running process.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessInfo {
     pub pid: u32,
+    pub parent_pid: Option<u32>,
     pub name: String,
     pub executable: Option<String>,
     pub memory_bytes: u64,
@@ -121,6 +140,7 @@ pub struct ProcessInfo {
     pub cpu_percent: f32,
     /// Seconds since the process started.
     pub run_time_secs: u64,
+    pub state: ProcessState,
 }
 
 /// Memory pressure at a moment in time.
@@ -195,6 +215,47 @@ impl LogRecord {
     }
 }
 
+/// The kind of trouble a device or its driver is in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum DeviceIssueKind {
+    /// The device is present but the operating system cannot start it.
+    NotWorking,
+    /// No driver is installed for a device that needs one.
+    DriverMissing,
+    /// A driver is installed but does not match the running kernel or system.
+    /// This is the class of fault behind "it worked until I updated".
+    DriverMismatch,
+    /// The system needs a restart before the installed driver can take effect.
+    RebootRequired,
+}
+
+impl DeviceIssueKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            DeviceIssueKind::NotWorking => "not-working",
+            DeviceIssueKind::DriverMissing => "driver-missing",
+            DeviceIssueKind::DriverMismatch => "driver-mismatch",
+            DeviceIssueKind::RebootRequired => "reboot-required",
+        }
+    }
+}
+
+/// A device or driver that is not in a healthy state.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceIssue {
+    /// What the device calls itself.
+    pub device: String,
+    pub kind: DeviceIssueKind,
+    /// Plain-language description of what specifically is wrong, from the
+    /// platform that knows.
+    pub detail: String,
+    pub driver_version: Option<String>,
+    /// Platform-specific code, where one exists -- a Windows Configuration
+    /// Manager error code, for instance.
+    pub code: Option<String>,
+}
+
 /// Everything OS-specific that the diagnostic core needs.
 ///
 /// Methods are blocking and are expected to be called from a blocking context
@@ -224,13 +285,30 @@ pub trait Platform: Send + Sync + 'static {
     /// the log long before anyone thinks to look there.
     fn recent_log_errors(&self, since: std::time::Duration) -> Result<Vec<LogRecord>>;
 
+    /// Devices and drivers that are not in a healthy state.
+    ///
+    /// The interesting case is not a missing driver -- it is a driver that is
+    /// installed but no longer matches what it is loaded into, which is what a
+    /// kernel or distribution update produces and what users experience as the
+    /// machine becoming unstable for no visible reason.
+    fn device_issues(&self) -> Result<Vec<DeviceIssue>>;
+
     /// Whether an external tool is present and runnable.
     ///
     /// Probes call this to decide whether to run or to skip with a visible
     /// reason. A missing `smartctl` should produce "skipped: smartctl not
     /// installed", never a failed scan.
     fn tool_available(&self, tool: &str) -> bool {
-        common::tool_on_path(tool)
+        self.locate_tool(tool).is_some()
+    }
+
+    /// Where an executable lives, if it is installed.
+    ///
+    /// Probes that need to *run* something go through this rather than
+    /// searching the filesystem themselves, so path resolution stays one
+    /// platform-aware implementation instead of one per probe.
+    fn locate_tool(&self, tool: &str) -> Option<std::path::PathBuf> {
+        common::which(tool)
     }
 }
 

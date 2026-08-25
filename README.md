@@ -57,6 +57,21 @@ outlaw scan --json   # same, machine-readable
 Every command accepts `--json`, because nothing in the interface layer is
 allowed to do something the core cannot do programmatically.
 
+The Quick tier runs these checks:
+
+| Check | What it catches |
+| --- | --- |
+| Disk space | Volumes running out of room, judged on both absolute free space and percentage so it misjudges neither a small SSD nor a large array |
+| Memory pressure | Being short of memory, and the much worse state of being short of memory *and* swapping heavily |
+| Running processes | Processes stuck, leaking memory, or piling up unreaped |
+| Device and driver health | Devices the system cannot start, and drivers that no longer match the running kernel -- the cause behind "it broke after I updated" |
+| Application launch check | Installed applications that no longer start, or that hang on startup |
+| Recent system log errors | Crashes, driver faults, and hardware errors, with repeats grouped together |
+
+Checks that cannot run -- wrong platform, missing tool, elevation not granted --
+are reported as skipped with the reason. A scan never quietly covers less than
+you think it did.
+
 ## Design commitments
 
 These are load-bearing, not aspirational:
@@ -103,9 +118,7 @@ cargo test
 
 ## Roadmap
 
-1. **Diagnostic core, Quick tier** -- in progress. Disk space, memory
-   pressure, and system log correlation are done. Process inspection, driver
-   and package sanity, and application smoke-tests are next.
+1. **Diagnostic core, Quick tier** -- done. See the table above.
 2. **Model router and AI analysis** -- a remote endpoint over a private
    network, a local model sized to available VRAM, or a cloud API, in that
    order, with a manual override.

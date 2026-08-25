@@ -8,12 +8,12 @@
 
 use std::path::Path;
 
-use sysinfo::{Disks, System};
+use sysinfo::{Disks, ProcessStatus, System};
 
 use anyhow::Context;
 
 use crate::Result;
-use crate::platform::{HostInfo, MemoryInfo, ProcessInfo, Volume, VolumeRole};
+use crate::platform::{HostInfo, MemoryInfo, ProcessInfo, ProcessState, Volume, VolumeRole};
 
 /// Filesystem types that exist in the mount table but are not real storage.
 /// Reporting on these produces nothing but noise -- `tmpfs` sitting at 100%
@@ -130,11 +130,19 @@ pub fn processes() -> Result<Vec<ProcessInfo>> {
         .iter()
         .map(|(pid, process)| ProcessInfo {
             pid: pid.as_u32(),
+            parent_pid: process.parent().map(|parent| parent.as_u32()),
             name: process.name().to_string_lossy().to_string(),
             executable: process.exe().map(|path| path.to_string_lossy().to_string()),
             memory_bytes: process.memory(),
             cpu_percent: process.cpu_usage(),
             run_time_secs: process.run_time(),
+            state: match process.status() {
+                ProcessStatus::Run => ProcessState::Running,
+                ProcessStatus::Sleep | ProcessStatus::Idle => ProcessState::Sleeping,
+                ProcessStatus::Zombie => ProcessState::Zombie,
+                ProcessStatus::Stop => ProcessState::Stopped,
+                _ => ProcessState::Other,
+            },
         })
         .collect();
 
@@ -142,42 +150,42 @@ pub fn processes() -> Result<Vec<ProcessInfo>> {
     Ok(processes)
 }
 
-/// Whether an executable named `tool` can be found on `PATH`.
+/// Locate an executable named `tool` on `PATH`.
 ///
-/// This is how probes decide to skip rather than fail. On Windows the
-/// `PATHEXT` extensions are tried, so `smartctl` finds `smartctl.exe`.
-pub fn tool_on_path(tool: &str) -> bool {
+/// On Windows the `PATHEXT` extensions are tried, so `smartctl` finds
+/// `smartctl.exe`.
+pub fn which(tool: &str) -> Option<std::path::PathBuf> {
     // An explicit path was given rather than a bare name; just test it.
     if tool.chars().any(std::path::is_separator) {
-        return Path::new(tool).is_file();
+        let path = Path::new(tool);
+        return path.is_file().then(|| path.to_path_buf());
     }
 
-    let Some(path) = std::env::var_os("PATH") else {
-        return false;
-    };
+    let path = std::env::var_os("PATH")?;
 
     let extensions: Vec<String> = if cfg!(windows) {
         std::env::var("PATHEXT")
             .unwrap_or_else(|_| ".EXE;.CMD;.BAT;.COM".to_string())
             .split(';')
             .filter(|ext| !ext.is_empty())
-            .map(|ext| ext.to_ascii_lowercase())
+            .map(|ext| ext.trim_start_matches('.').to_ascii_lowercase())
             .collect()
     } else {
         Vec::new()
     };
 
-    std::env::split_paths(&path).any(|dir| {
+    std::env::split_paths(&path).find_map(|dir| {
         if dir.as_os_str().is_empty() {
-            return false;
+            return None;
         }
         let base = dir.join(tool);
         if base.is_file() {
-            return true;
+            return Some(base);
         }
         extensions
             .iter()
-            .any(|ext| base.with_extension(ext.trim_start_matches('.')).is_file())
+            .map(|ext| base.with_extension(ext))
+            .find(|path| path.is_file())
     })
 }
 
@@ -206,6 +214,9 @@ pub struct CommandOutput {
 /// hang audit logging off once the fix layer exists. Output is decoded lossily
 /// on purpose: a log message containing one malformed byte should not cost us
 /// the whole diagnostic.
+///
+/// This waits for the command to finish. For anything that might not finish,
+/// use [`crate::exec::run_supervised`], which watches for liveness instead.
 pub fn run_capture(program: &str, args: &[&str]) -> Result<CommandOutput> {
     use std::process::Command;
 
@@ -236,6 +247,18 @@ mod tests {
 
     #[test]
     fn missing_tools_are_reported_missing() {
-        assert!(!tool_on_path("ork-definitely-not-a-real-tool"));
+        assert!(which("ork-definitely-not-a-real-tool").is_none());
+    }
+
+    #[test]
+    fn a_tool_that_exists_resolves_to_a_real_file() {
+        // Every supported platform has a shell interpreter on PATH under one
+        // of these names.
+        let found = which(if cfg!(windows) { "cmd" } else { "sh" });
+        let found = found.expect("expected to find a shell on PATH");
+        assert!(
+            found.is_file(),
+            "which returned {found:?}, which is not a file"
+        );
     }
 }

@@ -14,6 +14,7 @@
 //!   OS APIs directly; they go through this trait, so adding a new operating
 //!   system is a new implementation rather than a rewrite.
 
+pub mod exec;
 pub mod finding;
 pub mod platform;
 pub mod probe;

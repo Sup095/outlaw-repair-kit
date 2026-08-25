@@ -5,9 +5,12 @@
 //! missing-tool skips, cancellation, error isolation -- is handled by the
 //! orchestrator.
 
+pub mod apps;
+pub mod devices;
 pub mod disk_space;
 pub mod logs;
 pub mod memory;
+pub mod processes;
 
 use crate::probe::{Probe, ProbeMeta};
 
@@ -20,6 +23,11 @@ pub fn default_registry() -> Vec<Box<dyn Probe>> {
     vec![
         Box::new(disk_space::DiskSpaceProbe),
         Box::new(memory::MemoryPressureProbe),
+        Box::new(processes::ProcessesProbe),
+        Box::new(devices::DeviceHealthProbe),
+        // Launch tests start real programs, so they go after everything
+        // that only observes.
+        Box::new(apps::AppLaunchProbe),
         // Reading the system log costs a process spawn and a parse, so it
         // goes last among the Quick checks.
         Box::new(logs::RecentLogErrorsProbe),
