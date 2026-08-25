@@ -26,6 +26,15 @@ jobs:
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
+      # The desktop app is a workspace member, so building the workspace on
+      # Linux needs the webview development packages. Windows ships a webview
+      # already. Without these, every Linux run fails on a crate that has
+      # nothing wrong with it.
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Clippy
@@ -34,3 +43,7 @@ jobs:
         run: cargo test --all-features
       - name: Smoke-test the binary
         run: cargo run --bin outlaw -- host --json
+      # The start-up self-test is the tool checking itself. If it cannot pass
+      # on a clean machine, something is wrong with the build, not the machine.
+      - name: Smoke-test start-up
+        run: cargo run --bin outlaw -- boot
