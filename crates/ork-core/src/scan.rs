@@ -134,17 +134,21 @@ impl Scanner {
         Self {
             platform,
             probes,
-            elevated: false,
+            // Asked, not assumed. This defaulted to `false` and nothing ever
+            // set it, so every check needing elevation was skipped for want
+            // of rights the process already had -- the SMART disk check could
+            // not run even as root.
+            elevated: crate::platform::is_elevated(),
             cancel: CancellationToken::new(),
             events: None,
         }
     }
 
-    /// Tell the scanner it is running with administrator or root rights.
+    /// Override what the scanner believes about its own rights.
     ///
-    /// This is reported by the caller rather than detected here, because the
-    /// daemon deliberately runs unprivileged and obtains elevation per action
-    /// through a separate helper.
+    /// Detected by default. This exists for the daemon, which deliberately
+    /// runs unprivileged and obtains elevation per action through a separate
+    /// helper -- so what it may do is not what its own process token says.
     pub fn elevated(mut self, elevated: bool) -> Self {
         self.elevated = elevated;
         self

@@ -74,23 +74,13 @@ pub fn host_info() -> CmdResult<ork_core::HostInfo> {
         .map_err(fail)
 }
 
-/// The checks this build knows how to run, and what each one needs.
+/// The checks this build knows how to run, and whether each would run here.
 #[tauri::command]
-pub fn probe_list() -> CmdResult<serde_json::Value> {
-    let metas = ork_core::probes::all_meta();
-    Ok(serde_json::json!(
-        metas
-            .iter()
-            .map(|meta| serde_json::json!({
-                "id": meta.id,
-                "name": meta.name,
-                "description": meta.description,
-                "tier": meta.min_tier.as_str(),
-                "platforms": meta.platforms.iter().map(|p| p.to_string()).collect::<Vec<_>>(),
-                "requires_elevation": meta.requires_elevation,
-                "required_tools": meta.requires_tools,
-            }))
-            .collect::<Vec<_>>()
+pub fn probe_list() -> CmdResult<ork_core::probes::Catalogue> {
+    let platform = ork_core::platform::detect().map_err(fail)?;
+    Ok(ork_core::probes::catalogue(
+        platform.as_ref(),
+        ork_core::platform::is_elevated(),
     ))
 }
 

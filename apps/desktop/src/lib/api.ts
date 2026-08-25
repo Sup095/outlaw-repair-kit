@@ -90,7 +90,7 @@ export interface Discovered {
 export const api = {
   boot: () => invoke<BootReport>("boot"),
   hostInfo: () => invoke<Record<string, unknown>>("host_info"),
-  probes: () => invoke<Record<string, unknown>[]>("probe_list"),
+  probes: () => invoke<CheckCatalogue>("probe_list"),
   startScan: (tier: string) => invoke<ScanReport>("start_scan", { tier }),
   cancelScan: () => invoke<boolean>("cancel_scan"),
   explain: (report: ScanReport) =>
@@ -127,6 +127,28 @@ export const api = {
   reportClear: () => invoke<void>("report_clear"),
   audit: (limit: number) => invoke<{ at: string; kind: string; message: string }[]>("audit_list", { limit }),
 };
+
+/// One check this build knows how to run.
+export interface CheckInfo {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  tier: "quick" | "full" | "deep";
+  platforms: string[];
+  requires_elevation: boolean;
+  required_tools: string[];
+  /// Whether it can run on this machine, decided by the same rule the scanner
+  /// uses rather than by a second copy of it here.
+  available: boolean;
+  unavailable_reason: string | null;
+}
+
+export interface CheckCatalogue {
+  platform: string;
+  elevated: boolean;
+  checks: CheckInfo[];
+}
 
 /// One thing that went wrong, as it was recorded at the time.
 export interface Incident {

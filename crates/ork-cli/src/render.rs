@@ -132,47 +132,63 @@ pub fn report(report: &ScanReport) {
 
 /// List the checks this build knows how to run.
 pub fn probes(json: bool) -> Result<()> {
-    let metas = ork_core::probes::all_meta();
+    let platform = ork_core::platform::detect()?;
+    let catalogue =
+        ork_core::probes::catalogue(platform.as_ref(), ork_core::platform::is_elevated());
 
     if json {
-        let value: Vec<_> = metas
-            .iter()
-            .map(|meta| {
-                serde_json::json!({
-                    "id": meta.id,
-                    "name": meta.name,
-                    "description": meta.description,
-                    "category": meta.category.as_str(),
-                    "min_tier": meta.min_tier.as_str(),
-                    "platforms": meta.platforms.iter().map(|p| p.as_str()).collect::<Vec<_>>(),
-                    "requires_tools": meta.requires_tools,
-                    "requires_elevation": meta.requires_elevation,
-                })
-            })
-            .collect();
-        println!("{}", serde_json::to_string_pretty(&value)?);
+        println!("{}", serde_json::to_string_pretty(&catalogue)?);
         return Ok(());
     }
 
-    println!("{}", bold(&format!("{} check(s) available", metas.len())));
+    let unavailable = catalogue.checks.iter().filter(|c| !c.available).count();
+    println!(
+        "{}",
+        bold(&format!(
+            "{} check(s), {} of them able to run here",
+            catalogue.checks.len(),
+            catalogue.checks.len() - unavailable
+        ))
+    );
+    println!(
+        "{}",
+        dim(&format!(
+            "{}{}",
+            catalogue.platform,
+            if catalogue.elevated {
+                ", with administrator rights"
+            } else {
+                ", not elevated"
+            }
+        ))
+    );
     println!();
-    for meta in metas {
-        let platforms: Vec<&str> = meta.platforms.iter().map(|p| p.as_str()).collect();
+
+    for check in &catalogue.checks {
         println!(
             "{}  {}",
-            bold(meta.id),
-            dim(&format!("[{} scan]", meta.min_tier))
+            bold(&check.id),
+            dim(&format!("[{} scan]", check.tier))
         );
-        println!("  {}", meta.description);
-        println!("  {}", dim(&format!("runs on: {}", platforms.join(", "))));
-        if !meta.requires_tools.is_empty() {
+        println!("  {}", check.description);
+        println!(
+            "  {}",
+            dim(&format!("runs on: {}", check.platforms.join(", ")))
+        );
+        if !check.required_tools.is_empty() {
             println!(
                 "  {}",
-                dim(&format!("needs: {}", meta.requires_tools.join(", ")))
+                dim(&format!("needs: {}", check.required_tools.join(", ")))
             );
         }
-        if meta.requires_elevation {
+        if check.requires_elevation {
             println!("  {}", dim("needs administrator rights"));
+        }
+        // The useful line, and the reason this reads the catalogue rather
+        // than the bare metadata: what a build knows how to do and what will
+        // actually happen on this machine are different questions.
+        if let Some(reason) = &check.unavailable_reason {
+            println!("  {}", dim(&format!("will not run here -- {reason}")));
         }
         println!();
     }

@@ -338,6 +338,60 @@ pub fn open_url(url: &str) -> Result<()> {
         .map_err(|error| anyhow::anyhow!("could not open a browser: {error}"))
 }
 
+/// Whether this process is running with administrator or root rights.
+///
+/// Asked so that a probe needing elevation can be *skipped with a reason*
+/// rather than run and fail halfway. Getting this wrong in the optimistic
+/// direction is the worse mistake -- a check that claims it can read your
+/// drives and then cannot -- so every way of failing to find out answers
+/// "no".
+pub fn is_elevated() -> bool {
+    #[cfg(windows)]
+    {
+        // The canonical question, asked the way Windows itself answers it.
+        // One process spawn per scan, the same cost as any other check here.
+        let script = "([Security.Principal.WindowsPrincipal]              [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(              [Security.Principal.WindowsBuiltInRole]::Administrator)";
+        run_capture(
+            "powershell",
+            &["-NoProfile", "-NonInteractive", "-Command", script],
+        )
+        .map(|output| output.stdout.trim().eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Read rather than spawn: this runs on the way into every scan, and
+        // `/proc/self/status` is already in memory.
+        //
+        // The *effective* uid, not the real one. A program running under sudo
+        // has an effective uid of zero and a real uid of whoever invoked it,
+        // and it is the effective one that decides what it may open.
+        std::fs::read_to_string("/proc/self/status")
+            .ok()
+            .and_then(|status| {
+                status.lines().find_map(|line| {
+                    let rest = line.strip_prefix("Uid:")?;
+                    // real, effective, saved, filesystem
+                    rest.split_whitespace().nth(1).map(str::to_string)
+                })
+            })
+            .is_some_and(|effective| effective == "0")
+    }
+
+    #[cfg(all(unix, not(target_os = "linux")))]
+    {
+        run_capture("id", &["-u"])
+            .map(|output| output.stdout.trim() == "0")
+            .unwrap_or(false)
+    }
+
+    #[cfg(not(any(windows, unix)))]
+    {
+        false
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -364,6 +418,18 @@ mod tests {
         ] {
             assert!(open_url(url).is_err(), "{url} was accepted");
         }
+    }
+
+    #[test]
+    fn asking_whether_we_are_elevated_gives_a_definite_answer() {
+        // Whatever it says, it must say it without panicking and without
+        // hanging: this runs on the way into every scan. The suite is not run
+        // with administrator rights, and a build that thinks it has them
+        // would silently stop skipping the checks that need them.
+        assert!(
+            !is_elevated(),
+            "the test process reported itself elevated; either the check is              wrong or the suite is being run with rights it does not need"
+        );
     }
 
     #[test]

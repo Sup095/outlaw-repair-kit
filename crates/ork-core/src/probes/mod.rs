@@ -47,6 +47,69 @@ pub fn default_registry() -> Vec<Box<dyn Probe>> {
     ]
 }
 
+/// One check, described for a person, including whether it can run *here*.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CheckInfo {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub category: String,
+    pub tier: String,
+    pub platforms: Vec<String>,
+    pub requires_elevation: bool,
+    pub required_tools: Vec<String>,
+    /// Whether this machine can run it at all.
+    pub available: bool,
+    /// Why not, in the same words the scan would use.
+    pub unavailable_reason: Option<String>,
+}
+
+/// Every check, and what this machine can do with it.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Catalogue {
+    pub platform: String,
+    pub elevated: bool,
+    pub checks: Vec<CheckInfo>,
+}
+
+/// Describe every check against this machine.
+///
+/// Availability is decided by the scanner's own [`ProbeMeta::skip_reason`]
+/// rather than by a second copy of the rules, and every front-end shares this
+/// one function for the same reason: a screen that disagreed with the scan
+/// about what will run would be worse than no screen.
+///
+/// Asked at the deepest tier, so what comes back is a real blocker -- the
+/// platform, a missing tool, rights the process does not have -- rather than
+/// "you asked for a quick scan". Which tier a check belongs to is reported
+/// separately.
+pub fn catalogue(platform: &dyn crate::Platform, elevated: bool) -> Catalogue {
+    let checks = all_meta()
+        .into_iter()
+        .map(|meta| {
+            let blocked = meta.skip_reason(crate::ScanTier::Deep, platform, elevated);
+            CheckInfo {
+                id: meta.id.to_string(),
+                name: meta.name.to_string(),
+                description: meta.description.to_string(),
+                category: meta.category.as_str().to_string(),
+                tier: meta.min_tier.as_str().to_string(),
+                platforms: meta.platforms.iter().map(|kind| kind.to_string()).collect(),
+                requires_elevation: meta.requires_elevation,
+                required_tools: meta.requires_tools.iter().map(|t| t.to_string()).collect(),
+                available: blocked.is_none(),
+                unavailable_reason: blocked.map(|reason| reason.to_string()),
+            }
+        })
+        .collect();
+
+    Catalogue {
+        platform: platform.kind().to_string(),
+        elevated,
+        checks,
+    }
+}
+
 /// Metadata for every known probe, for settings screens and `--list-probes`.
 pub fn all_meta() -> Vec<ProbeMeta> {
     default_registry()

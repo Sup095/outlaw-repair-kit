@@ -92,8 +92,11 @@ The Quick tier runs these checks:
 | Memory pressure | Being short of memory, and the much worse state of being short of memory *and* swapping heavily |
 | Running processes | Processes stuck, leaking memory, or piling up unreaped |
 | Device and driver health | Devices the system cannot start, and drivers that no longer match the running kernel -- the cause behind "it broke after I updated" |
+| Failed services | Services set to start automatically that are stopped *and* exited with an error -- the qualifier that keeps a healthy machine from reporting half a dozen it stopped on purpose |
 | Application launch check | Installed command-line programs that no longer start, or that hang on startup |
 | Recent system log errors | Crashes, driver faults, and hardware errors, with repeats grouped together |
+| Disk health *(full scan)* | A drive that says it is failing. Reported as the drive's own verdict, never as an interpretation of raw SMART attributes |
+| Application launch test *(full scan)* | Launchers and graphical applications that will not start -- started for real and watched, which is why it is not part of a quick scan |
 
 A **full** scan adds the application launch test, which starts catalogued
 applications such as Steam to see whether they actually open, and closes them
@@ -238,15 +241,23 @@ cargo test
 6. **Linking two machines** -- done. Pair two computers with a code so one can
    lend the other a model, no private network required. See
    [Linking two machines](docs/linking.md).
-7. **Full and Deep tiers, plus a background watcher.** The Full tier now runs
-   the application launch test; the stress and burn-in work for Deep is not
-   built yet.
-8. **Verifiers for the fix engine** -- started. A stale lock file and the
-   Steam-will-not-launch case can now be re-tested, so the loop can act on
-   them rather than only describing them. Each new verifier moves another
-   class of problem from "explained" to "fixed".
-9. **Escalation mode** -- to be proposed and reviewed for safety before it is
-   built, not bolted on.
+7. **Reporting a crash** -- done. Errors and crashes are recorded as they
+   happen and turned into an issue you can post, with your personal details
+   already taken out. Nothing is ever sent for you. See
+   [Reporting a problem](docs/reporting.md).
+8. **Verifiers for the fix engine** -- started. A stale lock file, a stopped
+   service, an application that will not run, and the Steam-will-not-launch
+   case can now be re-tested, so the loop can act on them rather than only
+   describing them. Each new verifier moves another class of problem from
+   "explained" to "fixed", and `outlaw fix` tells you the count before it
+   starts.
+9. **Full and Deep tiers, plus a background watcher.** Full runs the disk
+   health check and the application launch test. **Deep declares no checks of
+   its own yet** -- a deep scan currently runs exactly what a full one runs,
+   and both front-ends say so where the tier is chosen. The stress and burn-in
+   work it is meant for is not built.
+10. **Escalation mode** -- to be proposed and reviewed for safety before it is
+    built, not bolted on.
 
 ## Privacy
 
