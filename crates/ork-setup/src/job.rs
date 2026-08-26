@@ -443,6 +443,116 @@ mod tests {
         }
     }
 
+    /// A real install, of the real published release, over the real network.
+    ///
+    /// Ignored by default: it needs the internet, downloads tens of megabytes,
+    /// and depends on GitHub being up, none of which belongs in a suite that
+    /// has to pass on every commit. Run it deliberately:
+    ///
+    /// ```text
+    /// cargo test -p ork-setup -- --ignored --nocapture
+    /// ```
+    ///
+    /// It is here rather than in a notebook somewhere because every other test
+    /// in this file works on a fixture, and a program whose entire job is to
+    /// fetch files from the internet and check them needs one test that
+    /// actually does that. It installs into a temporary directory and touches
+    /// neither PATH nor the Start Menu.
+    #[test]
+    #[ignore = "needs the network; run with --ignored"]
+    fn it_installs_the_published_release_for_real() {
+        let releases = release::list().expect("GitHub answered");
+        assert!(!releases.is_empty(), "no releases published");
+
+        let newest = releases
+            .iter()
+            .find(|release| !release.prerelease)
+            .expect("a published release");
+        println!("installing {}", newest.tag);
+
+        let dir = std::env::temp_dir().join(format!("ork-setup-live-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let choices = Choices {
+            release: newest.clone(),
+            directory: dir.clone(),
+            // The desktop bundle is another installer and is only downloaded,
+            // not run. Left out to keep this test to one download.
+            desktop: false,
+            add_to_path: false,
+            shortcut: false,
+            model: ModelChoice::None,
+        };
+        std::thread::spawn(move || run(choices, sender));
+
+        let mut receipt = None;
+        for message in receiver {
+            match message {
+                Progress::Stage(text) => println!("== {text}"),
+                Progress::Note(text) => println!("   {text}"),
+                Progress::Warning(text) => println!(" ! {text}"),
+                Progress::Downloading { .. } => {}
+                Progress::Finished(done) => receipt = Some(*done),
+                Progress::Failed(reason) => panic!("it stopped: {reason}"),
+            }
+        }
+
+        let receipt = receipt.expect("it finished");
+        assert_eq!(receipt.version, newest.tag);
+
+        // The program is there, it is not empty, and its digest is the one
+        // that was written down.
+        let program = dir.join(cli_asset_name());
+        let bytes = std::fs::read(&program).expect("the program was placed");
+        assert!(
+            bytes.len() > 1_000_000,
+            "{} bytes is not a program",
+            bytes.len()
+        );
+        let recorded = receipt
+            .steps
+            .iter()
+            .find_map(|step| match step {
+                Step::Wrote { path, sha256 } if path.ends_with(cli_asset_name()) => {
+                    Some(sha256.clone())
+                }
+                _ => None,
+            })
+            .expect("the program is in the record");
+        assert_eq!(recorded, release::digest(&bytes));
+
+        // And the record can be read back, which is the whole point of it.
+        let back = Receipt::read(&dir).expect("the record reads back");
+        assert_eq!(back.version, receipt.version);
+
+        // Nothing half-written left behind under a name that looks finished.
+        let leftovers: Vec<String> = std::fs::read_dir(&dir)
+            .unwrap()
+            .flatten()
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name.contains(".incoming"))
+            .collect();
+        assert!(leftovers.is_empty(), "{leftovers:?}");
+
+        // And it runs. Everything above proves the right bytes arrived; this
+        // is the only step that proves they arrived in a state the machine
+        // will execute -- the permission bit on Unix, and nothing having
+        // mangled the file on the way to disk.
+        let ran = ork_core::platform::run_capture(&program.display().to_string(), &["--version"])
+            .expect("the installed program starts");
+        assert!(ran.success, "it did not run: {}", ran.stderr.trim());
+        assert!(
+            ran.stdout.contains(newest.tag.trim_start_matches('v')),
+            "it reported {:?} rather than {}",
+            ran.stdout.trim(),
+            newest.tag
+        );
+        println!("   it runs: {}", ran.stdout.trim());
+
+        println!("installed and verified in {}", dir.display());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
     #[test]
     fn a_release_with_no_checksums_stops_before_anything_is_downloaded() {
         // The single most important behaviour in this program. No sums means
