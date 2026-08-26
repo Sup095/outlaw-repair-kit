@@ -35,6 +35,7 @@ serde_json.workspace = true
 # prints the same pages as the Markdown they are written in.
 pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 tauri = { version = "2", features = [] }
+time.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true

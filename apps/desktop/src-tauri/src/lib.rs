@@ -13,6 +13,7 @@ mod fixing;
 mod linking;
 mod manual;
 mod reporting;
+mod watching;
 
 /// Set up logging, and start keeping a record of anything that goes wrong.
 ///
@@ -49,6 +50,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .manage(commands::AppState::default())
+        .manage(watching::WatchState::default())
         .invoke_handler(tauri::generate_handler![
             commands::boot,
             commands::host_info,
@@ -64,6 +66,10 @@ pub fn run() {
             commands::routing_status,
             commands::queue_list,
             commands::audit_list,
+            watching::watch_status,
+            watching::watch_start,
+            watching::watch_stop,
+            watching::watch_forget,
             manual::manual_contents,
             manual::manual_page,
             manual::manual_licence,

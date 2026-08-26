@@ -5,6 +5,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
+export type { UnlistenFn };
+
 export type CheckState = "pass" | "warn" | "fail";
 
 export interface CheckResult {
@@ -132,6 +134,15 @@ export const api = {
   // gone wrong is often a machine that cannot reach the internet, and the
   // pages most likely to be needed are the ones least likely to be reachable
   // when they are needed.
+  // The watcher. It keeps running while the window is on another screen, and
+  // while it is on no screen at all, so what it noticed is asked for rather
+  // than only listened for.
+  watchStatus: () => invoke<WatchStatus>("watch_status"),
+  watchStart: (tier: string, everyMinutes: number) =>
+    invoke<void>("watch_start", { tier, everyMinutes }),
+  watchStop: () => invoke<void>("watch_stop"),
+  watchForget: () => invoke<void>("watch_forget"),
+
   manualContents: () => invoke<ManualEntry[]>("manual_contents"),
   manualPage: (id: string) => invoke<ManualPage>("manual_page", { id }),
   manualLicence: () => invoke<string>("manual_licence"),
@@ -251,6 +262,69 @@ export function onFixAsk(handler: (ask: FixAsk) => void): Promise<UnlistenFn> {
   return listen<FixAsk>("fix://ask", (message) => handler(message.payload));
 }
 
+export function onWatchEvent(handler: (event: WatchEvent) => void): Promise<UnlistenFn> {
+  return listen<WatchEvent>("watch://event", (message) => handler(message.payload));
+}
+
 export function onScanEvent(handler: (event: ScanEvent) => void): Promise<UnlistenFn> {
   return listen<ScanEvent>("scan://event", (message) => handler(message.payload));
+}
+
+/** One thing the watcher noticed changing. */
+export type Change =
+  | { change: "appeared"; finding: Finding }
+  | { change: "worsened"; finding: Finding; was: Severity }
+  | { change: "eased"; finding: Finding; was: Severity }
+  | { change: "cleared"; id: string; subject: string | null; title: string; was: Severity }
+  | { change: "flapping"; finding: Finding; appearances: number };
+
+/** What one look produced. Most looks produce nothing, which is the point. */
+export interface Look {
+  at: string;
+  changes: Change[];
+  established_baseline: boolean;
+  recorded: number;
+  /** Checks that could have run and did not, so a quiet round is never mistaken for a clean one. */
+  did_not_run: string[];
+}
+
+export type WatchEvent =
+  | { event: "started"; interval_secs: number; known: number }
+  | { event: "looking" }
+  | { event: "looked"; look: Look }
+  | { event: "trouble"; error: string }
+  | { event: "stopped" };
+
+/** One problem the watcher has seen, present or not. */
+export interface Seen {
+  id: string;
+  probe: string;
+  subject: string | null;
+  title: string;
+  severity: Severity;
+  present: boolean;
+  first_seen: string;
+  last_change: string;
+  appearances: number;
+}
+
+/** Something being held quiet because it comes and goes, and why. */
+export interface Muted {
+  key: string;
+  title: string;
+  reason: string;
+  appearances: number;
+}
+
+export interface Baseline {
+  established: boolean;
+  seen: Record<string, Seen>;
+  muted: Muted[];
+}
+
+export interface WatchStatus {
+  running: boolean;
+  baseline: Baseline;
+  baseline_path: string;
+  history: Look[];
 }

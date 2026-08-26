@@ -10,6 +10,57 @@ not that the work has stopped.
 
 ---
 
+## v0.7.0
+
+**It watches now.** `outlaw watch` in the terminal, or the new **Watching**
+screen in the window. It looks on an interval -- a quarter of an hour by
+default -- and says something only when something changes: a problem appearing,
+getting worse, easing, or going away. Between those it says nothing at all.
+
+That last part is the design rather than an omission. A watcher that reports
+what it *finds* reports the same eleven things every fifteen minutes, and
+somebody told the same eleven things every fifteen minutes stops reading them
+-- including on the morning it is twelve.
+
+Three things follow from that:
+
+- **The first look reports nothing.** A computer that already has six problems
+  did not just develop six problems. It records how the machine is now, says
+  how many things it wrote down, and measures everything after that against it.
+- **A check that could not run clears nothing.** A skipped check reports
+  nothing, and reporting nothing looks exactly like reporting a repair. A
+  problem is only ever declared gone by the check that would have found it,
+  having run and not found it.
+- **Something that comes and goes is reported once**, as flapping, and then
+  held quiet. Held quiet, never hidden -- what is being held, and why, is
+  always listed.
+
+It never fixes anything and never asks for administrator rights. Anything it
+finds goes on the triage queue in the ordinary way. `--once` takes a single
+look and exits, for a scheduled task, sharing its memory with the running
+watcher so a machine can be moved between the two.
+
+**A supervised process could be killed for being busy.** Found while testing:
+a process sitting in a tight loop was declared stuck, because the only signal
+a silent process had was CPU measured as a *rate* -- and a rate stops being
+measurable on a computer that is thrashing, which is the exact condition this
+tool runs in. Consumed processor time, which is a counter rather than a rate,
+now carries the weight: one millisecond of it is proof a process ran, at any
+load. This could have aborted a real repair on a struggling machine.
+
+**Elsewhere:**
+
+- The audit log's timestamp handling now covers the whole tool, so the watcher
+  shows times the way the audit log does instead of printing a UTC instant to
+  seven decimal places.
+- Opening the watcher's memory in Notepad and saving it no longer resets it.
+- Documentation going stale is now a build failure: every command must be in
+  the command reference and vice versa, the changelog must have an entry for
+  the version being built, front-page links must point at files that exist,
+  and every page in `docs/` must be one the program carries.
+
+---
+
 ## v0.6.0
 
 **An installer you can double-click.** Download `outlaw-setup.exe` on Windows

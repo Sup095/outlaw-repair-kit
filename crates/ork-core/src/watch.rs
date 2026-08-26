@@ -249,7 +249,13 @@ impl Baseline {
     /// the worst case of starting over is one quiet round.
     pub fn load(path: &Path) -> Self {
         match std::fs::read_to_string(path) {
-            Ok(text) => match serde_json::from_str(&text) {
+            // A byte-order mark is stripped before parsing. It is not
+            // decoration: a JSON parser reads one as a stray character and
+            // rejects the whole file, and Notepad adds one to anything it
+            // saves. Somebody opening this file to see what the watcher knows
+            // -- which the documentation invites -- and closing it with
+            // Ctrl-S would otherwise silently reset their watcher.
+            Ok(text) => match serde_json::from_str(text.trim_start_matches('\u{feff}')) {
                 Ok(baseline) => baseline,
                 Err(error) => {
                     tracing::warn!(path = %path.display(), %error, "unreadable watch baseline; starting over");
@@ -1175,6 +1181,40 @@ mod tests {
             read_back.established,
             "a saved baseline read back as a first run"
         );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_byte_order_mark_does_not_wipe_what_is_remembered() {
+        // Notepad adds one to anything it saves, and the documentation invites
+        // people to open this file and read it. Losing a watcher's history
+        // because somebody looked at it would be a poor reward for curiosity.
+        // Found by writing this file from a shell that adds one by default.
+        let dir = std::env::temp_dir().join("ork-watch-bom-test");
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("watch-baseline.json");
+
+        let mut baseline = Baseline::default();
+        compare(
+            &mut baseline,
+            &report(&[(
+                "storage",
+                vec![finding(
+                    "storage",
+                    "storage.full",
+                    Some("C:"),
+                    Severity::High,
+                )],
+            )]),
+        );
+        baseline.save(&path).unwrap();
+
+        let saved = std::fs::read_to_string(&path).unwrap();
+        std::fs::write(&path, format!("{}{saved}", '\u{feff}')).unwrap();
+
+        let read_back = Baseline::load(&path);
+        assert_eq!(read_back, baseline, "a byte-order mark lost the history");
 
         let _ = std::fs::remove_dir_all(&dir);
     }

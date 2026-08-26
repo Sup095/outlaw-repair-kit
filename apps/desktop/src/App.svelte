@@ -7,6 +7,7 @@
   import SettingsView from "./lib/SettingsView.svelte";
   import AuditView from "./lib/AuditView.svelte";
   import ChecksView from "./lib/ChecksView.svelte";
+  import WatchView from "./lib/WatchView.svelte";
   import ReportView from "./lib/ReportView.svelte";
   import InfoView from "./lib/InfoView.svelte";
   import type { BootReport } from "./lib/api";
@@ -15,6 +16,7 @@
   let view = $state<
     | "scan"
     | "checks"
+    | "watch"
     | "queue"
     | "models"
     | "machines"
@@ -28,6 +30,10 @@
   const tabs = [
     { id: "scan", label: "Scan" },
     { id: "checks", label: "Checks" },
+    // Beside Scan, because it is the same work on a timer rather than on a
+    // button, and somebody who has just run a scan is exactly the person who
+    // wants to be told when the answer changes.
+    { id: "watch", label: "Watching" },
     { id: "queue", label: "Queue" },
     { id: "models", label: "Models" },
     { id: "machines", label: "Machines" },
@@ -83,6 +89,8 @@
         <ScanView />
       {:else if view === "checks"}
         <ChecksView />
+      {:else if view === "watch"}
+        <WatchView />
       {:else if view === "queue"}
         <QueueView />
       {:else if view === "models"}

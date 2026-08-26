@@ -70,6 +70,7 @@ outlaw boot
 | --- | --- |
 | **Scan** | Pick how thorough to be, watch checks report as they finish, read the findings, and ask for an explanation |
 | **Checks** | Every check this build knows how to run, grouped by tier, and whether each one can run on this machine |
+| **Watching** | Look on an interval and hear only about what changed |
 | **Queue** | Problems waiting to be worked through, worst first — and the buttons that work them |
 | **Models** | Which model would handle this run, and exactly why the others were passed over |
 | **Machines** | Pair with another computer so one can lend the other a model, and see what is wrong over there |
@@ -97,6 +98,42 @@ machine. Everything in `config.toml` is editable in the window, and API keys go
 to the operating system's own credential store — never into the settings file,
 and never back to the window once saved. The Settings screen shows only whether
 a key is stored, not what it is.
+
+## Watching, from the app
+
+The **Watching** screen starts a watcher that looks on an interval and reports
+only transitions -- a problem appearing, getting worse, easing, or going away.
+It is the same watcher as [`outlaw watch`](watching.md), sharing the same
+memory, so a machine can be moved between the window and a scheduled task
+without losing its history.
+
+The screen is laid out around the fact that **an empty left-hand panel is the
+good outcome**. Nothing appears there between changes, which is what a working
+watcher looks like. What it currently believes is always on the right: what is
+wrong now, how many problems it has seen before and are not there any more,
+and -- always listed, never merely dropped -- anything it is holding quiet for
+coming and going too often.
+
+The first look records how the machine is now and reports nothing. That is
+deliberate, and the screen says so: a computer that already had six problems
+did not just develop six problems.
+
+Two things worth knowing:
+
+- **It keeps running when you leave the screen.** That is the entire point of
+  it. What it noticed while you were on another tab is waiting when you come
+  back, and so is what it noticed while the window was shut, because the
+  record it keeps is on disk rather than in the window.
+- **A check that could not run clears nothing**, and the screen says which
+  checks those were, because a check reporting nothing and a check reporting a
+  repair look identical and only one of them is good news.
+
+**Forget and start over** throws away everything it remembers. It asks first.
+Afterwards the next look records a fresh starting point and reports nothing,
+which -- if you did not mean to press it -- looks exactly like a watcher that
+has stopped noticing anything.
+
+Nothing here fixes anything. Findings go to the **Queue** in the ordinary way.
 
 ## Fixing, from the app
 
