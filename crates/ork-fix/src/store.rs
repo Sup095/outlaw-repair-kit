@@ -149,18 +149,28 @@ pub struct AuditLine {
 /// Falls back to returning the input unchanged rather than to a placeholder:
 /// an odd-looking timestamp is still evidence, and "unknown" is not.
 pub fn readable_time(stored: &str) -> String {
+    // Asking the operating system where it is can fail -- on Unix it is
+    // refused outright in a multi-threaded process, which this is. Passed in
+    // rather than looked up inside, so that both answers can be tested
+    // without a test having to arrange for the machine to be somewhere.
+    render_time(stored, time::UtcOffset::current_local_offset().ok())
+}
+
+/// The part of [`readable_time`] that does not depend on where the machine is.
+///
+/// `None` means the offset could not be established. That case is labelled
+/// UTC rather than shown bare, because the one outcome worth ruling out is a
+/// UTC time quietly presented as though it were local.
+fn render_time(stored: &str, offset: Option<time::UtcOffset>) -> String {
     use time::format_description::well_known::Rfc3339;
 
     let Ok(instant) = time::OffsetDateTime::parse(stored, &Rfc3339) else {
         return stored.to_string();
     };
 
-    // Asking the operating system for the local offset can fail -- on Unix it
-    // is refused outright in a multi-threaded process, which this is. When it
-    // does, say UTC rather than quietly showing a UTC time that looks local.
-    let (moment, zone) = match time::UtcOffset::current_local_offset() {
-        Ok(offset) => (instant.to_offset(offset), String::new()),
-        Err(_) => (instant, " UTC".to_string()),
+    let (moment, zone) = match offset {
+        Some(offset) => (instant.to_offset(offset), String::new()),
+        None => (instant.to_offset(time::UtcOffset::UTC), " UTC".to_string()),
     };
 
     let format = time::macros::format_description!("[year]-[month]-[day] [hour]:[minute]:[second]");
@@ -515,16 +525,32 @@ mod tests {
     }
 
     #[test]
-    fn a_timestamp_shown_in_utc_says_so() {
-        // Whichever branch this machine takes, the result must never be a UTC
-        // time presented as though it were local. Either it was converted, or
-        // it is labelled.
-        let readable = readable_time("2026-08-25T23:43:30Z");
-        let converted = !readable.contains("23:43:30");
-        assert!(
-            converted || readable.ends_with(" UTC"),
-            "an unconverted time must say UTC: {readable}"
-        );
+    fn a_time_that_could_not_be_localised_says_utc() {
+        // The outcome worth ruling out is a UTC time presented as though it
+        // were local, so when the offset is unknown it must be labelled.
+        //
+        // The offset is passed in rather than looked up: an earlier version of
+        // this test read whatever the machine happened to be set to, passed
+        // here, and failed on both CI runners -- which sit in UTC, where a
+        // correctly localised time is indistinguishable from an unlocalised
+        // one. That test was measuring the runner, not the code.
+        let utc = render_time("2026-08-25T23:43:30Z", None);
+        assert_eq!(utc, "2026-08-25 23:43:30 UTC");
+    }
+
+    #[test]
+    fn a_localised_time_is_moved_and_left_unlabelled() {
+        let five_west = time::UtcOffset::from_hms(-5, 0, 0).unwrap();
+        let local = render_time("2026-08-25T23:43:30Z", Some(five_west));
+        assert_eq!(local, "2026-08-25 18:43:30");
+    }
+
+    #[test]
+    fn a_machine_that_really_is_on_utc_is_not_labelled() {
+        // Zero offset is a location, not a failure to find one. Labelling it
+        // would be telling somebody in London that their clock is foreign.
+        let here = render_time("2026-08-25T23:43:30Z", Some(time::UtcOffset::UTC));
+        assert_eq!(here, "2026-08-25 23:43:30");
     }
 
     #[test]
