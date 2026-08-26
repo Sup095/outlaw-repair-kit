@@ -72,7 +72,7 @@ pub fn host_info() -> Result<HostInfo> {
         kernel_version: System::kernel_version().unwrap_or_else(|| "unknown".to_string()),
         arch: System::cpu_arch(),
         cpu_brand,
-        physical_cores: system.physical_core_count(),
+        physical_cores: sysinfo::System::physical_core_count(),
         logical_cores: system.cpus().len(),
         total_memory_bytes: system.total_memory(),
     })

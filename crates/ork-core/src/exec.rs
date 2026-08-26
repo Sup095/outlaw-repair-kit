@@ -168,17 +168,45 @@ struct ActivitySample {
     io_bytes: u64,
     /// Whether the process was using measurable CPU at this instant.
     burning_cpu: bool,
+    /// Milliseconds of processor time this process has consumed in total.
+    ///
+    /// A counter, not a rate, and that distinction is the whole reason it is
+    /// here. See [`ActivitySample::differs_from`].
+    cpu_time_ms: u64,
 }
 
 impl ActivitySample {
     /// Whether anything has happened since `previous`.
     ///
-    /// CPU is checked as a level rather than a delta because it is sampled as
-    /// a rate: a process pinned at 100% shows the same value every time we
-    /// look, and treating "unchanged" as "idle" would declare the busiest
-    /// possible process stuck.
+    /// Four signals, and the order they are written in is the order they are
+    /// trusted in.
+    ///
+    /// **Consumed processor time** is the one that carries the weight. It is a
+    /// counter that only goes up, so any increase at all is proof the process
+    /// ran -- one millisecond is enough. That matters because the other CPU
+    /// signal is a *rate*, and a rate is exactly what stops being measurable
+    /// on a machine under load: a process spinning flat out on a computer that
+    /// is thrashing may be scheduled so little that its rate rounds to nothing.
+    /// A diagnostic tool killing a repair because the machine was too busy to
+    /// report on it would fail at the one moment it is most needed. This was
+    /// found by a supervised process being declared stuck on a loaded build
+    /// machine while it sat in a tight loop, having last shown a measurable
+    /// rate two seconds earlier.
+    ///
+    /// **CPU as a level** stays as a second opinion, checked as a level rather
+    /// than a delta because a process pinned at 100% shows the same value every
+    /// time we look, and treating "unchanged" as "idle" would declare the
+    /// busiest possible process stuck.
+    ///
+    /// **Output** and **disk** are the signals for a process that is waiting on
+    /// something rather than computing.
+    ///
+    /// Every one of them is evidence of life, so any one is enough. Nothing is
+    /// ever declared stuck for failing several tests -- only for failing all of
+    /// them.
     fn differs_from(&self, previous: &ActivitySample) -> bool {
-        self.burning_cpu
+        self.cpu_time_ms > previous.cpu_time_ms
+            || self.burning_cpu
             || self.output_bytes != previous.output_bytes
             || self.io_bytes != previous.io_bytes
     }
@@ -203,6 +231,7 @@ fn sample(system: &mut System, pid: Pid, output_bytes: u64) -> ActivitySample {
                     .total_read_bytes
                     .saturating_add(disk.total_written_bytes),
                 burning_cpu: process.cpu_usage() > CPU_NOISE_FLOOR,
+                cpu_time_ms: process.accumulated_cpu_time(),
             }
         }
         // The process is gone, or we cannot see it. Either way this poll tells
@@ -510,6 +539,7 @@ mod tests {
             output_bytes: 0,
             io_bytes: 0,
             burning_cpu: true,
+            cpu_time_ms: 0,
         };
         assert!(busy.differs_from(&busy));
 
@@ -517,8 +547,59 @@ mod tests {
             output_bytes: 0,
             io_bytes: 0,
             burning_cpu: false,
+            cpu_time_ms: 0,
         };
         assert!(!idle.differs_from(&idle));
+    }
+
+    #[test]
+    fn a_process_too_starved_to_register_a_rate_is_still_alive() {
+        // The failure this exists to prevent, seen for real: a process sitting
+        // in a tight loop was declared stuck on a loaded build machine,
+        // because on a computer that is thrashing a spinning process can be
+        // scheduled so little that its CPU *rate* rounds to nothing. That is
+        // the exact condition this tool runs in, so the rate cannot be the
+        // only thing asked.
+        //
+        // Consumed processor time is a counter rather than a rate. One
+        // millisecond of it is proof the process ran, at any load.
+        let before = ActivitySample {
+            output_bytes: 0,
+            io_bytes: 0,
+            burning_cpu: false,
+            cpu_time_ms: 1_000,
+        };
+        let after = ActivitySample {
+            cpu_time_ms: 1_001,
+            ..before
+        };
+        assert!(
+            after.differs_from(&before),
+            "a millisecond of processor time is evidence of life"
+        );
+
+        // And a counter that has not moved says nothing either way, so the
+        // other signals still decide.
+        let unmoved = ActivitySample { ..before };
+        assert!(!unmoved.differs_from(&before));
+    }
+
+    #[test]
+    fn a_counter_that_goes_backwards_is_not_read_as_activity() {
+        // Which it should never do -- but it is read from the operating system
+        // across process restarts and reused identifiers, and `!=` would turn
+        // a decrease into a liveness signal.
+        let before = ActivitySample {
+            output_bytes: 0,
+            io_bytes: 0,
+            burning_cpu: false,
+            cpu_time_ms: 5_000,
+        };
+        let after = ActivitySample {
+            cpu_time_ms: 10,
+            ..before
+        };
+        assert!(!after.differs_from(&before));
     }
 
     #[test]
@@ -527,11 +608,11 @@ mod tests {
             output_bytes: 10,
             io_bytes: 0,
             burning_cpu: false,
+            cpu_time_ms: 0,
         };
         let after = ActivitySample {
             output_bytes: 20,
-            io_bytes: 0,
-            burning_cpu: false,
+            ..before
         };
         assert!(after.differs_from(&before));
     }
