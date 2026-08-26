@@ -134,7 +134,10 @@
     width: 100%;
   }
   .contents button strong { font-size: 12.5px; font-weight: 600; }
-  .contents button span { font-size: 11.5px; }
+  /* The summary is a sentence, and buttons in this application are set in
+     capitals. A sentence in capitals is a sentence being shouted at somebody
+     who only wanted to know what the page is about. */
+  .contents button span { font-size: 11.5px; text-transform: none; letter-spacing: 0; }
   .contents button.active { border-color: var(--amber); color: var(--amber); }
   .contents button.active span { color: var(--amber-dim); }
 

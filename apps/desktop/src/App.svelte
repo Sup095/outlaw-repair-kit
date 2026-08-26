@@ -66,13 +66,14 @@
         {/each}
       </nav>
       <div class="meta">
-        <span class="dim">v{booted.version}</span>
+        <span class="version">v{booted.version}</span>
         {#if warnings.length}
           <span class="warn" title={warnings.map((w) => `${w.name}: ${w.detail}`).join("\n")}>
             {warnings.length} start-up warning{warnings.length === 1 ? "" : "s"}
           </span>
         {/if}
       </div>
+      <span class="pulse" aria-hidden="true"></span>
     </header>
 
     {#if booted.update.state === "available" && !updateDismissed}
@@ -121,13 +122,59 @@
     height: 100%;
   }
 
+  /* A rule of light under the header, brightest in the middle, so the top of
+     the window reads as powered rather than merely drawn. */
   header {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 2rem;
     padding: 0.75rem 1.25rem;
     border-bottom: 1px solid var(--line);
-    background: linear-gradient(180deg, #12161e, #0c0f15);
+    background:
+      linear-gradient(180deg, #141a26 0%, #0a0d14 100%);
+  }
+
+  header::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--amber-dim) 18%,
+      var(--amber) 50%,
+      var(--amber-dim) 82%,
+      transparent
+    );
+    opacity: 0.75;
+  }
+
+  /* A pulse that travels along that rule, once every eight seconds. It is
+     confined to a one-pixel line at the top of the window, well away from
+     anything anybody is reading, and it is the only thing on this screen that
+     moves on its own -- which is the point. It says the tool is running
+     without asking for a glance. */
+  .pulse {
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    width: 120px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    box-shadow: var(--glow-cyan);
+    animation: run 8s linear infinite;
+    pointer-events: none;
+  }
+
+  @keyframes run {
+    0% { transform: translateX(-140px); opacity: 0; }
+    8% { opacity: 1; }
+    92% { opacity: 1; }
+    100% { transform: translateX(100vw); opacity: 0; }
   }
 
   .brand {
@@ -140,6 +187,7 @@
     color: var(--amber);
     font-weight: 700;
     letter-spacing: 0.24em;
+    text-shadow: var(--glow-amber);
   }
 
   .sub {
@@ -158,11 +206,23 @@
     background: transparent;
     border-color: transparent;
     border-bottom: 2px solid transparent;
+    box-shadow: none;
   }
 
+  nav button:hover:not(.active) {
+    box-shadow: none;
+    background: rgba(34, 224, 226, 0.05);
+    border-bottom-color: var(--cyan-dim);
+    color: var(--cyan);
+    text-shadow: var(--glow-cyan);
+  }
+
+  /* The active tab is the one thing on this screen that is always lit. */
   nav button.active {
     color: var(--amber);
     border-bottom-color: var(--amber);
+    text-shadow: var(--glow-amber);
+    box-shadow: 0 6px 14px -8px var(--amber);
   }
 
   .meta {
@@ -173,11 +233,17 @@
     font-size: 12px;
   }
 
+  .version {
+    color: var(--cyan-dim);
+    letter-spacing: 0.1em;
+  }
+
   .warn {
     color: var(--yellow);
     border: 1px solid #4a3a12;
     padding: 0.15rem 0.5rem;
     cursor: help;
+    text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
   }
 
   .update {
@@ -185,7 +251,7 @@
     align-items: center;
     gap: 1rem;
     padding: 0.6rem 1.25rem;
-    background: #1b1508;
+    background: linear-gradient(90deg, #1f1809, #14100633);
     border-bottom: 1px solid #4a3a12;
     color: var(--amber);
     font-size: 12.5px;
@@ -202,8 +268,10 @@
   }
 
   footer {
+    position: relative;
     border-top: 1px solid var(--line);
     padding: 0.5rem 1.25rem;
     font-size: 11.5px;
+    background: linear-gradient(180deg, transparent, rgba(4, 5, 10, 0.85));
   }
 </style>

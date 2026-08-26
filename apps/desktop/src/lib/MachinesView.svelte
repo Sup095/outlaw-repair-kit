@@ -270,10 +270,4 @@
   .bad { border-color: var(--red); color: var(--red); margin-bottom: 1rem; }
   .bad-text { color: var(--red); }
   .good { border-color: var(--green); color: var(--green); margin-bottom: 1rem; }
-  .sev { text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.14em; padding: 0.1rem 0.45rem; border: 1px solid currentColor; }
-  .sev.critical { color: #fff; background: var(--red); border-color: var(--red); }
-  .sev.high { color: var(--red); }
-  .sev.medium { color: var(--yellow); }
-  .sev.low { color: var(--cyan); }
-  .sev.info { color: var(--text-dim); }
 </style>

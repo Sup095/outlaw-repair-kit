@@ -64,6 +64,36 @@
   </p>
 {/if}
 
+{#if !scan.report && !scan.running && !scan.error}
+  <!-- Something to look at, and something worth reading, instead of a screen
+       that is blank until you press a button. Somebody opening this for the
+       first time should be able to tell what it is about to do to their
+       computer before they ask it to. -->
+  <div class="idle panel">
+    <div class="idle-mark" aria-hidden="true">
+      <span class="ring"></span>
+      <span class="ring two"></span>
+      <span class="dot"></span>
+    </div>
+    <div class="idle-words">
+      <h3>Standing by</h3>
+      <p class="dim">
+        Nothing has been read from this machine yet. A scan runs a list of checks and
+        reports what it finds — it changes nothing on its own, and anything worth fixing
+        goes to the <strong>Queue</strong> for you to work through one at a time.
+      </p>
+      <dl class="tiers">
+        <div><dt>Quick</dt><dd class="dim">Disks, memory, processes, drivers, services, logs, launchers.</dd></div>
+        <div><dt>Full</dt><dd class="dim">Adds drive health and starting applications for real.</dd></div>
+        <div><dt>Deep</dt><dd class="dim">Adds verifying the operating system's own files against what installed them.</dd></div>
+      </dl>
+      <p class="dim hint">
+        No tier has a time limit. <strong>Stop</strong> is available the whole way through.
+      </p>
+    </div>
+  </div>
+{/if}
+
 {#if scan.progress}
   <div class="progress panel">
     <div class="track"><div class="fill" style="width: {(scan.progress.index / Math.max(scan.progress.total, 1)) * 100}%"></div></div>
@@ -132,6 +162,76 @@
 {/if}
 
 <style>
+  /* The idle panel. A slow pulse rather than a spinner: a spinner says "wait",
+     and nothing here is being waited for. */
+  .idle {
+    display: flex;
+    gap: 1.6rem;
+    align-items: flex-start;
+    margin-bottom: 0.8rem;
+  }
+
+  .idle-mark {
+    position: relative;
+    width: 88px;
+    height: 88px;
+    flex: none;
+    margin: 0.4rem 0 0 0.3rem;
+  }
+
+  .idle-mark .ring,
+  .idle-mark .dot {
+    position: absolute;
+    border-radius: 50%;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .idle-mark .ring {
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--cyan-dim);
+    animation: sweep 3.4s ease-in-out infinite;
+  }
+
+  .idle-mark .ring.two {
+    width: 62%;
+    height: 62%;
+    border-color: var(--amber-dim);
+    animation-delay: 1.1s;
+  }
+
+  .idle-mark .dot {
+    width: 7px;
+    height: 7px;
+    background: var(--amber);
+    box-shadow: var(--glow-amber);
+  }
+
+  @keyframes sweep {
+    0%, 100% { opacity: 0.25; transform: translate(-50%, -50%) scale(0.92); }
+    50% { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
+  }
+
+  .idle-words { min-width: 0; }
+  .idle-words h3 { margin-bottom: 0.45rem; }
+  .idle-words p { margin: 0 0 0.7rem; max-width: 74ch; font-size: 12.5px; }
+
+  .tiers { margin: 0 0 0.7rem; display: grid; gap: 0.25rem; font-size: 12px; }
+  .tiers div { display: flex; gap: 0.8rem; }
+  .tiers dt {
+    color: var(--cyan);
+    min-width: 5.5ch;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 11px;
+    padding-top: 0.1rem;
+  }
+  .tiers dd { margin: 0; }
+
+  .hint { margin-bottom: 0 !important; }
+
   .note { max-width: 66ch; margin: 0.4rem 0 0.8rem; font-size: 12.5px; }
   .controls {
     display: flex;
@@ -195,19 +295,7 @@
     font-size: 12px;
   }
 
-  .sev {
-    text-transform: uppercase;
-    font-size: 10.5px;
-    letter-spacing: 0.14em;
-    padding: 0.1rem 0.45rem;
-    border: 1px solid currentColor;
-  }
 
-  .sev.critical { color: #fff; background: var(--red); border-color: var(--red); }
-  .sev.high { color: var(--red); }
-  .sev.medium { color: var(--yellow); }
-  .sev.low { color: var(--cyan); }
-  .sev.info { color: var(--text-dim); }
 
   .finding p {
     margin: 0 0 0.5rem;

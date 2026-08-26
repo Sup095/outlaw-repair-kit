@@ -99,6 +99,27 @@ to the operating system's own credential store — never into the settings file,
 and never back to the window once saved. The Settings screen shows only whether
 a key is stored, not what it is.
 
+## The look
+
+Amber and cyan on near-black, in a monospaced face, with a faint grid and
+scanlines behind everything -- the same palette as the terminal, so the two
+front-ends read as one tool.
+
+It is deliberately restrained about it. Glow is on headings, accents, and
+states: the active tab, a button under the pointer, a severity badge. It is
+never on body text, never on a log line, never on anything you have to read a
+hundred of. This is a screen somebody reads when their computer is broken, and
+one that looks tremendous and is tiring to read has failed at the only job it
+has.
+
+The one thing that moves on its own is a pulse travelling along the rule under
+the header, once every eight seconds. It sits in a single row of pixels at the
+top of the window, well clear of anything anybody is reading, and it is there
+so the window reads as running without asking for a glance.
+
+If you have asked your system not to animate things, nothing moves. The
+start-up sequence still runs; it just stops sliding.
+
 ## Watching, from the app
 
 The **Watching** screen starts a watcher that looks on an interval and reports

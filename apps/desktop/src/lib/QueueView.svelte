@@ -241,12 +241,6 @@
   .outcome li { margin-bottom: 0.25rem; white-space: pre-wrap; }
   .apply { border-color: var(--cyan); color: var(--cyan); }
   .stop { border-color: var(--red); color: var(--red); }
-  .sev { text-transform: uppercase; font-size: 10.5px; letter-spacing: 0.14em; padding: 0.1rem 0.45rem; border: 1px solid currentColor; }
-  .sev.critical { color: #fff; background: var(--red); border-color: var(--red); }
-  .sev.high { color: var(--red); }
-  .sev.medium { color: var(--yellow); }
-  .sev.low { color: var(--cyan); }
-  .sev.info { color: var(--text-dim); }
   .scrim { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.72); display: grid; place-items: center; z-index: 40; }
   .dialog { width: min(52ch, 90vw); background: var(--bg); border: 1px solid var(--cyan); padding: 1.2rem; }
   .dialog h3 { margin: 0 0 0.6rem; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; }

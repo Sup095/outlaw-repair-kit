@@ -308,19 +308,6 @@
   .since { font-size: 11px; }
   .footnote { margin-top: 0.7rem; }
 
-  .sev {
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    border: 1px solid currentColor;
-    padding: 0.05rem 0.35rem;
-    white-space: nowrap;
-  }
-  .sev.critical { color: #fff; background: var(--red); border-color: var(--red); }
-  .sev.high { color: var(--red); }
-  .sev.medium { color: var(--yellow); }
-  .sev.low { color: var(--cyan); }
-  .sev.info { color: var(--text-dim); }
 
   .muted { margin-bottom: 0.6rem; font-size: 12px; }
   .muted strong { display: block; font-weight: 600; }
