@@ -1,96 +1,26 @@
 <script lang="ts">
-  import { api, type Incident, type ProblemReport } from "./api";
+  import {
+    state as report,
+    edited,
+    load,
+    loadIfNeeded,
+    restore,
+    openIssue,
+    save,
+    openForm,
+    clear,
+  } from "./report.svelte";
 
-  let report = $state<ProblemReport | null>(null);
-  let incidents = $state<Incident[]>([]);
-  let error = $state<string | null>(null);
-  let notice = $state<string | null>(null);
-  let loaded = $state(false);
+  // The draft lives outside this component, so switching tabs while writing a
+  // description does not throw it away. See lib/report.svelte.ts.
 
-  // What the person will actually post. Seeded from the generated report and
-  // then theirs to change — the backend sends whatever is in these, not what
-  // it generated, so an edit is never silently discarded.
-  let title = $state("");
-  let body = $state("");
-
-  const edited = $derived(
-    report !== null && (title !== report.title || body !== report.body),
-  );
-
-  async function load() {
-    try {
-      const [built, recorded] = await Promise.all([
-        api.reportBuild(),
-        api.reportIncidents(40),
-      ]);
-      report = built;
-      incidents = recorded;
-      title = built.title;
-      body = built.body;
-      error = null;
-    } catch (problem) {
-      error = String(problem);
-    } finally {
-      loaded = true;
-    }
-  }
-
-  async function openIssue() {
-    notice = null;
-    try {
-      await api.reportOpenIssue(title, body);
-      notice = "The issue form is open in your browser. Nothing is sent until you press the button there.";
-    } catch (problem) {
-      // Usually "too long for a link". Saving is the way through, so say so
-      // rather than leaving a dead end.
-      error = String(problem);
-    }
-  }
-
-  async function save() {
-    notice = null;
-    try {
-      const path = await api.reportSave(body);
-      notice = `Saved to ${path}. Attach that file to the issue.`;
-    } catch (problem) {
-      error = String(problem);
-    }
-  }
-
-  async function openForm() {
-    notice = null;
-    try {
-      await api.reportOpenForm();
-      notice = "The issue form is open in your browser.";
-    } catch (problem) {
-      error = String(problem);
-    }
-  }
-
-  async function clear() {
-    notice = null;
-    try {
-      await api.reportClear();
-      await load();
-      notice = "Cleared. Nothing recorded is kept.";
-    } catch (problem) {
-      error = String(problem);
-    }
-  }
-
-  function restore() {
-    if (!report) return;
-    title = report.title;
-    body = report.body;
-  }
-
-  load();
+  loadIfNeeded();
 </script>
 
 <div class="head">
   <h2>Report a problem</h2>
   <button onclick={load}>Refresh</button>
-  <button onclick={clear} disabled={incidents.length === 0}>Forget what was recorded</button>
+  <button onclick={clear} disabled={report.incidents.length === 0}>Forget what was recorded</button>
 </div>
 
 <p class="dim intro">
@@ -102,20 +32,20 @@
   this already filled in, and you press Submit there.
 </p>
 
-{#if error}
-  <div class="panel bad">{error}</div>
+{#if report.error}
+  <div class="panel bad">{report.error}</div>
 {/if}
-{#if notice}
-  <div class="panel good">{notice}</div>
+{#if report.notice}
+  <div class="panel good">{report.notice}</div>
 {/if}
 
-{#if loaded && report}
-  {#if report.incident_count === 0}
+{#if report.loaded && report.generated}
+  {#if report.generated.incident_count === 0}
     <div class="panel dim">
       Nothing has gone wrong on this machine yet. You can still describe something by
       hand below.
     </div>
-  {:else if report.includes_crash}
+  {:else if report.generated.includes_crash}
     <div class="panel warn">
       This includes a crash. That is the most useful kind of report there is — it says
       exactly where the tool fell over.
@@ -124,33 +54,33 @@
 
   <label class="field">
     <span class="dim">Title</span>
-    <input bind:value={title} spellcheck="false" />
+    <input bind:value={report.title} spellcheck="false" />
   </label>
 
   <label class="field">
     <span class="dim">What would be posted</span>
-    <textarea bind:value={body} rows="20" spellcheck="false"></textarea>
+    <textarea bind:value={report.body} rows="20" spellcheck="false"></textarea>
   </label>
 
   <div class="actions">
     <button class="go" onclick={openIssue}>Open the issue form</button>
     <button onclick={save}>Save to a file</button>
     <button onclick={openForm}>Open a blank issue</button>
-    {#if edited}
+    {#if edited()}
       <button class="quiet" onclick={restore}>Undo my edits</button>
     {/if}
   </div>
 
-  {#if incidents.length}
+  {#if report.incidents.length}
     <details class="raw">
-      <summary>What was recorded, unedited ({incidents.length})</summary>
+      <summary>What was recorded, unedited ({report.incidents.length})</summary>
       <p class="dim small">
         This is the record as it sits on this machine, before anything was taken out. It
         is shown so you can see what the report was built from — it is not what gets
         posted.
       </p>
       <ul>
-        {#each incidents as incident, index (index)}
+        {#each report.incidents as incident, index (index)}
           <li class:crash={incident.kind === "panic"}>
             <span class="kind">{incident.kind === "panic" ? "crash" : "error"}</span>
             <span class="when dim">{incident.at}</span>

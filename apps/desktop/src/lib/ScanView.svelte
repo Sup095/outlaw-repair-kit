@@ -1,83 +1,42 @@
 <script lang="ts">
-  import { api, onScanEvent, type Finding, type ScanEvent, type ScanReport } from "./api";
+  import { type Finding } from "./api";
+  import { scan, runScan, explainFindings, cancelScan } from "./scan.svelte";
 
-  let tier = $state("quick");
-  let running = $state(false);
-  let progress = $state<{ index: number; total: number; name: string } | null>(null);
-  let report = $state<ScanReport | null>(null);
-  let error = $state<string | null>(null);
-  let explanation = $state<any | null>(null);
-  let explaining = $state(false);
+  // Everything the run consists of lives in `scan`, outside this component, so
+  // that switching to another tab and back does not throw away a scan that may
+  // have taken an hour. See lib/scan.svelte.ts.
 
   const order = ["critical", "high", "medium", "low", "info"];
 
   const findings = $derived<Finding[]>(
-    (report?.outcomes ?? [])
+    (scan.report?.outcomes ?? [])
       .flatMap((outcome) => outcome.findings ?? [])
       .sort((a, b) => order.indexOf(a.severity) - order.indexOf(b.severity)),
   );
 
   const skipped = $derived(
-    (report?.outcomes ?? []).filter((outcome) => outcome.status?.status === "skipped"),
+    (scan.report?.outcomes ?? []).filter((outcome) => outcome.status?.status === "skipped"),
   );
-
-  async function run() {
-    error = null;
-    explanation = null;
-    report = null;
-    running = true;
-    progress = null;
-
-    // Every check reports as it finishes, so a long scan never looks stuck.
-    const unlisten = await onScanEvent((event: ScanEvent) => {
-      if (event.event === "probe-started") {
-        progress = { index: event.index ?? 0, total: event.total ?? 0, name: event.name ?? "" };
-      }
-    });
-
-    try {
-      report = await api.startScan(tier);
-    } catch (problem) {
-      error = String(problem);
-    } finally {
-      unlisten();
-      running = false;
-      progress = null;
-    }
-  }
-
-  async function explain() {
-    if (!report) return;
-    explaining = true;
-    error = null;
-    try {
-      explanation = await api.explain(report);
-    } catch (problem) {
-      error = String(problem);
-    } finally {
-      explaining = false;
-    }
-  }
 </script>
 
 <div class="controls panel">
   <label>
     <span class="dim">Thoroughness</span>
-    <select bind:value={tier} disabled={running}>
+    <select bind:value={scan.tier} disabled={scan.running}>
       <option value="quick">Quick — minutes</option>
       <option value="full">Full — tens of minutes</option>
       <option value="deep">Deep — an hour or more</option>
     </select>
   </label>
-  <button class="primary" onclick={run} disabled={running}>{running ? "Scanning…" : "Run scan"}</button>
+  <button class="primary" onclick={runScan} disabled={scan.running}>{scan.running ? "Scanning…" : "Run scan"}</button>
   <!-- Always available. No scan is ever ended by a clock, only by a person. -->
-  <button class="danger" onclick={() => api.cancelScan()} disabled={!running}>Stop</button>
-  <button onclick={explain} disabled={!report || explaining}>
-    {explaining ? "Thinking…" : "Explain findings"}
+  <button class="danger" onclick={cancelScan} disabled={!scan.running}>Stop</button>
+  <button onclick={explainFindings} disabled={!scan.report || scan.explaining}>
+    {scan.explaining ? "Thinking…" : "Explain findings"}
   </button>
 </div>
 
-{#if tier === "deep"}
+{#if scan.tier === "deep"}
   <!-- Say what it adds *and* what it does not, so nobody picks it expecting
        the stress tests and concludes the tool is broken when it finishes. -->
   <p class="dim note">
@@ -87,30 +46,30 @@
     On Windows it needs administrator rights and says so if it does not have them.
     The stress and burn-in tests this tier is also meant for are not built yet.
   </p>
-{:else if tier === "full"}
+{:else if scan.tier === "full"}
   <p class="dim note">
     Adds the disk health check and the application launch test, which starts catalogued
     applications such as Steam and closes them again.
   </p>
 {/if}
 
-{#if progress}
+{#if scan.progress}
   <div class="progress panel">
-    <div class="track"><div class="fill" style="width: {(progress.index / Math.max(progress.total, 1)) * 100}%"></div></div>
-    <span class="dim">{progress.index} of {progress.total} — {progress.name}</span>
+    <div class="track"><div class="fill" style="width: {(scan.progress.index / Math.max(scan.progress.total, 1)) * 100}%"></div></div>
+    <span class="dim">{scan.progress.index} of {scan.progress.total} — {scan.progress.name}</span>
   </div>
 {/if}
 
-{#if error}
-  <div class="panel bad">{error}</div>
+{#if scan.error}
+  <div class="panel bad">{scan.error}</div>
 {/if}
 
-{#if report}
+{#if scan.report}
   <div class="summary panel">
     <strong>{findings.length}</strong> finding{findings.length === 1 ? "" : "s"}
     <span class="dim">
-      · {report.outcomes.length} checks considered · {skipped.length} skipped
-      {#if report.cancelled}· stopped early{/if}
+      · {scan.report.outcomes.length} checks considered · {skipped.length} skipped
+      {#if scan.report.cancelled}· stopped early{/if}
     </span>
   </div>
 
@@ -132,8 +91,8 @@
       {#if finding.remediation_hint}
         <p class="suggestion">{finding.remediation_hint}</p>
       {/if}
-      {#if explanation?.analysis?.items}
-        {#each explanation.analysis.items.filter((item: any) => item.finding_id === finding.id) as item (item.title)}
+      {#if scan.explanation?.analysis?.items}
+        {#each scan.explanation.analysis.items.filter((item: any) => item.finding_id === finding.id) as item (item.title)}
           <div class="explained">
             <span class="dim">
               {item.source?.entry_id ? `known problem: ${item.source.entry_id}` : item.source?.model ? `reasoned by ${item.source.model}` : "no known answer"}
