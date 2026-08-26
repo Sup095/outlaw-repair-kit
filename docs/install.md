@@ -1,8 +1,43 @@
 # Installing
 
-There are three ways in, and they all end up with the same program.
+There are four ways in, and they all end up with the same program.
 
-## The installer
+## The installer app
+
+The one to use if you would rather not open a terminal at all. Download it from
+the [latest release](https://github.com/Sup095/outlaw-repair-kit/releases/latest)
+and run it:
+
+| Your system | The file |
+| --- | --- |
+| Windows | `outlaw-setup.exe` |
+| Linux | `outlaw-setup` (mark it executable: `chmod +x outlaw-setup`) |
+
+It is a small window and a quick download. It carries no copy of the tool
+inside it — it asks GitHub what has been released, you pick a version, and it
+fetches that. So it stays small however large the thing it installs becomes.
+
+Before it does anything it shows you a list of exactly what it is about to do
+to your computer. Afterwards it shows you what it did, and writes the same list
+to `install-receipt.json` beside the installed files, so removing this later is
+reading a list rather than guessing.
+
+It **refuses** — not warns — to install any file whose checksum does not match
+the one published with the release, or any file the release published no
+checksum for. It never asks for administrator rights. It offers to set up a
+model sized for whatever graphics card it finds, tells you how many gigabytes
+that means before you agree, and shows the exact command it would run to
+install anything that is not its own business.
+
+> It needs a release from **v0.6.0** onwards. Earlier releases packaged the
+> program inside an archive and did not publish it on its own, and this
+> installer downloads exactly one file and checks it against exactly one
+> published checksum rather than carrying an archive unpacker around. Told to
+> use an older release, it says so and says which to pick instead.
+
+## The install script
+
+The same work, in a terminal, for anyone who prefers it.
 
 **Windows** — in PowerShell:
 
@@ -120,3 +155,9 @@ Delete the program, and if you want, the folder it kept its settings in:
 Stored keys live in the operating system's credential store; remove them with
 `outlaw set-key cloud --remove` before deleting the program, or from the
 Settings screen in the desktop app.
+
+If you used the installer app, `install-receipt.json` in the program folder
+lists everything it did, including anything it added to your PATH and any
+shortcut it created. There is no uninstaller: the list is short enough to read,
+and a program that can remove things from your machine is a bigger thing to
+trust than one that tells you what it put there.

@@ -44,6 +44,12 @@ pub const PAGES: &[Page] = &[
         body: include_str!("../../../docs/getting-started.md"),
     },
     Page {
+        id: "changelog",
+        title: "What changed",
+        summary: "Every released version, and what it changed for somebody using it.",
+        body: include_str!("../../../CHANGELOG.md"),
+    },
+    Page {
         id: "install",
         title: "Installing",
         summary: "Every way in, including building from source.",
@@ -165,6 +171,13 @@ mod tests {
                 .unwrap_or_default()
                 .trim_start_matches("# ")
                 .trim();
+            assert!(!heading.is_empty(), "{} has no heading at all", page.id);
+            // The changelog is titled for what somebody wants from it rather
+            // than for what the file is called, which is the one place these
+            // two are allowed to differ.
+            if page.id == "changelog" {
+                continue;
+            }
             assert!(
                 heading.eq_ignore_ascii_case(page.title)
                     || heading.to_lowercase().contains(&page.title.to_lowercase()),
@@ -206,6 +219,7 @@ mod tests {
         // the window will ever see. This is the reminder.
         for expected in [
             "getting-started",
+            "changelog",
             "install",
             "commands",
             "desktop",

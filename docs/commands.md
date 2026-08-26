@@ -73,6 +73,24 @@ memory, and every volume with its free space.
 
 ---
 
+## `outlaw docs [page]`
+
+Read the manual. Every page is compiled into the program, so this works on a
+machine that cannot reach the internet -- which is a machine this tool expects
+to be run on.
+
+```bash
+outlaw docs               # list the pages
+outlaw docs commands      # print one
+outlaw docs fixing | less
+```
+
+Printed as the Markdown it is written in, deliberately: that is the form that
+survives being piped, grepped, or pasted into an issue. The window shows the
+same pages, rendered, on its **Info** screen.
+
+---
+
 ## `outlaw models`
 
 Show which model would be used and **why each tier was or was not chosen** --

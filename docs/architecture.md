@@ -23,8 +23,19 @@ no capability exists in a front-end that is not reachable programmatically.
 
 ## 1. Interface layer
 
-`crates/ork-cli` today; a desktop application later. Both talk to the same
-core. Every human-readable output has a `--json` equivalent.
+Three front-ends, all thin, all talking to the same core.
+
+`crates/ork-cli` is the command line. `apps/desktop` is the window. Every
+human-readable output has a `--json` equivalent, and nothing the window can do
+is unreachable from a script -- which is why shared content, right down to the
+manual in `crates/ork-core/src/docs.rs`, lives in the core rather than in
+whichever front-end happened to need it first.
+
+`crates/ork-setup` is the graphical installer, and is the exception that
+proves the rule: it is a separate program that installs the others, so it
+depends on the core only for what it genuinely shares -- hardware detection,
+running a command -- and draws itself without a system webview, because an
+installer cannot have prerequisites.
 
 ## 2. Diagnostic core (non-AI)
 

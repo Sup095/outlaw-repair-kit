@@ -69,12 +69,18 @@ outlaw boot
 | Screen | What it is for |
 | --- | --- |
 | **Scan** | Pick how thorough to be, watch checks report as they finish, read the findings, and ask for an explanation |
+| **Checks** | Every check this build knows how to run, grouped by tier, and whether each one can run on this machine |
 | **Queue** | Problems waiting to be worked through, worst first — and the buttons that work them |
 | **Models** | Which model would handle this run, and exactly why the others were passed over |
 | **Machines** | Pair with another computer so one can lend the other a model, and see what is wrong over there |
 | **Settings** | Everything you would otherwise hand-edit a file for: routing, endpoints, API keys |
 | **Audit** | Everything checked, found, attempted, and changed |
 | **Report a problem** | Turn a crash or an error into an issue you can post |
+| **Info** | The whole manual, the version, and the licence — carried inside the program rather than linked to |
+
+A scan you have run stays where it is when you look at another screen and come
+back. So does a report you have started writing. Neither is thrown away by
+going to look something up, which is exactly when somebody would.
 
 ### Stopping a scan
 

@@ -33,6 +33,25 @@ output, never the live system.
 
 ## Install
 
+Download **`outlaw-setup.exe`** (Windows) or **`outlaw-setup`** (Linux) from the
+[latest release](https://github.com/Sup095/outlaw-repair-kit/releases/latest)
+and run it. That is the whole thing: a small window, a quick download, and no
+terminal.
+
+It asks which version you want, shows you a list of exactly what it is about to
+do to your computer, and does it. It **refuses** to install any file whose
+checksum does not match the one published with the release. It never asks for
+administrator rights. It offers -- rather than assumes -- to set up a model
+sized for whatever graphics card it finds, and tells you how many gigabytes
+that means before you agree. Afterwards it shows what it did, and writes the
+same list beside the installed files.
+
+It carries no copy of the tool inside it, so it stays a quick download however
+large the tool becomes.
+
+<details>
+<summary>Prefer a terminal?</summary>
+
 **Windows**, in PowerShell:
 
 ```powershell
@@ -45,16 +64,16 @@ irm https://raw.githubusercontent.com/Sup095/outlaw-repair-kit/main/install/inst
 curl -fsSL https://raw.githubusercontent.com/Sup095/outlaw-repair-kit/main/install/install.sh | sh
 ```
 
-The installer checks what it downloaded against the checksum published with the
-release, puts `outlaw` on your PATH without needing administrator rights, and
-asks -- rather than assumes -- whether you also want a model running on this
-machine. It prints any command it is about to run that is not its own.
+The same work: checksum-verified, no administrator rights, and it prints any
+command it is about to run that is not its own.
 
-Or download a build from the
-[latest release](https://github.com/Sup095/outlaw-repair-kit/releases/latest)
-and run it: it is a single binary with no runtime to install first. There is a
-desktop app there too. See [Installing](docs/install.md) for every option,
-including building from source.
+Or download a build from the release and run it -- it is a single binary with
+no runtime to install first. There is a desktop app there too.
+
+</details>
+
+See [Installing](docs/install.md) for every option, including building from
+source.
 
 On Linux, install `systemd`'s `journalctl` (present on most distributions) for
 the log check to see beyond the current boot. Anything missing is reported as a
@@ -124,6 +143,10 @@ you think it did.
 | [Troubleshooting](docs/troubleshooting.md) | When something is not working |
 | [Reporting a problem](docs/reporting.md) | Turn a crash into an issue, with your details taken out |
 | [Architecture](docs/architecture.md) | How the pieces fit together |
+
+All of it is also inside the program: `outlaw docs`, or the **Info** screen in
+the window. A machine that has gone wrong is often one that cannot reach this
+page.
 
 ## Explaining findings
 
@@ -252,14 +275,22 @@ cargo test
    describing them. Each new verifier moves another class of problem from
    "explained" to "fixed", and `outlaw fix` tells you the count before it
    starts.
-9. **Full and Deep tiers, plus a background watcher.** Full runs the disk
-   health check and the application launch test. Deep adds the system file
-   check -- verifying that the operating system's own files still match what
-   installed them, which is what makes a deep scan take as long as it does.
-   **The stress and burn-in work and the background watcher are not built**,
-   and both front-ends say so where the tier is chosen.
-10. **Escalation mode** -- to be proposed and reviewed for safety before it is
+9. **Full and Deep tiers** -- done. Full runs the disk health check and the
+   application launch test. Deep verifies that the operating system's own files
+   still match what installed them, which is what makes a deep scan take as
+   long as it does. **The stress and burn-in work is not built**, and both
+   front-ends say so where the tier is chosen.
+10. **An installer with a window, and the manual inside the program** -- done.
+   Download one small file, run it, and read everything about the tool from
+   the tool. See [Installing](docs/install.md).
+11. **A background watcher.** Not built: noticing a problem appearing rather
+   than being asked to look for one.
+12. **Escalation mode** -- to be proposed and reviewed for safety before it is
     built, not bolted on.
+
+Every released version and what it changed is in [the changelog](CHANGELOG.md),
+which is also readable from inside the program: `outlaw docs changelog`, or the
+**Info** screen in the window.
 
 ## Privacy
 
