@@ -13,7 +13,6 @@ use ork_ai::secrets::{self, SecretKind};
 use ork_core::scan::{ScanEvent, ScanReport};
 use ork_core::{Config, ScanTier, Scanner};
 use ork_fix::store::FixStore;
-use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 use tokio_util::sync::CancellationToken;
 
@@ -275,19 +274,13 @@ pub fn queue_list() -> CmdResult<serde_json::Value> {
 }
 
 /// Everything the tool has checked, found, attempted, and changed.
-#[derive(Serialize)]
-pub struct AuditLine {
-    at: String,
-    kind: String,
-    message: String,
-}
-
+///
+/// Handed over exactly as the store keeps it, readable timestamp included.
+/// This used to rebuild the rows into a near-identical struct of its own,
+/// which is how the window and the command line ended up formatting the same
+/// timestamp two different ways -- badly, in both cases.
 #[tauri::command]
-pub fn audit_list(limit: usize) -> CmdResult<Vec<AuditLine>> {
+pub fn audit_list(limit: usize) -> CmdResult<Vec<ork_fix::store::AuditLine>> {
     let store = open_store().map_err(fail)?;
-    let rows = store.audit_log(limit.clamp(1, 500)).map_err(fail)?;
-    Ok(rows
-        .into_iter()
-        .map(|(at, kind, message)| AuditLine { at, kind, message })
-        .collect())
+    store.audit_log(limit.clamp(1, 500)).map_err(fail)
 }

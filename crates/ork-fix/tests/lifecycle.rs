@@ -140,7 +140,7 @@ async fn a_problem_is_queued_worked_fixed_and_recorded() {
         .audit_log(50)
         .unwrap()
         .into_iter()
-        .map(|(_, kind, _)| kind)
+        .map(|entry| entry.kind)
         .collect();
     for expected in ["queued", "attempt", "state-change"] {
         assert!(

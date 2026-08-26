@@ -125,7 +125,7 @@ export const api = {
   reportOpenForm: () => invoke<string>("report_open_form"),
   reportSave: (body: string) => invoke<string>("report_save", { body }),
   reportClear: () => invoke<void>("report_clear"),
-  audit: (limit: number) => invoke<{ at: string; kind: string; message: string }[]>("audit_list", { limit }),
+  audit: (limit: number) => invoke<{ at: string; readable: string; kind: string; message: string }[]>("audit_list", { limit }),
 };
 
 /// One check this build knows how to run.

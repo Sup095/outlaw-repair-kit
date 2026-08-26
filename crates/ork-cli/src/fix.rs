@@ -100,11 +100,7 @@ pub fn show_audit(limit: usize, json: bool) -> Result<()> {
     let entries = store.audit_log(limit)?;
 
     if json {
-        let value: Vec<_> = entries
-            .iter()
-            .map(|(at, kind, message)| serde_json::json!({"at": at, "kind": kind, "message": message}))
-            .collect();
-        println!("{}", serde_json::to_string_pretty(&value)?);
+        println!("{}", serde_json::to_string_pretty(&entries)?);
         return Ok(());
     }
 
@@ -118,8 +114,13 @@ pub fn show_audit(limit: usize, json: bool) -> Result<()> {
         bold(&format!("Last {} entries, newest first", entries.len()))
     );
     println!();
-    for (at, kind, message) in entries {
-        println!("  {} {:<14} {message}", dim(&at), kind);
+    for entry in entries {
+        println!(
+            "  {} {:<14} {}",
+            dim(&entry.readable),
+            entry.kind,
+            entry.message
+        );
     }
     Ok(())
 }

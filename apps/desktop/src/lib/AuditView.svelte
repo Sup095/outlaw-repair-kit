@@ -1,7 +1,7 @@
 <script lang="ts">
   import { api } from "./api";
 
-  let rows = $state<{ at: string; kind: string; message: string }[]>([]);
+  let rows = $state<{ at: string; readable: string; kind: string; message: string }[]>([]);
   let error = $state<string | null>(null);
   let limit = $state(80);
 
@@ -35,7 +35,9 @@
   <div class="panel log">
     {#each rows as row, index (row.at + index)}
       <div class="line">
-        <span class="dim at">{row.at}</span>
+        <!-- `readable` rather than `at`: the raw one is RFC 3339 to seven decimal
+             places, which is the right thing to store and the wrong thing to read. -->
+        <span class="dim at" title={row.at}>{row.readable}</span>
         <span class="kind">{row.kind}</span>
         <span>{row.message}</span>
       </div>
@@ -49,7 +51,7 @@
   .intro { max-width: 62ch; margin: 0 0 1rem; font-size: 12.5px; }
   .log { display: grid; gap: 0.25rem; font-size: 12.5px; }
   .line { display: flex; gap: 0.9rem; }
-  .at { min-width: 15rem; }
+  .at { min-width: 11rem; }
   .kind { color: var(--cyan); min-width: 8rem; }
   .bad { border-color: var(--red); color: var(--red); }
 </style>

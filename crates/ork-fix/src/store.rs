@@ -125,6 +125,51 @@ pub struct AttemptRecord {
     pub at: String,
 }
 
+/// One line of the audit log, ready to be shown to somebody.
+///
+/// `at` stays exactly as it was written -- RFC 3339, in UTC, sortable, and
+/// the same string on every machine that reads this database. `readable` is
+/// the one a person is meant to look at. Both are here because both front-ends
+/// were formatting the raw one themselves, which meant neither was formatting
+/// it: the log showed `2026-08-25T23:43:30.4183399Z`, seven digits of fraction
+/// and all.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuditLine {
+    pub at: String,
+    /// The same instant, written for a person, and labelled with which clock
+    /// it is on. Local time where the machine will tell us, UTC where it will
+    /// not -- and never one silently presented as the other.
+    pub readable: String,
+    pub kind: String,
+    pub message: String,
+}
+
+/// Turn a stored timestamp into something worth reading.
+///
+/// Falls back to returning the input unchanged rather than to a placeholder:
+/// an odd-looking timestamp is still evidence, and "unknown" is not.
+pub fn readable_time(stored: &str) -> String {
+    use time::format_description::well_known::Rfc3339;
+
+    let Ok(instant) = time::OffsetDateTime::parse(stored, &Rfc3339) else {
+        return stored.to_string();
+    };
+
+    // Asking the operating system for the local offset can fail -- on Unix it
+    // is refused outright in a multi-threaded process, which this is. When it
+    // does, say UTC rather than quietly showing a UTC time that looks local.
+    let (moment, zone) = match time::UtcOffset::current_local_offset() {
+        Ok(offset) => (instant.to_offset(offset), String::new()),
+        Err(_) => (instant, " UTC".to_string()),
+    };
+
+    let format = time::macros::format_description!("[year]-[month]-[day] [hour]:[minute]:[second]");
+    match moment.format(&format) {
+        Ok(text) => format!("{text}{zone}"),
+        Err(_) => stored.to_string(),
+    }
+}
+
 /// The on-disk store.
 pub struct FixStore {
     connection: Connection,
@@ -245,7 +290,10 @@ impl FixStore {
         )?;
         self.audit(
             "queued",
-            &format!("queued `{}` for triage", finding.title),
+            // Not "queued `{title}`": the kind column beside this already
+            // says `queued`, and finding titles carry backticks of their own,
+            // so wrapping one produced ``` ``node.exe` has been ... ` ```.
+            &finding.title,
             None,
         )?;
         Ok(true)
@@ -433,12 +481,18 @@ impl FixStore {
     }
 
     /// The most recent audit entries, newest first.
-    pub fn audit_log(&self, limit: usize) -> Result<Vec<(String, String, String)>> {
+    pub fn audit_log(&self, limit: usize) -> Result<Vec<AuditLine>> {
         let mut statement = self
             .connection
             .prepare("SELECT at, kind, message FROM audit ORDER BY id DESC LIMIT ?1")?;
         let rows = statement.query_map(params![limit as i64], |row| {
-            Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            let at: String = row.get(0)?;
+            Ok(AuditLine {
+                readable: readable_time(&at),
+                at,
+                kind: row.get(1)?,
+                message: row.get(2)?,
+            })
         })?;
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
     }
@@ -448,6 +502,38 @@ impl FixStore {
 mod tests {
     use super::*;
     use ork_core::finding::Category;
+
+    #[test]
+    fn a_stored_timestamp_is_rewritten_for_a_person_to_read() {
+        // Seven digits of fractional second and a `T` in the middle is what
+        // the database should hold and is not what anybody should be shown.
+        let readable = readable_time("2026-08-25T23:43:30.4183399Z");
+        assert!(!readable.contains('T'), "{readable}");
+        assert!(!readable.contains(".41"), "{readable}");
+        assert!(readable.starts_with("2026-08-2"), "{readable}");
+        assert!(readable.contains(':'), "{readable}");
+    }
+
+    #[test]
+    fn a_timestamp_shown_in_utc_says_so() {
+        // Whichever branch this machine takes, the result must never be a UTC
+        // time presented as though it were local. Either it was converted, or
+        // it is labelled.
+        let readable = readable_time("2026-08-25T23:43:30Z");
+        let converted = !readable.contains("23:43:30");
+        assert!(
+            converted || readable.ends_with(" UTC"),
+            "an unconverted time must say UTC: {readable}"
+        );
+    }
+
+    #[test]
+    fn something_that_is_not_a_timestamp_survives_unchanged() {
+        // An odd-looking timestamp is still evidence. Replacing it with
+        // "unknown" would throw away the only clue about what went wrong.
+        assert_eq!(readable_time("not a date"), "not a date");
+        assert_eq!(readable_time(""), "");
+    }
 
     fn finding(id: &str, subject: &str, severity: Severity) -> Finding {
         Finding::builder("test.probe", id)
@@ -666,10 +752,33 @@ mod tests {
             .unwrap();
 
         let log = store.audit_log(50).unwrap();
-        let kinds: Vec<&str> = log.iter().map(|(_, kind, _)| kind.as_str()).collect();
+        let kinds: Vec<&str> = log.iter().map(|entry| entry.kind.as_str()).collect();
         assert!(kinds.contains(&"queued"));
         assert!(kinds.contains(&"attempt"));
         assert!(kinds.contains(&"state-change"));
+    }
+
+    #[test]
+    fn a_queued_entry_does_not_repeat_what_the_kind_column_already_says() {
+        // This line used to read `queued \`{title}\` for triage`, printed beside
+        // a column already saying "queued" -- and finding titles carry
+        // backticks of their own, so a real one came out as
+        // ``queued  ``node.exe` has been using 167% ... ` for triage``.
+        let mut problem = finding("system.processes", "node.exe", Severity::Low);
+        problem.title = "`node.exe` has been using 167% of a CPU core".to_string();
+        let store = FixStore::in_memory().unwrap();
+        store.enqueue(&problem).unwrap();
+
+        let entry = store
+            .audit_log(50)
+            .unwrap()
+            .into_iter()
+            .find(|entry| entry.kind == "queued")
+            .expect("queueing is audited");
+
+        assert_eq!(entry.message, problem.title);
+        assert!(!entry.message.contains("``"), "{}", entry.message);
+        assert!(!entry.message.starts_with("queued"), "{}", entry.message);
     }
 
     #[test]
