@@ -91,6 +91,70 @@ same pages, rendered, on its **Info** screen.
 
 ---
 
+## `outlaw watch`
+
+Keep looking, and say something only when something changes.
+
+```bash
+outlaw watch                      # look every 15 minutes
+outlaw watch --every 60           # or every hour
+outlaw watch --tier full          # be more thorough each time
+outlaw watch --once               # one look, for a scheduled task
+```
+
+A quiet watcher is a working watcher. The first look records how the machine
+is right now and reports nothing, because a computer that already has six
+problems did not just develop six problems -- and six alerts on the first
+minute is how somebody learns to stop reading them. After that it prints
+nothing at all unless a problem **appears**, **gets worse**, **eases**, or
+**goes away**.
+
+Two things it will not do:
+
+- **It will not clear a problem because a check could not run.** A check that
+  was skipped or failed reports nothing, and reporting nothing looks exactly
+  like reporting a repair. A problem is only ever declared gone by the check
+  that would have found it, having run and not found it.
+- **It will not report the same thing over and over.** Something that comes
+  and goes is reported once, as flapping -- which is the actual finding, and
+  more useful than either half of it -- and then held quiet. Held quiet, never
+  hidden: `outlaw watching` lists everything being held and why.
+
+It never fixes anything and never asks for administrator rights. Quick is the
+default tier on purpose: a check heavy enough to be felt should be asked for,
+not arrive behind your work every quarter of an hour.
+
+There is no time limit. Press Ctrl-C to stop, which ends the round in progress
+cleanly and writes down what it learned.
+
+| Option | What it does |
+| --- | --- |
+| `--tier`, `-t` | `quick` (default), `full`, or `deep` |
+| `--every MINUTES` | Minutes between looks, default 15. Raised to 1 if lower |
+| `--once` | Take one look and stop, for running from a scheduled task |
+
+`--once` shares its memory with the running watcher, so a machine can be moved
+between the two without losing its history or getting a fresh wall of alerts.
+
+---
+
+## `outlaw watching`
+
+Show what the watcher remembers, without watching: what is wrong now, what has
+been seen before and is not there now, and what is being held quiet because it
+flaps.
+
+```bash
+outlaw watching
+outlaw watching --json
+```
+
+The path to the file it remembers in is printed at the top. Deleting that file
+is a complete reset -- the next look starts over and records a fresh starting
+point.
+
+---
+
 ## `outlaw models`
 
 Show which model would be used and **why each tier was or was not chosen** --

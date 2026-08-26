@@ -14,9 +14,9 @@ output, never the live system.
 
 > **Status: usable, still young.** The diagnostic core, the command line, the
 > desktop app, the model router, the AI analysis layer, the triage queue, the
-> fix engine, and linking two machines all exist and work. The Quick scan tier
-> is complete; the Full and Deep tiers and the background watcher are not built
-> yet.
+> fix engine, linking two machines, and the background watcher all exist and
+> work. All three scan tiers run, though the stress and burn-in checks the Deep
+> tier is also meant for are not built.
 >
 > The honest caveat: the fix engine can carry out only two kinds of change --
 > restarting a service and removing a stale file -- and it will not apply even
@@ -93,6 +93,7 @@ outlaw config           # where settings live and what they say
 outlaw link             # pair with another computer to borrow its model
 outlaw boot             # self-test and update check
 outlaw report           # turn a crash or an error into a bug report
+outlaw watch            # keep looking, and speak up only when something changes
 ```
 
 There is a desktop app too, with the same abilities and a **Machines** screen
@@ -139,6 +140,7 @@ you think it did.
 | [Linking two machines](docs/linking.md) | Pair two computers so one lends the other a model |
 | [Using another machine](docs/remote-machine.md) | Point at an endpoint by hand, over any network |
 | [Fixing problems safely](docs/fixing.md) | What it will and will not change |
+| [Watching for changes](docs/watching.md) | Notice a problem appearing, instead of going looking |
 | [Writing runbooks](docs/runbooks.md) | Teach it about a problem it does not know |
 | [Troubleshooting](docs/troubleshooting.md) | When something is not working |
 | [Reporting a problem](docs/reporting.md) | Turn a crash into an issue, with your details taken out |
@@ -283,8 +285,12 @@ cargo test
 10. **An installer with a window, and the manual inside the program** -- done.
    Download one small file, run it, and read everything about the tool from
    the tool. See [Installing](docs/install.md).
-11. **A background watcher.** Not built: noticing a problem appearing rather
-   than being asked to look for one.
+11. **A background watcher** -- done. `outlaw watch` looks on an interval and
+   reports only what changed: a problem appearing, getting worse, easing, or
+   going away. The first look is silent, because a machine that already had
+   six problems did not just develop six. A check that could not run clears
+   nothing, because absent and fixed look identical and only one of them is
+   good news. See [Watching for changes](docs/watching.md).
 12. **Escalation mode** -- to be proposed and reviewed for safety before it is
     built, not bolted on.
 

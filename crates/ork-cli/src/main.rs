@@ -11,6 +11,7 @@ mod link;
 mod render;
 mod report;
 mod style;
+mod watch;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
@@ -59,6 +60,29 @@ enum Command {
         #[arg(long)]
         explain: bool,
     },
+    /// Keep looking, and say something only when something changes.
+    ///
+    /// A quiet watcher is a working watcher: the first look records how the
+    /// machine is now, and after that nothing is printed unless a problem
+    /// appears, gets worse, or goes away. There is no time limit; press Ctrl-C
+    /// to stop.
+    Watch {
+        /// How thorough each look should be. Quick by default, deliberately:
+        /// a check heavy enough to be felt should be asked for, not arrive
+        /// behind your work every quarter of an hour.
+        #[arg(long, short, default_value = "quick")]
+        tier: ScanTier,
+
+        /// How many minutes between looks. Raised to one minute if lower.
+        #[arg(long, default_value = "15", value_name = "MINUTES")]
+        every: u64,
+
+        /// Take one look and stop, for running from a scheduled task.
+        #[arg(long)]
+        once: bool,
+    },
+    /// Show what the watcher remembers, without watching.
+    Watching,
     /// Show which model would be used, and why.
     Models,
     /// Show problems waiting to be worked through.
@@ -263,6 +287,18 @@ async fn dispatch(cli: Cli) -> Result<()> {
             start_up(&cli, false).await;
             run_scan(tier, cli.json, explain).await
         }
+        Command::Watch { tier, every, once } => {
+            // A watcher is something somebody sits and leaves running, so the
+            // start-up screen belongs here for the same reason it belongs on a
+            // scan. Not for `--once`, though: that is run from a scheduled
+            // task, where there is nobody to read a splash screen and the only
+            // thing that should reach a log is what changed.
+            if !once {
+                start_up(&cli, false).await;
+            }
+            watch::run(tier, every, cli.json, once).await
+        }
+        Command::Watching => watch::status(cli.json),
         Command::Docs { page } => render::docs(page, cli.json),
         Command::Probes => render::probes(cli.json),
         Command::Host => render::host(cli.json),

@@ -27,6 +27,7 @@ pub mod respond;
 pub mod scan;
 pub mod tier;
 pub mod util;
+pub mod watch;
 
 pub use config::Config;
 pub use finding::{Category, Evidence, Finding, Severity, Triage};

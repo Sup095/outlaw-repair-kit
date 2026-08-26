@@ -74,6 +74,12 @@ pub const PAGES: &[Page] = &[
         body: include_str!("../../../docs/fixing.md"),
     },
     Page {
+        id: "watching",
+        title: "Watching for changes",
+        summary: "Notice a problem appearing, instead of going looking for one.",
+        body: include_str!("../../../docs/watching.md"),
+    },
+    Page {
         id: "ai-setup",
         title: "Setting up a model",
         summary: "Local, another machine, or hosted -- and why none is required.",
@@ -224,6 +230,7 @@ mod tests {
             "commands",
             "desktop",
             "fixing",
+            "watching",
             "ai-setup",
             "linking",
             "remote-machine",
