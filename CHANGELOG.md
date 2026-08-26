@@ -48,6 +48,24 @@ tool runs in. Consumed processor time, which is a counter rather than a rate,
 now carries the weight: one millisecond of it is proof a process ran, at any
 load. This could have aborted a real repair on a struggling machine.
 
+**The installer opened a blank white window.** On an ordinary Windows desktop
+with a current graphics card, the installer drew nothing at all -- no error, no
+warning, just a white rectangle where the first thing anybody sees should be.
+OpenGL started up perfectly, the window was laid out correctly every frame, and
+not one of those frames reached the screen, because overlay software of the kind
+that ships with graphics cards hooks the point where a frame is handed over.
+
+It now draws through Direct3D or Vulkan, and falls back to OpenGL by itself if
+neither is available. That costs about six megabytes on a download you make
+once, which is a poor trade only if you value the six megabytes above the
+installer working. `ORK_SETUP_RENDERER` forces either one, for the case nobody
+has met yet.
+
+While it was open, the last page was found offering to start the window from a
+shortcut whether or not one had been made, and telling people to run `outlaw`
+from a new terminal whether or not it had been put on their PATH. It now says
+what actually applies.
+
 **Elsewhere:**
 
 - The audit log's timestamp handling now covers the whole tool, so the watcher

@@ -23,18 +23,79 @@ mod model;
 mod release;
 mod ui;
 
-fn main() -> eframe::Result<()> {
-    let options = eframe::NativeOptions {
+/// Which way to draw, when the environment insists.
+///
+/// An escape hatch, not a setting. There is no reason for anybody to need it,
+/// and if somebody does, being able to say "run it with `ORK_SETUP_RENDERER=gl`"
+/// is the difference between a bug report and a person who cannot install the
+/// tool at all.
+fn forced_renderer() -> Option<eframe::Renderer> {
+    match std::env::var("ORK_SETUP_RENDERER")
+        .ok()?
+        .to_lowercase()
+        .as_str()
+    {
+        "gl" | "glow" | "opengl" => Some(eframe::Renderer::Glow),
+        "wgpu" | "vulkan" | "dx12" => Some(eframe::Renderer::Wgpu),
+        _ => None,
+    }
+}
+
+fn options(renderer: eframe::Renderer) -> eframe::NativeOptions {
+    eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_inner_size([760.0, 620.0])
             .with_min_inner_size([680.0, 520.0])
             .with_title("Outlaw Repair Kit — Setup"),
+        renderer,
         ..Default::default()
-    };
+    }
+}
 
+fn start(renderer: eframe::Renderer) -> eframe::Result<()> {
     eframe::run_native(
         "outlaw-setup",
-        options,
+        options(renderer),
         Box::new(|context| Ok(Box::new(ui::Setup::new(context)))),
     )
+}
+
+/// Draw with wgpu, and fall back to OpenGL if there is nothing for it to use.
+///
+/// This is the one program that cannot have prerequisites, so it carries two
+/// ways of drawing and tries them in order.
+///
+/// **Why wgpu is first, having previously been rejected outright.** The
+/// OpenGL path renders a blank white window on a perfectly ordinary machine:
+/// a Windows desktop with an RTX 3090, current drivers, and the overlay
+/// software that comes with a graphics card. OpenGL initialises without
+/// complaint -- the context is created, the shaders compile, egui lays out
+/// every frame at the right size -- and not one of those frames reaches the
+/// screen. Overlay injectors hook the OpenGL buffer swap, and there are a
+/// great many of them on consumer machines: the card's own overlay, Discord,
+/// OBS, Overwolf, Steam. The same machine draws the window correctly through
+/// wgpu, which reaches Direct3D or Vulkan instead.
+///
+/// An installer that opens a blank white window has failed completely, and it
+/// has failed at the first thing anybody sees. That outweighs the reasons wgpu
+/// was passed over -- a larger download and a slower build -- by a distance.
+///
+/// OpenGL stays, second, because wgpu needs Direct3D 12, Vulkan, or GLES, and
+/// a machine old enough to have none of them is exactly the kind of machine
+/// somebody would be installing a repair tool on.
+fn main() -> eframe::Result<()> {
+    if let Some(renderer) = forced_renderer() {
+        return start(renderer);
+    }
+
+    match start(eframe::Renderer::Wgpu) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            // Not a silent retry: somebody watching a terminal should see why
+            // the second attempt is happening, and a crash report should carry
+            // both halves.
+            eprintln!("could not draw with wgpu ({error}); falling back to OpenGL");
+            start(eframe::Renderer::Glow)
+        }
+    }
 }

@@ -34,12 +34,26 @@ tracing.workspace = true
 # make this an installer that needs installing. `eframe` carries its own
 # drawing and needs nothing but a graphics driver.
 #
-# `default-features = false` with `glow` keeps it to OpenGL and drops the wgpu
-# stack, which this has no use for and which would roughly double both the
-# build time and the download.
+# Both drawing backends are compiled in, and `main` tries them in order. wgpu
+# was originally left out to keep the download small; it is here because the
+# OpenGL path renders a blank white window on an ordinary Windows desktop with
+# a current NVIDIA card, where overlay software hooks the buffer swap and the
+# frames never reach the screen. See the note on `main`. OpenGL stays as the
+# fallback for machines with no Direct3D 12, Vulkan, or GLES.
 eframe = { version = "0.32", default-features = false, features = [
     "glow",
+    "wgpu",
     "default_fonts",
     "wayland",
     "x11",
+] }
+
+# eframe's `wgpu` feature brings the crate in but selects no backend, and wgpu
+# panics at start-up if none is enabled. Named here so the choice is visible:
+# Direct3D 12 and Vulkan cover current Windows and Linux, and GLES is the last
+# resort before falling back to the OpenGL renderer outright.
+wgpu = { version = "25", default-features = false, features = [
+    "dx12",
+    "vulkan",
+    "gles",
 ] }

@@ -159,6 +159,37 @@ Find the entry, then look in the snapshots directory (`outlaw config` prints
 the path). Each snapshot directory is named for the attempt it belongs to and
 contains the original files.
 
+## The installer window is blank
+
+It should not be. If it happens, the installer can be told to draw a different
+way:
+
+```bash
+ORK_SETUP_RENDERER=gl outlaw-setup
+```
+
+on Linux, or in a Windows terminal:
+
+```bash
+set ORK_SETUP_RENDERER=gl && outlaw-setup.exe
+```
+
+`wgpu` forces the other direction. The installer normally draws through
+Direct3D or Vulkan and falls back to OpenGL on its own if neither is there, so
+this should never be necessary -- but a blank window is a dead end, and one
+environment variable is a better answer than none.
+
+The reason it carries two ways of drawing at all: the OpenGL path was found
+rendering a blank white window on an ordinary Windows desktop with a current
+graphics card. OpenGL started up without complaint and every frame was drawn
+correctly -- none of them reached the screen, because overlay software of the
+kind that ships with graphics cards hooks the point where a frame is handed
+over. If neither renderer works, please
+[report it](reporting.md); that is worth knowing about.
+
+If you cannot get the window to draw at all, the shell installers in `install/`
+do the same work with no window involved.
+
 ## Where is the state kept?
 
 ```bash

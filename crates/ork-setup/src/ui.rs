@@ -234,6 +234,39 @@ fn style(context: &egui::Context) {
     context.set_style(style);
 }
 
+/// What to tell somebody to do next, given what was actually done.
+///
+/// Written from the receipt rather than fixed, because the closing line used
+/// to offer a shortcut whether or not one had been made, and tell people to
+/// run `outlaw` from a terminal whether or not it was on their PATH. Advice
+/// that does not work is worse than no advice: somebody follows it, it fails,
+/// and now they doubt the install rather than the sentence.
+fn next_step(receipt: &Receipt) -> String {
+    let on_path = receipt
+        .steps
+        .iter()
+        .any(|step| matches!(step, Step::AddedToPath { .. }));
+    let shortcut = receipt
+        .steps
+        .iter()
+        .any(|step| matches!(step, Step::Shortcut { .. }));
+
+    let check = if on_path {
+        "Open a new terminal and run `outlaw boot` to check it over.".to_string()
+    } else {
+        format!(
+            "Run `outlaw boot` from {} to check it over -- it was not added to your PATH.",
+            receipt.directory
+        )
+    };
+
+    if shortcut {
+        format!("{check} The window is on your Start menu.")
+    } else {
+        check
+    }
+}
+
 fn heading(ui: &mut egui::Ui, text: &str) {
     ui.add_space(4.0);
     ui.label(
@@ -665,11 +698,7 @@ impl Setup {
                     }
                 });
                 ui.add_space(6.0);
-                dim(
-                    ui,
-                    "Open a new terminal and run `outlaw boot` to check it over, or start the \
-                     window from the shortcut.",
-                );
+                dim(ui, &next_step(&receipt));
             }
             Some(Err(reason)) => {
                 heading(ui, "It stopped");
@@ -754,5 +783,63 @@ mod tests {
             sha256: "0123456789abcdef".to_string(),
         });
         assert!(!described.contains("0123456789abcdef"), "{described}");
+    }
+
+    fn receipt_with(steps: Vec<Step>) -> Receipt {
+        Receipt {
+            version: "v0.7.0".to_string(),
+            directory: r"C:\Somewhere\Else".to_string(),
+            steps,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn the_last_word_does_not_offer_a_shortcut_that_was_not_made() {
+        // It used to, whatever the choices had been. Advice that does not work
+        // is worse than no advice: somebody follows it, nothing happens, and
+        // now they doubt the installation rather than the sentence.
+        let advice = next_step(&receipt_with(vec![Step::Wrote {
+            path: r"C:\Somewhere\Else\outlaw.exe".to_string(),
+            sha256: "abc".to_string(),
+        }]));
+        assert!(!advice.to_lowercase().contains("shortcut"), "{advice}");
+        assert!(!advice.to_lowercase().contains("start menu"), "{advice}");
+    }
+
+    #[test]
+    fn somebody_not_on_the_path_is_told_where_to_run_it_from() {
+        // "Open a new terminal and run `outlaw boot`" is a broken instruction
+        // for somebody who declined to have it added to their PATH, and it
+        // fails in the most confusing way -- command not found, immediately
+        // after being told the install worked.
+        let advice = next_step(&receipt_with(vec![Step::Wrote {
+            path: r"C:\Somewhere\Else\outlaw.exe".to_string(),
+            sha256: "abc".to_string(),
+        }]));
+        assert!(advice.contains(r"C:\Somewhere\Else"), "{advice}");
+        assert!(advice.contains("PATH"), "{advice}");
+    }
+
+    #[test]
+    fn somebody_on_the_path_is_simply_told_to_open_a_terminal() {
+        let advice = next_step(&receipt_with(vec![Step::AddedToPath {
+            directory: r"C:\Somewhere\Else".to_string(),
+        }]));
+        assert!(advice.contains("new terminal"), "{advice}");
+        assert!(!advice.contains("not added"), "{advice}");
+    }
+
+    #[test]
+    fn a_shortcut_that_was_made_is_mentioned() {
+        let advice = next_step(&receipt_with(vec![
+            Step::AddedToPath {
+                directory: r"C:\Somewhere\Else".to_string(),
+            },
+            Step::Shortcut {
+                path: r"C:\Start\Menu\Outlaw.lnk".to_string(),
+            },
+        ]));
+        assert!(advice.contains("Start menu"), "{advice}");
     }
 }
