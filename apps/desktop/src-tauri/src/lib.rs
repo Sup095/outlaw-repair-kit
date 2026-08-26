@@ -11,6 +11,7 @@
 mod commands;
 mod fixing;
 mod linking;
+mod manual;
 mod reporting;
 
 /// Set up logging, and start keeping a record of anything that goes wrong.
@@ -63,6 +64,9 @@ pub fn run() {
             commands::routing_status,
             commands::queue_list,
             commands::audit_list,
+            manual::manual_contents,
+            manual::manual_page,
+            manual::manual_licence,
             fixing::fix_run,
             fixing::fix_answer,
             fixing::fix_cancel,

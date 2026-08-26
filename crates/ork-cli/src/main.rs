@@ -125,6 +125,16 @@ enum Command {
     Probes,
     /// Show what this tool detected about the machine it is running on.
     Host,
+    /// Read the manual, which is carried inside this program.
+    ///
+    /// No page name lists what there is. The pages are the same ones the
+    /// window shows and the same ones in `docs/` -- compiled in, so they are
+    /// readable on a machine that cannot reach the internet, which is a
+    /// machine this tool expects to be run on.
+    Docs {
+        /// Which page, e.g. `commands`. Omit to list them.
+        page: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -253,6 +263,7 @@ async fn dispatch(cli: Cli) -> Result<()> {
             start_up(&cli, false).await;
             run_scan(tier, cli.json, explain).await
         }
+        Command::Docs { page } => render::docs(page, cli.json),
         Command::Probes => render::probes(cli.json),
         Command::Host => render::host(cli.json),
         Command::Models => ai::show_models(cli.json).await,

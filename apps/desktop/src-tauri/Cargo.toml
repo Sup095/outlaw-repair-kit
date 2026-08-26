@@ -30,6 +30,10 @@ ork-boot.workspace = true
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+# Only the window renders the manual, so the Markdown renderer is a
+# dependency of the window and not of the shared crates. The command line
+# prints the same pages as the Markdown they are written in.
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }
 tauri = { version = "2", features = [] }
 tokio.workspace = true
 tokio-util.workspace = true

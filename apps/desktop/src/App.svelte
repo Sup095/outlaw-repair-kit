@@ -8,11 +8,20 @@
   import AuditView from "./lib/AuditView.svelte";
   import ChecksView from "./lib/ChecksView.svelte";
   import ReportView from "./lib/ReportView.svelte";
+  import InfoView from "./lib/InfoView.svelte";
   import type { BootReport } from "./lib/api";
 
   let booted = $state<BootReport | null>(null);
   let view = $state<
-    "scan" | "checks" | "queue" | "models" | "machines" | "settings" | "audit" | "report"
+    | "scan"
+    | "checks"
+    | "queue"
+    | "models"
+    | "machines"
+    | "settings"
+    | "audit"
+    | "report"
+    | "info"
   >("scan");
   let updateDismissed = $state(false);
 
@@ -25,6 +34,10 @@
     { id: "settings", label: "Settings" },
     { id: "audit", label: "Audit" },
     { id: "report", label: "Report a problem" },
+    // Last, and after the problem-reporting screen, because that is the order
+    // somebody arrives at them: something is wrong, then how do I say so, then
+    // what is this thing anyway.
+    { id: "info", label: "Info" },
   ] as const;
 
   const warnings = $derived(
@@ -80,8 +93,10 @@
         <SettingsView />
       {:else if view === "audit"}
         <AuditView />
-      {:else}
+      {:else if view === "report"}
         <ReportView />
+      {:else}
+        <InfoView {booted} />
       {/if}
     </main>
 

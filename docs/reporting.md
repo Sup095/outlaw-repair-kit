@@ -1,4 +1,4 @@
-# Reporting a crash or an error
+# Reporting a problem
 
 When the tool goes wrong on your computer, the person who could fix it is not
 the person who saw it happen. This turns what happened into something you can

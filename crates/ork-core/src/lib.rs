@@ -15,6 +15,7 @@
 //!   system is a new implementation rather than a rewrite.
 
 pub mod config;
+pub mod docs;
 pub mod exec;
 pub mod finding;
 pub mod incident;

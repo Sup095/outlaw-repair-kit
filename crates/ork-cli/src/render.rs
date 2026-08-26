@@ -195,6 +195,63 @@ pub fn probes(json: bool) -> Result<()> {
     Ok(())
 }
 
+/// Print a page of the manual, or list what there is.
+///
+/// Printed as the Markdown it is written in, deliberately. A terminal renderer
+/// would have to decide what to do with tables, and these pages are full of
+/// them; Markdown source is the format that survives being piped into `less`,
+/// grepped, or pasted into an issue, which is what actually happens to it.
+pub fn docs(page: Option<String>, json: bool) -> Result<()> {
+    let Some(wanted) = page else {
+        if json {
+            let listing: Vec<_> = ork_core::docs::contents()
+                .into_iter()
+                .map(|(id, title, summary)| {
+                    serde_json::json!({ "id": id, "title": title, "summary": summary })
+                })
+                .collect();
+            println!("{}", serde_json::to_string_pretty(&listing)?);
+            return Ok(());
+        }
+        println!("{}", bold("The manual, carried inside this program"));
+        println!();
+        for (id, title, summary) in ork_core::docs::contents() {
+            println!("  {id:<18} {title}");
+            println!("  {:<18} {}", "", dim(summary));
+        }
+        println!();
+        println!("{}", dim("  outlaw docs <name>    read one of them"));
+        return Ok(());
+    };
+
+    let Some(found) = ork_core::docs::find(&wanted) else {
+        let names: Vec<&str> = ork_core::docs::contents()
+            .into_iter()
+            .map(|(id, _, _)| id)
+            .collect();
+        anyhow::bail!(
+            "there is no page called `{wanted}`. There is: {}",
+            names.join(", ")
+        );
+    };
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "id": found.id,
+                "title": found.title,
+                "summary": found.summary,
+                "markdown": found.body,
+            }))?
+        );
+        return Ok(());
+    }
+
+    print!("{}", found.body);
+    Ok(())
+}
+
 /// Show what the platform layer detected about this machine.
 pub fn host(json: bool) -> Result<()> {
     let platform = ork_core::platform::detect()?;

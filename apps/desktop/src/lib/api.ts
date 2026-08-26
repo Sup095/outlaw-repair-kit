@@ -128,7 +128,25 @@ export const api = {
   reportSave: (body: string) => invoke<string>("report_save", { body }),
   reportClear: () => invoke<void>("report_clear"),
   audit: (limit: number) => invoke<{ at: string; readable: string; kind: string; message: string }[]>("audit_list", { limit }),
+  // The manual is compiled into the program, not fetched. A machine that has
+  // gone wrong is often a machine that cannot reach the internet, and the
+  // pages most likely to be needed are the ones least likely to be reachable
+  // when they are needed.
+  manualContents: () => invoke<ManualEntry[]>("manual_contents"),
+  manualPage: (id: string) => invoke<ManualPage>("manual_page", { id }),
+  manualLicence: () => invoke<string>("manual_licence"),
 };
+
+export interface ManualEntry {
+  id: string;
+  title: string;
+  summary: string;
+}
+
+export interface ManualPage extends ManualEntry {
+  /** Rendered from Markdown in the back end. See src-tauri/src/manual.rs. */
+  html: string;
+}
 
 /// One check this build knows how to run.
 export interface CheckInfo {
