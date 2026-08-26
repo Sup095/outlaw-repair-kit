@@ -18,6 +18,31 @@ fn runbook_dir() -> Option<std::path::PathBuf> {
         .and_then(|path| path.parent().map(|dir| dir.join("runbooks")))
 }
 
+/// Every file and folder this tool writes to, in one list.
+///
+/// Printed in full rather than summarised. The documentation tells people this
+/// command shows where their data lives, and a list that quietly omitted two
+/// of the places would make that a lie -- somebody checking what a diagnostic
+/// tool keeps about them deserves the whole answer in one place. The list is
+/// built here rather than gathered from each subsystem so that adding a new
+/// store and forgetting to mention it is visible in one file.
+fn where_things_live() -> Vec<(&'static str, std::path::PathBuf)> {
+    let Ok(config) = Config::default_path() else {
+        return Vec::new();
+    };
+    let Some(dir) = config.parent().map(std::path::Path::to_path_buf) else {
+        return Vec::new();
+    };
+    vec![
+        ("settings", config),
+        ("queue and history", dir.join("state.db")),
+        ("your runbooks", dir.join("runbooks")),
+        ("backups before changes", dir.join("snapshots")),
+        ("what the watcher knows", dir.join("watch-baseline.json")),
+        ("paired machines", dir.join("peers.json")),
+    ]
+}
+
 pub fn load_config() -> Result<Config> {
     let path = Config::default_path()?;
     Config::load_or_default(&path)
@@ -124,6 +149,14 @@ pub fn show_config(json: bool) -> Result<()> {
                 "path": path.display().to_string(),
                 "exists": path.exists(),
                 "runbook_dir": runbook_dir().map(|d| d.display().to_string()),
+                "paths": where_things_live()
+                    .into_iter()
+                    .map(|(what, path)| serde_json::json!({
+                        "what": what,
+                        "path": path.display().to_string(),
+                        "exists": path.exists(),
+                    }))
+                    .collect::<Vec<_>>(),
                 "config": config,
                 "cloud_key_stored": secrets::is_set(SecretKind::CloudApiKey),
                 "remote_token_stored": secrets::is_set(SecretKind::RemoteEndpointToken),
@@ -132,14 +165,26 @@ pub fn show_config(json: bool) -> Result<()> {
         return Ok(());
     }
 
-    println!("{}", bold("Configuration"));
-    println!("  {:<18}{}", "file", path.display());
-    if !path.exists() {
-        println!("  {}", dim("(not created yet -- defaults are in use)"));
+    println!("{}", bold("Where your data lives"));
+    for (what, place) in where_things_live() {
+        // Saying which of these exist matters: "not created yet" is the normal
+        // state for most of them on a fresh install, and somebody who cannot
+        // find a file they were told about should be able to see that the tool
+        // has not written it rather than wonder where it went.
+        let note = if place.exists() {
+            String::new()
+        } else {
+            dim("  (not created yet)")
+        };
+        println!("  {what:<26}{}{note}", place.display());
     }
-    if let Some(dir) = runbook_dir() {
-        println!("  {:<18}{}", "your runbooks", dir.display());
-    }
+    println!();
+    println!(
+        "  {}",
+        dim(
+            "Nothing is written outside these. Deleting any of them is safe; the tool starts over."
+        )
+    );
     println!();
 
     println!("{}", bold("Current settings"));

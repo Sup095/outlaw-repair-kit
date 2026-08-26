@@ -81,6 +81,8 @@ outlaw host     # what the tool detected about this machine
 - Findings you do not understand: [set up a model](ai-setup.md) so they can be
   explained, or read [Writing runbooks](runbooks.md).
 - Problems you want help fixing: [Fixing problems safely](fixing.md).
+- Being told when something changes, rather than going looking:
+  [Watching for changes](watching.md).
 - Something not working: [Troubleshooting](troubleshooting.md).
 
 ## Where your data lives
@@ -93,6 +95,9 @@ Nothing is stored outside these locations, and nothing is transmitted anywhere.
 | Queue, history, audit log | `...\outlaw-repair-kit\state.db` | `~/.config/outlaw-repair-kit/state.db` |
 | Your own runbooks | `...\outlaw-repair-kit\runbooks\` | `~/.config/outlaw-repair-kit/runbooks/` |
 | Backups taken before changes | `...\outlaw-repair-kit\snapshots\` | `~/.config/outlaw-repair-kit/snapshots/` |
+| What the watcher knows | `...\outlaw-repair-kit\watch-baseline.json` | `~/.config/outlaw-repair-kit/watch-baseline.json` |
+| Paired machines | `...\outlaw-repair-kit\peers.json` | `~/.config/outlaw-repair-kit/peers.json` |
 | API keys | Windows Credential Manager | Desktop secret service (GNOME Keyring, KWallet) |
 
-`outlaw config` prints these paths for your machine.
+`outlaw config` prints this whole list for your machine, and says which of them
+exist yet. Deleting any of them is safe -- the tool starts over.

@@ -169,8 +169,12 @@ See [Setting up a model](ai-setup.md).
 
 ## `outlaw config`
 
-Show where settings live, what they currently say, and which credentials are
-stored. Values of credentials are never printed.
+Show every file and folder this tool writes to -- and which of them exist yet --
+along with what the settings currently say and which credentials are stored.
+Values of credentials are never printed.
+
+The path list is the whole list. Nothing is written outside it, and deleting any
+of it is safe: the tool starts over.
 
 Everything has a working default, so the file may not exist yet -- that is
 normal.

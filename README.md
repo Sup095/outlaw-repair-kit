@@ -313,6 +313,12 @@ Manager on Windows, the desktop secret service on Linux), never in a
 configuration file. `outlaw config` will show you what is stored without
 showing you the values.
 
+It also prints every file and folder the tool writes to, and says which of them
+exist yet. That list is the whole list -- nothing is written outside it, and
+deleting any of it is safe. If you leave the watcher running, one of those
+files is a record of problems this machine has had, kept so that a problem
+returning is recognised as a return; deleting it is a complete reset.
+
 ## Built in collaboration with AI
 
 This tool is written by a human author working together with Claude, Anthropic's

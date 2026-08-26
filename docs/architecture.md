@@ -169,6 +169,46 @@ prior setup, so the tool reports whether one appears to exist and never assumes
 it does -- claiming a safety net that turns out to be absent is worse than
 admitting there is none.
 
+## 7. The watcher
+
+`crates/ork-core/src/watch.rs`. A scan on an interval, plus the one thing that
+turns a repeated scan into a watcher: a comparison against what was true last
+time. It reports transitions and nothing else, because a watcher that reports
+what it finds reports the same things every quarter of an hour, and a person
+told the same things every quarter of an hour stops reading them.
+
+Findings are matched across looks by `Finding::occurrence_key` -- the finding's
+id and its subject -- which already existed for the triage queue, so "this
+exact problem on this exact thing" means the same thing to both.
+
+Two rules do the real work, and both are about what *not* to say.
+
+* **Only a check that ran may clear anything.** A skipped, failed, or
+  cancelled probe contributes nothing to a comparison -- neither new problems
+  nor the absence of old ones. This is the rule that stops the watcher lying:
+  a check that could not run reports nothing, reporting nothing is
+  indistinguishable from reporting a repair, and "your damaged system files
+  have been fixed" because something held a lock would be worse than silence.
+  Kept deliberately separate from the question of which non-runs are worth
+  *mentioning*, which is a presentation decision and has its own test.
+* **A problem that comes and goes is announced once.** After three round trips
+  it is reported as flapping and then held quiet -- but recorded in `muted`
+  with a reason, and shown by both front-ends, because a watcher with a
+  private list of things it has decided not to mention is not one anybody
+  should trust.
+
+State is a single JSON file beside the configuration, holding one small record
+per problem ever seen, including problems that have gone away -- which is what
+lets the same problem returning next week be a return rather than a discovery.
+Readable on purpose: somebody who wants to know what the watcher thinks it
+knows should be able to open it, and deleting it should be an obvious and
+complete reset. An unreadable file starts over rather than refusing to watch,
+because one quiet round is a better failure than a watcher that will not run
+on account of a file it wrote itself.
+
+It never fixes and never elevates. Findings reach the queue by the ordinary
+route.
+
 ## Privilege model
 
 The core runs unprivileged. Actions needing administrator or root rights go
