@@ -6,8 +6,14 @@
   let config = $state<any | null>(null);
   let path = $state("");
   let status = $state<{ cloud: boolean; remote: boolean }>({ cloud: false, remote: false });
+  // Kept apart on purpose. A problem reading the settings belongs at the top
+  // of the screen, because it is about the whole screen. The result of pressing
+  // Save belongs beside the Save button -- this form is longer than the window,
+  // and a confirmation at the top is a confirmation nobody pressing that button
+  // can see. It looked exactly like nothing had happened.
   let saved = $state<string | null>(null);
   let error = $state<string | null>(null);
+  let saveError = $state<string | null>(null);
   let cloudKey = $state("");
   let remoteToken = $state("");
 
@@ -28,10 +34,11 @@
     try {
       const where = await api.settingsSave(config);
       saved = `Saved to ${where}`;
-      error = null;
-      setTimeout(() => (saved = null), 4000);
+      saveError = null;
+      setTimeout(() => (saved = null), 6000);
     } catch (problem) {
-      error = String(problem);
+      saveError = String(problem);
+      saved = null;
     }
   }
 
@@ -70,7 +77,7 @@
 <p class="dim intro">Stored in <code>{path}</code>. Keys never go in that file — they go to the operating system's own credential store.</p>
 
 {#if error}<div class="panel bad">{error}</div>{/if}
-{#if saved}<div class="panel good">{saved}</div>{/if}
+
 
 {#if config}
   <section class="panel">
@@ -154,6 +161,11 @@
   <div class="actions">
     <button class="primary" onclick={save}>Save settings</button>
     <button onclick={load}>Discard changes</button>
+    {#if saveError}
+      <span class="result bad-text">{saveError}</span>
+    {:else if saved}
+      <span class="result good-text">{saved}</span>
+    {/if}
   </div>
 {/if}
 
@@ -168,7 +180,9 @@
   small { font-size: 11.5px; }
   .secret { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; font-size: 12.5px; }
   .secret input { max-width: 22rem; }
-  .actions { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
+  .actions { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.5rem; }
+  .result { font-size: 12.5px; }
+  .good-text { color: var(--green); }
+  .bad-text { color: var(--red); }
   .bad { border-color: var(--red); color: var(--red); margin-bottom: 1rem; }
-  .good { border-color: var(--green); color: var(--green); margin-bottom: 1rem; }
 </style>
