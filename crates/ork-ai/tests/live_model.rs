@@ -72,6 +72,7 @@ fn report_with_findings() -> ScanReport {
             probe: "test".to_string(),
             name: "Test probe".to_string(),
             status: ProbeStatus::Completed,
+            skipped_because: None,
             findings: vec![known, unknown],
             duration: Duration::from_secs(1),
         }],

@@ -14,8 +14,19 @@
       .sort((a, b) => order.indexOf(a.severity) - order.indexOf(b.severity)),
   );
 
+  // Checks for another operating system are left out, exactly as the command
+  // line leaves them out. Each one is still announced inline as the scan goes
+  // past, so nothing is hidden; this list is there to say what could have been
+  // checked on *this* machine and was not, and "the Linux disk check does not
+  // run on Windows" is not that. Listing them also put two identically named
+  // checks side by side -- one skipped for want of rights, one for being a
+  // different platform's -- which read as a fault in the tool.
   const skipped = $derived(
-    (scan.report?.outcomes ?? []).filter((outcome) => outcome.status?.status === "skipped"),
+    (scan.report?.outcomes ?? []).filter(
+      (outcome) =>
+        outcome.status?.status === "skipped" &&
+        outcome.status?.reason !== "unsupported-platform",
+    ),
   );
 </script>
 
@@ -111,7 +122,9 @@
       <summary>{skipped.length} check{skipped.length === 1 ? "" : "s"} did not run</summary>
       <ul>
         {#each skipped as outcome (outcome.probe)}
-          <li>{outcome.name} — <span class="dim">{JSON.stringify(outcome.status.reason ?? "")}</span></li>
+          <!-- The sentence the back end wrote, not the tag it is keyed by.
+               This used to print `"requires-elevation"`, quotes and all. -->
+          <li>{outcome.name} — <span class="dim">{outcome.skipped_because ?? outcome.status.reason ?? ""}</span></li>
         {/each}
       </ul>
     </details>

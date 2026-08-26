@@ -97,6 +97,16 @@ pub struct ProbeOutcome {
     pub probe: String,
     pub name: String,
     pub status: ProbeStatus,
+    /// Why it did not run, written as a sentence, when it did not.
+    ///
+    /// The reason is already a sentence in [`SkipReason`]'s `Display`, and the
+    /// command line has always printed that. Anything reading this over a wire
+    /// gets the tagged form instead -- `reason: "unsupported-platform"` -- and
+    /// the window was showing that tag to people, quotes and all. Carrying the
+    /// sentence means both front-ends say the same words, and there is still
+    /// exactly one place those words are written.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skipped_because: Option<String>,
     pub findings: Vec<Finding>,
     pub duration: Duration,
 }
@@ -106,6 +116,7 @@ impl ProbeOutcome {
         Self {
             probe: meta.id.to_string(),
             name: meta.name.to_string(),
+            skipped_because: Some(reason.to_string()),
             status: ProbeStatus::Skipped(reason),
             findings: Vec::new(),
             duration: Duration::ZERO,
@@ -207,5 +218,68 @@ impl ProbeMeta {
             }
         }
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn meta() -> ProbeMeta {
+        ProbeMeta {
+            id: "test.probe",
+            name: "Test probe",
+            description: "for tests",
+            category: crate::finding::Category::Storage,
+            min_tier: ScanTier::Quick,
+            platforms: &[PlatformKind::Linux],
+            requires_tools: &[],
+            requires_elevation: true,
+        }
+    }
+
+    #[test]
+    fn a_skipped_check_carries_the_reason_as_a_sentence() {
+        // The window cannot reach a `Display` impl. Without this it was
+        // showing people the tag it is keyed by -- `"requires-elevation"`,
+        // quotes included.
+        let outcome = ProbeOutcome::skipped(&meta(), SkipReason::RequiresElevation);
+        let sentence = outcome.skipped_because.expect("a skip explains itself");
+        assert_eq!(sentence, SkipReason::RequiresElevation.to_string());
+        assert!(sentence.contains(' '), "not a sentence: {sentence}");
+        assert!(!sentence.contains('-'), "still a tag: {sentence}");
+    }
+
+    #[test]
+    fn the_sentence_survives_the_trip_through_json() {
+        // Which is the only trip that matters here: everything the window
+        // shows arrives this way.
+        let outcome = ProbeOutcome::skipped(
+            &meta(),
+            SkipReason::MissingTool {
+                tool: "smartctl".to_string(),
+            },
+        );
+        let json = serde_json::to_string(&outcome).unwrap();
+        let back: ProbeOutcome = serde_json::from_str(&json).unwrap();
+        let sentence = back.skipped_because.expect("a skip explains itself");
+        assert!(sentence.contains("smartctl"), "{sentence}");
+    }
+
+    #[test]
+    fn a_check_that_ran_has_nothing_to_explain() {
+        let outcome = ProbeOutcome {
+            probe: "test.probe".to_string(),
+            name: "Test probe".to_string(),
+            status: ProbeStatus::Completed,
+            skipped_because: None,
+            findings: Vec::new(),
+            duration: Duration::ZERO,
+        };
+        let json = serde_json::to_string(&outcome).unwrap();
+        assert!(
+            !json.contains("skipped_because"),
+            "an absent reason should not be serialised at all: {json}"
+        );
     }
 }

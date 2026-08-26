@@ -226,6 +226,7 @@ impl Scanner {
                     probe: meta.id.to_string(),
                     name: meta.name.to_string(),
                     status: ProbeStatus::Cancelled,
+                    skipped_because: None,
                     findings: Vec::new(),
                     duration: Duration::ZERO,
                 });
@@ -266,6 +267,10 @@ impl Scanner {
             let outcome = ProbeOutcome {
                 probe: meta.id.to_string(),
                 name: meta.name.to_string(),
+                // A probe that got as far as running did not skip. Anything
+                // that skips is built by `ProbeOutcome::skipped`, which is the
+                // only place this is set.
+                skipped_because: None,
                 status,
                 findings,
                 duration,

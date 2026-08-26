@@ -54,7 +54,9 @@ export interface Finding {
 export interface ProbeOutcome {
   probe: string;
   name: string;
-  status: { status: string; reason?: unknown; error?: string };
+  status: { status: string; reason?: string; error?: string };
+  /** Why it did not run, as a sentence. Present only when it did not run. */
+  skipped_because?: string;
   findings: Finding[];
 }
 
