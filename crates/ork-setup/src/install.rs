@@ -19,7 +19,10 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, bail};
+// `bail!` is written out at its two call sites rather than imported: both are
+// inside `#[cfg(windows)]` blocks, so importing it leaves an unused import on
+// Linux -- which is a warning, and warnings are errors here.
+use anyhow::{Context, Result};
 
 /// Where the program goes, per platform, under the user's own profile.
 pub fn default_directory() -> Result<PathBuf> {
@@ -220,7 +223,7 @@ fn append_to_user_variable(variable: &str, directory: &Path) -> Result<bool> {
     )
     .with_context(|| format!("could not update this account's {variable}"))?;
     if !output.success {
-        bail!(
+        anyhow::bail!(
             "could not update this account's {variable}: {}",
             output.stderr.trim()
         );
@@ -309,7 +312,7 @@ pub fn make_shortcut(target: &Path, label: &str) -> Result<PathBuf> {
         )
         .context("could not create a Start Menu shortcut")?;
         if !output.success {
-            bail!("could not create a Start Menu shortcut");
+            anyhow::bail!("could not create a Start Menu shortcut");
         }
         Ok(link)
     }
