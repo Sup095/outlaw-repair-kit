@@ -364,3 +364,167 @@ async fn run_scan(tier: ScanTier, json: bool, explain: bool) -> Result<()> {
     }
     Ok(())
 }
+
+/// Tests that the documentation still describes the program.
+///
+/// Documentation goes stale silently. A command gains an option, a page gains
+/// a section, a release goes out, and the only thing that notices is somebody
+/// following instructions that no longer work -- by which point they have
+/// concluded the tool is broken, which is a reasonable thing to conclude.
+///
+/// These check the parts that can be checked mechanically, so that keeping the
+/// manual honest is a build failure rather than a thing to remember.
+#[cfg(test)]
+mod documentation {
+    use super::Cli;
+    use clap::CommandFactory;
+
+    const COMMANDS_PAGE: &str = include_str!("../../../docs/commands.md");
+    const CHANGELOG: &str = include_str!("../../../CHANGELOG.md");
+    const README: &str = include_str!("../../../README.md");
+
+    #[test]
+    fn every_command_is_in_the_command_reference() {
+        // The page is called "Command reference". A command missing from it is
+        // a command nobody will find.
+        let missing: Vec<String> = Cli::command()
+            .get_subcommands()
+            .map(|sub| sub.get_name().to_string())
+            .filter(|name| name != "help")
+            .filter(|name| !COMMANDS_PAGE.contains(&format!("`outlaw {name}")))
+            .collect();
+
+        assert!(
+            missing.is_empty(),
+            "these commands exist but are not in docs/commands.md: {missing:?}"
+        );
+    }
+
+    #[test]
+    fn the_command_reference_documents_nothing_that_does_not_exist() {
+        // The other direction, and the worse one: instructions for a command
+        // that was removed send somebody chasing an error message.
+        let known: Vec<String> = Cli::command()
+            .get_subcommands()
+            .map(|sub| sub.get_name().to_string())
+            .collect();
+
+        let documented: Vec<String> = COMMANDS_PAGE
+            .lines()
+            .filter_map(|line| line.strip_prefix("## `outlaw "))
+            .filter_map(|rest| rest.split([' ', '`', '<']).next())
+            .map(|name| name.to_string())
+            .filter(|name| !name.is_empty())
+            .collect();
+
+        let phantom: Vec<&String> = documented
+            .iter()
+            .filter(|name| !known.contains(name))
+            .collect();
+        assert!(
+            phantom.is_empty(),
+            "docs/commands.md documents commands that do not exist: {phantom:?}"
+        );
+        assert!(
+            !documented.is_empty(),
+            "the parser found no documented commands, which means it is broken"
+        );
+    }
+
+    #[test]
+    fn the_changelog_has_an_entry_for_this_version() {
+        // A release that changed nothing anybody can read about is a release
+        // nobody can decide whether to install.
+        let version = env!("CARGO_PKG_VERSION");
+        assert!(
+            CHANGELOG.contains(&format!("## v{version}")),
+            "CHANGELOG.md has no `## v{version}` section, but that is the version being built"
+        );
+    }
+
+    #[test]
+    fn the_newest_changelog_entry_is_this_version() {
+        // Catches the other half: a version bumped without the changelog
+        // moving, which leaves the newest entry describing the release before
+        // this one.
+        let newest = CHANGELOG
+            .lines()
+            .find_map(|line| line.strip_prefix("## v"))
+            .expect("the changelog has at least one version heading");
+        assert_eq!(
+            newest.trim(),
+            env!("CARGO_PKG_VERSION"),
+            "the newest changelog entry is not the version being built"
+        );
+    }
+
+    #[test]
+    fn the_front_page_still_points_at_pages_that_exist() {
+        // A broken link on the front page is the first thing a stranger meets.
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..");
+        let mut broken = Vec::new();
+        for line in README.lines() {
+            let mut rest = line;
+            while let Some(at) = rest.find("](") {
+                let after = &rest[at + 2..];
+                let Some(end) = after.find(')') else { break };
+                let target = &after[..end];
+                rest = &after[end..];
+                // Only local files. Anchors and URLs are somebody else's
+                // problem, and checking them would need the network.
+                if target.starts_with("http") || target.starts_with('#') || target.is_empty() {
+                    continue;
+                }
+                let path = target.split('#').next().unwrap_or(target);
+                if !root.join(path).exists() {
+                    broken.push(path.to_string());
+                }
+            }
+        }
+        assert!(
+            broken.is_empty(),
+            "README.md links to missing files: {broken:?}"
+        );
+    }
+
+    #[test]
+    fn every_page_in_the_docs_folder_is_carried_inside_the_program() {
+        // A page added to `docs/` and not registered is a page nobody using
+        // the window or `outlaw docs` will ever see -- and it will look like
+        // it is there, because it is, in the repository.
+        let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .join("..")
+            .join("docs");
+        let carried: Vec<&str> = ork_core::docs::contents()
+            .into_iter()
+            .map(|(id, _, _)| id)
+            .collect();
+
+        let mut missing = Vec::new();
+        for entry in std::fs::read_dir(&folder)
+            .expect("docs/ is there")
+            .flatten()
+        {
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let Some(id) = name.strip_suffix(".md") else {
+                continue;
+            };
+            // `docs/README.md` is the folder's own index, which the window
+            // replaces with its contents list.
+            if id == "README" {
+                continue;
+            }
+            if !carried.contains(&id) {
+                missing.push(id.to_string());
+            }
+        }
+
+        assert!(
+            missing.is_empty(),
+            "these pages are in docs/ but not registered in ork-core/src/docs.rs: {missing:?}"
+        );
+    }
+}
