@@ -378,7 +378,11 @@ impl ServiceStatus {
 ///
 /// Returns an error rather than panicking on an unsupported OS, so a
 /// front-end can report it as a normal failure.
-pub use common::{is_elevated, open_url};
+// `run_capture` and `which` are exported because the installer needs them:
+// it is a separate program in this workspace that has to ask the machine the
+// same questions this crate already knows how to ask, and a second copy of
+// "run a command and read what it said" is a second set of quoting mistakes.
+pub use common::{CommandOutput, is_elevated, open_url, run_capture, which};
 
 pub fn detect() -> Result<Arc<dyn Platform>> {
     #[cfg(target_os = "windows")]

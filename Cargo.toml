@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/ork-core", "crates/ork-ai", "crates/ork-fix", "crates/ork-boot", "crates/ork-link", "crates/ork-cli", "apps/desktop/src-tauri"]
+members = ["crates/ork-core", "crates/ork-ai", "crates/ork-fix", "crates/ork-boot", "crates/ork-link", "crates/ork-cli", "crates/ork-setup", "apps/desktop/src-tauri"]
 
 [workspace.package]
 version = "0.5.1"

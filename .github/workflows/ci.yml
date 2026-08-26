@@ -26,15 +26,21 @@ jobs:
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
-      # The desktop app is a workspace member, so building the workspace on
-      # Linux needs the webview development packages. Windows ships a webview
-      # already. Without these, every Linux run fails on a crate that has
-      # nothing wrong with it.
+      # Two workspace members draw windows, and on Linux both need
+      # development packages that Windows ships as part of the system.
+      #
+      # The desktop app draws into the system webview, hence webkit2gtk. The
+      # installer deliberately does not -- it carries its own drawing, so that
+      # it has no prerequisite on the machine somebody is trying to set up --
+      # which means OpenGL and the windowing libraries instead.
+      #
+      # Without these, every Linux run fails on crates that have nothing wrong
+      # with them.
       - name: Install Linux build dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y             libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf             libgl1-mesa-dev libxkbcommon-dev libwayland-dev             libx11-dev libxrandr-dev libxi-dev libxcursor-dev
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Clippy

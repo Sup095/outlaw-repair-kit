@@ -171,6 +171,77 @@ pub fn advise_for_vram(gpus: &[GpuInfo]) -> VramAdvice {
     }
 }
 
+/// A model this machine could actually run, named.
+///
+/// [`advise_for_vram`] says what size of model fits and stops there, because
+/// the tool does not load models and should not pretend to. This goes one step
+/// further and names one, for the single case where naming one is the useful
+/// thing: an installer offering to fetch a model on somebody's behalf has to
+/// know which model to fetch.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModelPick {
+    /// What to ask Ollama for.
+    pub tag: &'static str,
+    /// Roughly how much will be downloaded, in whole gigabytes, so that the
+    /// size can be said out loud before anybody commits to it. Approximate on
+    /// purpose -- quantisations differ, and a number presented to two decimal
+    /// places would be a precision this does not have.
+    pub about_gb: u32,
+    /// Why this one and not a larger one.
+    pub why: &'static str,
+}
+
+/// Choose a model to offer, given however much video memory was found.
+///
+/// Sized so the model fits *with room for its context*, rather than being the
+/// largest one that technically loads. A model that fills the card and then
+/// stalls the machine the first time it is asked a real question is worse than
+/// a smaller one that answers.
+///
+/// `None` for video memory means none was found, which is not the same as
+/// none being present -- it usually means the vendor's tools are not
+/// installed. Either way the answer is the same: pick something that will run
+/// on the processor.
+///
+/// **The two shell installers carry this same table.** They cannot call this,
+/// being shell, so `install/install.ps1` and `install/install.sh` mirror it by
+/// hand and a test below pins the thresholds so a change here is visible.
+pub fn model_for_vram(vram_bytes: Option<u64>) -> ModelPick {
+    let gib = vram_bytes.map(|bytes| bytes / GIB).unwrap_or(0);
+
+    if gib >= 22 {
+        ModelPick {
+            tag: "qwen3:32b",
+            about_gb: 20,
+            why: "There is room for a 32B model and its context.",
+        }
+    } else if gib >= 14 {
+        ModelPick {
+            tag: "qwen3:14b",
+            about_gb: 9,
+            why: "A 14B model fits with room to think.",
+        }
+    } else if gib >= 10 {
+        ModelPick {
+            tag: "qwen3:8b",
+            about_gb: 5,
+            why: "An 8B model leaves enough spare for a long question.",
+        }
+    } else if gib >= 6 {
+        ModelPick {
+            tag: "qwen3:4b",
+            about_gb: 3,
+            why: "A 4B model is what this card will hold comfortably.",
+        }
+    } else {
+        ModelPick {
+            tag: "qwen3:1.7b",
+            about_gb: 2,
+            why: "Small enough to run on the processor, which is what it will                   be doing without a graphics card to hold it.",
+        }
+    }
+}
+
 /// Picks a model according to configuration and what is actually reachable.
 pub struct ModelRouter {
     config: AiConfig,
@@ -404,6 +475,51 @@ impl ModelRouter {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_model_offered_matches_the_table_the_shell_installers_carry() {
+        // `install/install.ps1` and `install/install.sh` cannot call this, so
+        // they mirror it by hand. These are the exact thresholds they use, in
+        // whole gigabytes. If this test is changed, both scripts change too --
+        // an installer that offers a different model depending on which
+        // installer you used is a bug people would report as a mystery.
+        let gb = |n: u64| Some(n * GIB);
+        assert_eq!(model_for_vram(gb(24)).tag, "qwen3:32b");
+        assert_eq!(model_for_vram(gb(22)).tag, "qwen3:32b");
+        assert_eq!(model_for_vram(gb(21)).tag, "qwen3:14b");
+        assert_eq!(model_for_vram(gb(16)).tag, "qwen3:14b");
+        assert_eq!(model_for_vram(gb(12)).tag, "qwen3:8b");
+        assert_eq!(model_for_vram(gb(8)).tag, "qwen3:4b");
+        assert_eq!(model_for_vram(gb(4)).tag, "qwen3:1.7b");
+    }
+
+    #[test]
+    fn no_graphics_card_still_gets_an_answer() {
+        // Not knowing how much video memory there is usually means the
+        // vendor's tools are missing, not that there is no card. Either way
+        // the safe offer is the one that runs on the processor.
+        let unknown = model_for_vram(None);
+        assert_eq!(unknown.tag, "qwen3:1.7b");
+        assert_eq!(unknown, model_for_vram(Some(0)));
+        assert!(unknown.why.contains("processor"), "{}", unknown.why);
+    }
+
+    #[test]
+    fn every_offer_admits_roughly_how_big_it_is() {
+        // Somebody on a metered connection is entitled to know that "yes" here
+        // means several gigabytes before they press it.
+        for vram in [
+            None,
+            Some(4 * GIB),
+            Some(8 * GIB),
+            Some(16 * GIB),
+            Some(24 * GIB),
+        ] {
+            let pick = model_for_vram(vram);
+            assert!(pick.about_gb > 0, "{} claims no size", pick.tag);
+            assert!(!pick.why.is_empty());
+        }
+    }
     use ork_core::config::EndpointConfig;
 
     fn gpu(vram_gib: u64) -> GpuInfo {

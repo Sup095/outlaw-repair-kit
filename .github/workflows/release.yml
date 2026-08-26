@@ -55,12 +55,63 @@ jobs:
           else
             tar czf "${staging}.tar.gz" "$staging"
           fi
+          # The bare program as well as the archive, under a name that does not
+          # carry the version. The graphical installer downloads exactly one
+          # file and checks it against exactly one published digest; asking it
+          # to unpack an archive first would mean carrying a zip library on
+          # Windows and tar and gzip on Linux, inside the one program in this
+          # project that has the strongest reason to stay small and dull.
+          cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" .
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}
           path: |
             *.zip
             *.tar.gz
+            ${{ matrix.binary }}
+
+  setup:
+    name: installer ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: outlaw-setup.exe
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            binary: outlaw-setup
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      # The installer carries its own drawing rather than using a system
+      # webview -- which is the whole point of it, since it has to run on a
+      # machine nobody has set up yet -- so it needs OpenGL and the windowing
+      # libraries at build time on Linux, and nothing at all on Windows.
+      #
+      # Built on ubuntu-22.04 rather than the newest image on purpose: a
+      # binary linked against an older glibc runs on newer systems, and the
+      # reverse is not true. An installer that refuses to start on a
+      # slightly older distribution is an installer nobody can use.
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev libxkbcommon-dev libwayland-dev             libx11-dev libxrandr-dev libxi-dev libxcursor-dev
+      - name: Build the installer
+        run: cargo build --release -p ork-setup --target ${{ matrix.target }}
+      - name: Collect
+        shell: bash
+        run: cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: setup-${{ matrix.target }}
+          path: ${{ matrix.binary }}
 
 
   desktop:
@@ -125,10 +176,15 @@ jobs:
           path: desktop-artifacts/*
 
   publish:
-    needs: [build, desktop]
+    needs: [build, setup, desktop]
     # `always()` so that a skipped or failed desktop bundle does not cancel
     # the release; the guard keeps it from publishing without the binaries.
-    if: always() && needs.build.result == 'success'
+    #
+    # The installer is required rather than optional, because the front page
+    # tells people to download it. A release whose installer did not build is
+    # a release that would send everybody who followed those instructions to a
+    # link that is not there.
+    if: always() && needs.build.result == 'success' && needs.setup.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

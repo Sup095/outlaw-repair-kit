@@ -1,0 +1,45 @@
+[package]
+name = "ork-setup"
+description = "Graphical installer for the Outlaw Repair Kit."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "outlaw-setup"
+path = "src/main.rs"
+
+[dependencies]
+ork-core.workspace = true
+ork-ai.workspace = true
+
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+# Blocking, because this program has no async runtime and no reason for one:
+# it does a handful of downloads in a worker thread and reports progress.
+reqwest = { workspace = true, features = ["blocking"] }
+sha2 = "0.10"
+dirs.workspace = true
+tracing.workspace = true
+
+# Not Tauri, and not by accident.
+#
+# An installer is the one program that cannot have prerequisites. Tauri draws
+# into a system webview: WebView2 on Windows, webkit2gtk on Linux. Either can
+# be missing on exactly the machine somebody is trying to set up, which would
+# make this an installer that needs installing. `eframe` carries its own
+# drawing and needs nothing but a graphics driver.
+#
+# `default-features = false` with `glow` keeps it to OpenGL and drops the wgpu
+# stack, which this has no use for and which would roughly double both the
+# build time and the download.
+eframe = { version = "0.32", default-features = false, features = [
+    "glow",
+    "default_fonts",
+    "wayland",
+    "x11",
+] }
