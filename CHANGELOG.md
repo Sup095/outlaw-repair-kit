@@ -68,6 +68,16 @@ run, so a list that drifts out of date is caught rather than believed.
   reports a stalled program now says a saturated machine looks the same from
   the outside.
 
+- **The audit log stopped burying real changes under repeated advice.** Every
+  run of `outlaw fix` wrote each piece of advice it offered into the permanent
+  log, in full, as an `attempt` -- for something that attempted nothing. Since
+  `fix` without `--apply` is a preview somebody may run repeatedly while
+  deciding, the record of what the tool actually did to a machine was being
+  buried under copies of what it had suggested. Advice now has its own heading
+  and is recorded once per problem rather than once per run. Anything that
+  touched the machine is still recorded every single time, and the log is still
+  never pruned or rewritten.
+
 - **Three ways to ask for a test that does nothing, all now refused.**
   `outlaw stress --minutes 0` finished instantly and reported "nothing went
   wrong in 0 seconds", which reads exactly like a clean result to somebody

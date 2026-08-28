@@ -274,6 +274,18 @@ It lives in `state.db` alongside your settings. If something goes wrong, this
 is the record of what happened -- including which snapshot a change belongs to,
 so a change can be traced back to the backup taken before it.
 
+Each line says what kind of thing it was. `attempt` is something the tool did
+to the machine; `advice` is something it suggested you do. They are kept apart
+on purpose, because a log that files "here is what you could do" under the same
+word as "this is what I changed" is answering the wrong question.
+
+The same advice for the same problem is recorded once, not once per run.
+`outlaw fix` without `--apply` is a preview, and somebody weighing up what to
+do may run it a dozen times; a log where twelve identical paragraphs bury the
+one line describing a real change is a log nobody can use. Anything that
+actually touched the machine is always recorded, every time, however identical
+it looks to the last one.
+
 ## Privileges
 
 The tool runs as you, not as an administrator. Actions that need more rights --

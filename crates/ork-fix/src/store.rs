@@ -477,6 +477,23 @@ impl FixStore {
         snapshot_id: Option<&str>,
     ) -> Result<()> {
         let summary = action.describe();
+
+        // Advice is not an event. Offering it again on the next run is not a
+        // second event either, and `outlaw fix` with no `--apply` is a preview
+        // somebody may run a dozen times while deciding. Each of those runs was
+        // writing the whole instruction -- a full paragraph of prose -- into
+        // the audit log, twice over, under the heading `attempt`, for something
+        // that attempted nothing and changed nothing.
+        //
+        // The record still has to be complete, so the first time a piece of
+        // advice is given for a problem it is recorded. The identical advice
+        // for the identical problem, already sitting in the record, is not
+        // news. Anything that actually touched the machine has a different
+        // outcome and is never caught by this.
+        if outcome == AttemptOutcome::NeedsAPerson && self.already_said(occurrence_key, &summary)? {
+            return Ok(());
+        }
+
         self.connection.execute(
             "INSERT INTO attempts
                 (occurrence_key, finding_id, action_json, summary, outcome, detail,
@@ -493,12 +510,34 @@ impl FixStore {
                 Self::now(),
             ],
         )?;
-        self.audit(
-            "attempt",
-            &format!("{summary} -- {}", outcome.as_str()),
-            Some(occurrence_key),
-        )?;
+        // Advice gets its own heading, because a log that files "here is what
+        // you could do" under the same word as "this is what I did to your
+        // machine" is answering the wrong question.
+        let (kind, message) = match outcome {
+            AttemptOutcome::NeedsAPerson => ("advice", summary),
+            _ => ("attempt", format!("{summary} -- {}", outcome.as_str())),
+        };
+        self.audit(kind, &message, Some(occurrence_key))?;
         Ok(())
+    }
+
+    /// Whether this exact advice for this exact problem is already recorded.
+    fn already_said(&self, occurrence_key: &str, summary: &str) -> Result<bool> {
+        let found: Option<i64> = self
+            .connection
+            .query_row(
+                "SELECT 1 FROM attempts
+                 WHERE occurrence_key = ?1 AND summary = ?2 AND outcome = ?3
+                 LIMIT 1",
+                params![
+                    occurrence_key,
+                    summary,
+                    AttemptOutcome::NeedsAPerson.as_str()
+                ],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(found.is_some())
     }
 
     /// Everything tried for one problem, oldest first.
@@ -601,6 +640,100 @@ mod tests {
         FixAction::RestartService {
             service: "steam".to_string(),
         }
+    }
+
+    #[test]
+    fn the_same_advice_is_recorded_once_however_often_it_is_offered() {
+        // `outlaw fix` without `--apply` is a preview, and somebody deciding
+        // what to do may run it a dozen times. Each run was writing the whole
+        // instruction into the audit log under the heading `attempt`, for
+        // something that attempted nothing.
+        let store = FixStore::in_memory().unwrap();
+        let problem = finding("app.launch-failed", "steam", Severity::High);
+        let key = problem.occurrence_key();
+        store.enqueue(&problem).unwrap();
+        let advice = FixAction::Manual {
+            instruction: "Try turning it off and on again, at length, in prose.".to_string(),
+        };
+
+        for _ in 0..5 {
+            store
+                .record_attempt(
+                    &key,
+                    "app.launch-failed",
+                    &advice,
+                    AttemptOutcome::NeedsAPerson,
+                    None,
+                    None,
+                )
+                .unwrap();
+        }
+
+        assert_eq!(store.attempts_for(&key).unwrap().len(), 1);
+        let advice_lines = store
+            .audit_log(100)
+            .unwrap()
+            .into_iter()
+            .filter(|line| line.kind == "advice")
+            .count();
+        assert_eq!(advice_lines, 1, "the same advice was logged more than once");
+    }
+
+    #[test]
+    fn different_advice_for_the_same_problem_is_all_recorded() {
+        // The dedupe must not swallow a second, different suggestion.
+        let store = FixStore::in_memory().unwrap();
+        let problem = finding("app.launch-failed", "steam", Severity::High);
+        let key = problem.occurrence_key();
+        store.enqueue(&problem).unwrap();
+
+        for text in ["first idea", "second idea"] {
+            store
+                .record_attempt(
+                    &key,
+                    "app.launch-failed",
+                    &FixAction::Manual {
+                        instruction: text.to_string(),
+                    },
+                    AttemptOutcome::NeedsAPerson,
+                    None,
+                    None,
+                )
+                .unwrap();
+        }
+        assert_eq!(store.attempts_for(&key).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn something_that_touched_the_machine_is_always_recorded() {
+        // The dedupe is only ever allowed to drop advice. Two identical real
+        // attempts are two things that happened to somebody's computer, and
+        // the audit log is the only record that they did.
+        let store = FixStore::in_memory().unwrap();
+        let problem = finding("service.stopped", "steam", Severity::High);
+        let key = problem.occurrence_key();
+        store.enqueue(&problem).unwrap();
+
+        for _ in 0..3 {
+            store
+                .record_attempt(
+                    &key,
+                    "service.stopped",
+                    &action(),
+                    AttemptOutcome::Failed,
+                    None,
+                    None,
+                )
+                .unwrap();
+        }
+        assert_eq!(store.attempts_for(&key).unwrap().len(), 3);
+        let attempts = store
+            .audit_log(100)
+            .unwrap()
+            .into_iter()
+            .filter(|line| line.kind == "attempt")
+            .count();
+        assert_eq!(attempts, 3);
     }
 
     #[test]
