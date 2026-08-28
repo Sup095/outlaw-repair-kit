@@ -20,6 +20,7 @@ VERSION="latest"
 WITH_MODEL="ask"
 WITH_DESKTOP="no"
 ASSUME_YES="no"
+ALLOW_UNVERIFIED="no"
 
 say() { printf '%s\n' "$*"; }
 step() { printf '\033[38;5;214m==>\033[0m %s\n' "$*"; }
@@ -36,6 +37,8 @@ Usage: install.sh [options]
   --local-model       Also set up a local model, without asking
   --no-local-model    Skip the local-model question entirely
   --yes               Do not ask anything; take the safe default each time
+  --allow-unverified  Install even if the download cannot be checked against a
+                      published checksum. Refused by default.
   --help              Show this
 USAGE
 }
@@ -48,6 +51,7 @@ while [ $# -gt 0 ]; do
     --local-model) WITH_MODEL="yes"; shift ;;
     --no-local-model) WITH_MODEL="no"; shift ;;
     --yes) ASSUME_YES="yes"; shift ;;
+    --allow-unverified) ALLOW_UNVERIFIED="yes"; shift ;;
     --help|-h) usage; exit 0 ;;
     *) die "unknown option $1 (try --help)" ;;
   esac
@@ -111,21 +115,37 @@ step "Downloading $ASSET"
 curl -fSL --progress-bar "$BASE/$ASSET" -o "$WORK/$ASSET" ||
   die "could not download $ASSET -- check https://github.com/$REPO/releases"
 
+# Not knowing is not the same as knowing it is fine. A mismatch has always
+# been refused; being unable to check at all used to print a warning and carry
+# on, which put an unverified binary on somebody's PATH on the strength of a
+# line they had already scrolled past. This is the same rule the rest of the
+# tool follows -- a check that could not run clears nothing -- applied to the
+# one step that decides what ends up on the machine.
+unverified() {
+  if [ "$ALLOW_UNVERIFIED" = "yes" ]; then
+    warn "$1 -- installing anyway because --allow-unverified was given"
+  else
+    die "$1. Not installing it. Every release built by the project publishes
+     checksums, so this usually means the download did not come from where you
+     think it did. Pass --allow-unverified if you have checked it yourself."
+  fi
+}
+
 step "Checking what was downloaded"
 if curl -fsSL "$BASE/SHA256SUMS" -o "$WORK/SHA256SUMS" 2>/dev/null; then
   expected=$(grep " \*\{0,1\}$ASSET\$" "$WORK/SHA256SUMS" | cut -d' ' -f1 | head -n1)
   actual=$(checksum_of "$WORK/$ASSET")
   if [ -z "$expected" ]; then
-    warn "that release publishes no checksum for $ASSET"
+    unverified "that release publishes no checksum for $ASSET"
   elif [ "$expected" != "$actual" ]; then
     # Refusing is the only safe answer: a file that is not the published one
-    # is not going anywhere near anybody's PATH.
+    # is not going anywhere near anybody's PATH. No flag turns this off.
     die "the download does not match its published checksum -- not installing it"
   else
     say "  checksum matches"
   fi
 else
-  warn "that release publishes no SHA256SUMS file, so the download could not be verified"
+  unverified "that release publishes no SHA256SUMS file, so the download could not be checked"
 fi
 
 step "Installing to $INSTALL_DIR"

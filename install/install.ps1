@@ -33,7 +33,11 @@ param(
     [switch] $NoLocalModel,
 
     # Do not ask anything; take the safe default each time.
-    [switch] $Yes
+    [switch] $Yes,
+
+    # Install even if the download cannot be checked against a published
+    # checksum. Refused by default.
+    [switch] $AllowUnverified
 )
 
 $ErrorActionPreference = "Stop"
@@ -42,6 +46,20 @@ $Repo = "Sup095/outlaw-repair-kit"
 function Write-Step($message) { Write-Host "==> " -ForegroundColor DarkYellow -NoNewline; Write-Host $message }
 function Write-Warn($message) { Write-Host "warning: " -ForegroundColor Yellow -NoNewline; Write-Host $message }
 function Stop-With($message) { Write-Host "error: " -ForegroundColor Red -NoNewline; Write-Host $message; exit 1 }
+
+function Stop-Unverified($message) {
+    # Not knowing is not the same as knowing it is fine. A mismatch has always
+    # been refused; being unable to check at all used to print a warning and
+    # carry on, which put an unverified binary on somebody's PATH on the
+    # strength of a line they had already scrolled past. This is the rule the
+    # rest of the tool follows -- a check that could not run clears nothing --
+    # applied to the one step that decides what ends up on the machine.
+    if ($AllowUnverified) {
+        Write-Warn "$message -- installing anyway because -AllowUnverified was given"
+    } else {
+        Stop-With "$message. Not installing it. Every release built by the project publishes checksums, so this usually means the download did not come from where you think it did. Pass -AllowUnverified if you have checked it yourself."
+    }
+}
 
 function Read-YesNo($question) {
     # Answers no unless the person says yes, and answers no on its own when
@@ -83,25 +101,27 @@ try {
 
     Write-Step "Checking what was downloaded"
     $sums = Join-Path $work "SHA256SUMS"
-    $verified = $false
+    $fetched = $false
     try {
         Invoke-WebRequest -Uri "$base/SHA256SUMS" -OutFile $sums -UseBasicParsing
+        $fetched = $true
+    } catch {
+        Stop-Unverified "that release publishes no SHA256SUMS file, so the download could not be checked"
+    }
+    if ($fetched) {
         $line = Get-Content $sums | Where-Object { $_ -match [regex]::Escape($asset) } | Select-Object -First 1
         if ($null -eq $line) {
-            Write-Warn "that release publishes no checksum for $asset"
+            Stop-Unverified "that release publishes no checksum for $asset"
         } else {
             $expected = ($line -split '\s+')[0]
             $actual = (Get-FileHash -Path $archive -Algorithm SHA256).Hash
             if ($expected -ine $actual) {
                 # A file that is not the published one is not going anywhere
-                # near anybody's PATH.
+                # near anybody's PATH. No switch turns this off.
                 Stop-With "the download does not match its published checksum -- not installing it"
             }
             Write-Host "  checksum matches"
-            $verified = $true
         }
-    } catch {
-        if (-not $verified) { Write-Warn "that release publishes no SHA256SUMS file, so the download could not be verified" }
     }
 
     Write-Step "Installing to $Dir"

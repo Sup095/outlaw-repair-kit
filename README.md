@@ -41,7 +41,8 @@ terminal.
 
 It asks which version you want, shows you a list of exactly what it is about to
 do to your computer, and does it. It **refuses** to install any file whose
-checksum does not match the one published with the release. It never asks for
+checksum does not match the one published with the release -- and refuses just
+as firmly when it cannot check at all. It never asks for
 administrator rights. It offers -- rather than assumes -- to set up a model
 sized for whatever graphics card it finds, and tells you how many gigabytes
 that means before you agree. Afterwards it shows what it did, and writes the

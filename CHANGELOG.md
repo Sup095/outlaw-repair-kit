@@ -68,6 +68,21 @@ run, so a list that drifts out of date is caught rather than believed.
   reports a stalled program now says a saturated machine looks the same from
   the outside.
 
+- **The install scripts now refuse a download they cannot check.** A checksum
+  that was *wrong* has always been refused. A release publishing no checksum at
+  all, or none for the file being fetched, printed a warning and installed it
+  anyway -- putting an unverified binary on somebody's PATH on the strength of
+  a line they had already scrolled past. The graphical installer had refused
+  both cases from the start and the documentation described that behaviour, so
+  the scripts were the odd ones out. `--allow-unverified` (`-AllowUnverified`
+  on Windows) is there for anyone who has checked it themselves. Nothing turns
+  off the refusal of a checksum that is wrong.
+
+- The install scripts and the release workflow are now checked against each
+  other. They have to agree on file names -- if they stop agreeing, every
+  install that day gets a 404 and nothing in the tool itself is wrong, so
+  nothing would have caught it except a stranger.
+
 - **Piping the output into `head` crashed the tool.** `outlaw docs changelog |
   head` was enough: the reader closes the pipe, the next write fails, and the
   program fell over -- then recorded it as a crash and told you it was worth

@@ -545,6 +545,117 @@ mod startup {
     }
 }
 
+/// The install scripts and the release workflow have to agree on file names.
+///
+/// Nothing else checks this, and the failure is silent and total: the workflow
+/// publishes `outlaw-v0.9.0-x86_64-pc-windows-msvc.zip`, an installer that
+/// asks for anything else gets a 404, and every person who ran the one-line
+/// install command that day is told the download failed. It cannot be caught
+/// by testing the tool, because the tool is fine -- it is the way people get
+/// it that is broken, and the only person who finds out is a stranger.
+///
+/// Checked as text on both sides. Neither file can be executed here: one is a
+/// PowerShell script that downloads from the internet and edits a PATH, and
+/// the other is a shell script for an operating system this is not.
+#[cfg(test)]
+mod packaging {
+    const PS1: &str = include_str!("../../../install/install.ps1");
+    const SH: &str = include_str!("../../../install/install.sh");
+    const RELEASE: &str = include_str!("../../../.github/workflows/release.yml");
+
+    #[test]
+    fn the_installers_ask_for_the_names_the_release_publishes() {
+        // Each pair is (what an installer builds, what the workflow names).
+        // Written with the shell variables still in them, because that is the
+        // form both sides are in and normalising either one would be a third
+        // opinion about what the name is.
+        let pairs = [
+            (
+                "outlaw-$Version-$target.zip",
+                r#"staging="outlaw-${version}-${{ matrix.target }}""#,
+            ),
+            (
+                r#"outlaw-repair-kit-$Version-x64-setup.exe"#,
+                r#"name="outlaw-repair-kit-${version}-x64-setup.exe""#,
+            ),
+        ];
+        for (asked, published) in pairs {
+            assert!(
+                PS1.contains(asked),
+                "install.ps1 no longer builds `{asked}`"
+            );
+            assert!(
+                RELEASE.contains(published),
+                "the release workflow no longer publishes `{published}`"
+            );
+        }
+
+        assert!(
+            SH.contains(r#"ASSET="outlaw-${VERSION}-${TARGET}.tar.gz""#),
+            "install.sh no longer builds the archive name"
+        );
+        assert!(
+            RELEASE.contains(r#"tar czf "${staging}.tar.gz""#),
+            "the release workflow no longer publishes a .tar.gz"
+        );
+        assert!(
+            SH.contains(r#"APPIMAGE="outlaw-repair-kit-${VERSION}-amd64.AppImage""#),
+            "install.sh no longer builds the AppImage name"
+        );
+        assert!(
+            RELEASE.contains(r#"name="outlaw-repair-kit-${version}-amd64.AppImage""#),
+            "the release workflow no longer publishes an AppImage"
+        );
+    }
+
+    #[test]
+    fn both_installers_check_what_they_downloaded() {
+        // The one promise the front page makes about installing: it refuses a
+        // file whose checksum does not match the published one. A download
+        // that stopped being checked would still install perfectly, which is
+        // exactly why this is worth asserting rather than assuming.
+        assert!(
+            PS1.contains("SHA256SUMS"),
+            "install.ps1 stopped fetching the digests"
+        );
+        assert!(
+            PS1.contains("does not match its published checksum"),
+            "install.ps1 stopped refusing a mismatched download"
+        );
+        assert!(
+            SH.contains("SHA256SUMS"),
+            "install.sh stopped fetching the digests"
+        );
+        assert!(
+            SH.contains("does not match"),
+            "install.sh stopped refusing a mismatched download"
+        );
+        assert!(
+            RELEASE.contains("SHA256SUMS"),
+            "the release workflow stopped publishing the digests both installers rely on"
+        );
+    }
+
+    #[test]
+    fn neither_installer_asks_for_administrator_rights() {
+        // Also a promise on the front page. On Windows that means the user's
+        // own PATH rather than the machine's; on Linux it means not writing
+        // outside the home directory without being asked.
+        assert!(
+            PS1.contains(r#"SetEnvironmentVariable("Path", $updated, "User")"#),
+            "install.ps1 no longer edits only the user's own PATH"
+        );
+        assert!(
+            !PS1.contains(r#""Machine")"#),
+            "install.ps1 is writing machine-wide environment variables"
+        );
+        assert!(
+            !SH.contains("sudo install"),
+            "install.sh is installing as root"
+        );
+    }
+}
+
 #[cfg(test)]
 mod documentation {
     use super::Cli;

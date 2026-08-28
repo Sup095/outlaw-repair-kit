@@ -54,8 +54,10 @@ curl -fsSL https://raw.githubusercontent.com/Sup095/outlaw-repair-kit/main/insta
 The installer:
 
 - works out which published build fits your machine,
-- downloads it and **refuses to install it if the checksum does not match** the
-  one published with the release,
+- downloads it and **refuses to install it unless the checksum matches** the
+  one published with the release -- a mismatch is refused outright, and so is
+  being unable to check at all, because not knowing is not the same as knowing
+  it is fine and this is the step that decides what ends up on your PATH,
 - puts `outlaw` somewhere on your PATH that needs no administrator rights
   (`%LOCALAPPDATA%\Programs\OutlawRepairKit` on Windows, `~/.local/bin` on
   Linux),
@@ -76,6 +78,7 @@ rights unless you ask it for the desktop app.
 | `-LocalModel` | `--local-model` | Set up a local model without asking |
 | `-NoLocalModel` | `--no-local-model` | Skip the local-model question |
 | `-Yes` | `--yes` | Do not ask anything; take the safe default each time |
+| `-AllowUnverified` | `--allow-unverified` | Install even when the download cannot be checked against a published checksum. Refused without this. Nothing turns off the refusal of a checksum that is *wrong* |
 
 To pass options to the one-line install, download the script first and run it:
 
