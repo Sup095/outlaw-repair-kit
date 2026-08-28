@@ -11,6 +11,8 @@
 //! it will look -- so that silence afterwards is understood as the watcher
 //! working rather than as the watcher having died.
 
+use std::io::IsTerminal;
+
 use anyhow::Result;
 use ork_core::tier::ScanTier;
 use ork_core::watch::{Baseline, Change, WatchEvent, Watcher};
@@ -44,10 +46,26 @@ pub async fn run(tier: ScanTier, every_minutes: u64, json: bool, once: bool) -> 
         let look = watcher.look_once().await?;
         if json {
             println!("{}", serde_json::to_string_pretty(&look)?);
-        } else {
-            show(&WatchEvent::Looked {
-                look: Box::new(look),
-            });
+            return Ok(());
+        }
+
+        // A look that changed nothing prints nothing -- into a log. A
+        // scheduled task writing "no change" every hour is a log nobody reads,
+        // and by the time it says something nobody sees it.
+        //
+        // To a person, though, silence and failure are the same thing on
+        // screen. When somebody is watching, a quiet look says so in one line;
+        // when the output is going anywhere else, it stays quiet. Both halves
+        // of that were asked for, and they are not in conflict -- they are
+        // about different readers.
+        let note = look.quiet().then(|| quiet_note(&look));
+        show(&WatchEvent::Looked {
+            look: Box::new(look),
+        });
+        if let Some(note) = note
+            && std::io::stdout().is_terminal()
+        {
+            println!("{}", dim(&note));
         }
         return Ok(());
     }
@@ -89,6 +107,28 @@ pub async fn run(tier: ScanTier, every_minutes: u64, json: bool, once: bool) -> 
     drop(watcher);
     let _ = printer.await;
     outcome
+}
+
+/// What to tell a person after a single look that changed nothing.
+///
+/// Its own function because the wording has to be conditional and getting it
+/// wrong would be a lie: a look where two checks could not run has not found
+/// that nothing changed, it has found that nothing changed *among the checks
+/// that ran*. Those are different claims, and only one of them is true.
+fn quiet_note(look: &ork_core::watch::Look) -> String {
+    if look.did_not_run.is_empty() {
+        "Looked, and nothing has changed. `outlaw watching` says what it knows.".to_string()
+    } else {
+        format!(
+            "Looked, and nothing changed among the checks that ran -- but {} did not run, so              nothing {} looks for was judged either way.",
+            look.did_not_run.join(", "),
+            if look.did_not_run.len() == 1 {
+                "it"
+            } else {
+                "they"
+            }
+        )
+    }
 }
 
 fn show(event: &WatchEvent) {
@@ -262,6 +302,55 @@ fn reads_as_bad_news(change: &Change) -> bool {
 mod tests {
     use super::*;
     use ork_core::finding::{Category, Finding, Severity, Triage};
+    use ork_core::watch::Look;
+
+    fn look(did_not_run: Vec<String>) -> Look {
+        Look {
+            at: time::OffsetDateTime::now_utc(),
+            changes: Vec::new(),
+            established_baseline: false,
+            recorded: 0,
+            did_not_run,
+        }
+    }
+
+    #[test]
+    fn a_quiet_look_that_checked_everything_says_so_plainly() {
+        let note = quiet_note(&look(Vec::new()));
+        assert!(note.contains("nothing has changed"), "{note}");
+    }
+
+    #[test]
+    fn a_quiet_look_with_a_check_that_did_not_run_does_not_claim_nothing_changed() {
+        // The distinction the whole watcher is built on: a check that did not
+        // run cleared nothing and found nothing, and a one-line summary must
+        // not quietly widen its claim to cover it.
+        let note = quiet_note(&look(vec!["Disk health".to_string()]));
+        assert!(note.contains("Disk health"), "{note}");
+        assert!(note.contains("among the checks that ran"), "{note}");
+        assert!(
+            !note.contains("nothing has changed"),
+            "claimed more than it knows: {note}"
+        );
+    }
+
+    #[test]
+    fn more_than_one_skipped_check_reads_as_more_than_one() {
+        let note = quiet_note(&look(vec!["A".to_string(), "B".to_string()]));
+        assert!(note.contains("A, B"), "{note}");
+        assert!(note.contains("they look"), "{note}");
+    }
+
+    #[test]
+    fn a_look_that_established_a_baseline_is_not_quiet() {
+        // It has something to say -- how many things it recorded -- and
+        // `show` says it. A second line underneath would be the tool
+        // answering itself.
+        let mut first = look(Vec::new());
+        first.established_baseline = true;
+        first.recorded = 6;
+        assert!(!first.quiet());
+    }
 
     fn finding(severity: Severity) -> Box<Finding> {
         Box::new(

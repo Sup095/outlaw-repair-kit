@@ -119,6 +119,14 @@ Two things:
   terminal. Somebody watching a crash happen should not have to go looking in a
   file to see what it said.
 
+And one thing that is deliberately **not** recorded: a refusal. "There is no
+page called that", "say which machine with `--at`", "`--json` cannot ask before
+heating the machine" — those still stop the command and still exit non-zero, so
+a script can tell, but they are the tool working correctly rather than going
+wrong. Filing them here would fill the list of things worth reporting with
+things that are not, until somebody posted one as an issue because the program
+had told them it was worth reporting.
+
 Both land in `incidents.jsonl` beside your settings, newest last, capped at 200
 entries. The oldest go first: the most recent failure is nearly always the one
 being chased.

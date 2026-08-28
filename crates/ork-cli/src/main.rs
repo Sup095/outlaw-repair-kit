@@ -8,6 +8,7 @@ mod ai;
 mod boot;
 mod fix;
 mod link;
+mod refusal;
 mod render;
 mod report;
 mod stress;
@@ -49,11 +50,12 @@ enum Command {
     Scan {
         /// How thorough to be: quick, full, or deep.
         ///
-        /// No tier has a time limit; press Ctrl-C to stop. `deep` adds the
-        /// system file check, which reads and hashes most of the operating
-        /// system and takes minutes to an hour; the rootkit scan that tier is
-        /// also meant for is not built yet. No tier runs the stress and
-        /// burn-in test -- that is `outlaw stress`, asked for on its own.
+        /// No tier has a time limit; press Ctrl-C to stop. `full` adds disk
+        /// health, launch tests, and what starts with the machine. `deep`
+        /// adds the system file check, which reads and hashes most of the
+        /// operating system and takes minutes to an hour. No tier runs the
+        /// stress and burn-in test -- that is `outlaw stress`, asked for on
+        /// its own.
         #[arg(long, short, default_value = "quick")]
         tier: ScanTier,
 
@@ -285,11 +287,18 @@ async fn main() -> Result<()> {
 
     let outcome = dispatch(cli).await;
 
-    // A command that fails is exactly the thing worth reporting, and until
+    // A command that *broke* is exactly the thing worth reporting, and until
     // this point nothing had recorded it: an error returned up the stack is
     // printed by the caller, never logged, so the layer above never saw it.
     // Recorded here as an error like any other, so there is one path in.
-    if let Err(error) = &outcome {
+    //
+    // A refusal is not that. "Say which machine with --at" is the tool working
+    // correctly, and recording it would fill the list of things worth
+    // reporting with things that are not -- until somebody posts one as an
+    // issue, having been told by the program that it was worth reporting.
+    if let Err(error) = &outcome
+        && !refusal::Refusal::is_one(error)
+    {
         tracing::error!(target: "outlaw::command", "{error:#}");
         report::hint_if_anything_recorded();
     }

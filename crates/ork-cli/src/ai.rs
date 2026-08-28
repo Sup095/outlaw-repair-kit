@@ -218,7 +218,9 @@ pub fn set_key(which: &str) -> Result<()> {
     let kind = match which {
         "cloud" => SecretKind::CloudApiKey,
         "remote" => SecretKind::RemoteEndpointToken,
-        other => anyhow::bail!("unknown credential `{other}` (expected `cloud` or `remote`)"),
+        other => {
+            crate::refusal::refuse!("unknown credential `{other}` (expected `cloud` or `remote`)")
+        }
     };
 
     eprintln!("Paste the {} and press Enter:", kind.label());
@@ -237,7 +239,9 @@ pub fn clear_key(which: &str) -> Result<()> {
     let kind = match which {
         "cloud" => SecretKind::CloudApiKey,
         "remote" => SecretKind::RemoteEndpointToken,
-        other => anyhow::bail!("unknown credential `{other}` (expected `cloud` or `remote`)"),
+        other => {
+            crate::refusal::refuse!("unknown credential `{other}` (expected `cloud` or `remote`)")
+        }
     };
     secrets::delete(kind)?;
     eprintln!("Removed the {} from the credential store.", kind.label());

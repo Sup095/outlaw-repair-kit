@@ -239,7 +239,7 @@ pub fn docs(page: Option<String>, json: bool) -> Result<()> {
             .into_iter()
             .map(|(id, _, _)| id)
             .collect();
-        anyhow::bail!(
+        crate::refusal::refuse!(
             "there is no page called `{wanted}`. There is: {}",
             names.join(", ")
         );

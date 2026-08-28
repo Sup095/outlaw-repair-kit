@@ -55,13 +55,14 @@
     match what installed them. It reads and hashes most of what is installed, so it
     takes minutes to an hour — and there is no time limit on it, only the Stop button.
     On Windows it needs administrator rights and says so if it does not have them.
-    The rootkit scan this tier is also meant for is not built yet. Stress and burn-in
-    is built, and is on its own tab — no scan will heat your machine.
+    Stress and burn-in is on its own tab — no scan will heat your machine.
   </p>
 {:else if scan.tier === "full"}
   <p class="dim note">
-    Adds the disk health check and the application launch test, which starts catalogued
-    applications such as Steam and closes them again.
+    Adds the disk health check, the application launch test — which starts catalogued
+    applications such as Steam and closes them again — and the list of what starts with
+    this computer, which is the usual answer to why a machine is slow for its first two
+    minutes.
   </p>
 {/if}
 

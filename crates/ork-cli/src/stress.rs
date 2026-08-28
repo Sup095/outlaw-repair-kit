@@ -21,6 +21,7 @@ use ork_core::stress::{
 use ork_core::util::format_bytes;
 use tokio::sync::mpsc;
 
+use crate::refusal::refuse;
 use crate::render;
 use crate::style::{bold, dim};
 
@@ -46,14 +47,20 @@ pub async fn run(
     if plan.is_empty() {
         // Rather than running for ten minutes doing nothing and reporting that
         // nothing went wrong, which would be true and useless.
-        anyhow::bail!(
-            "nothing to test: --no-cpu and --no-memory together leave this with no work to do"
-        );
+        refuse!("nothing to test: --no-cpu and --no-memory together leave this with no work to do");
     }
 
     let platform = ork_core::platform::detect()?;
 
-    if !json {
+    // Asking for machine-readable output is not the same as agreeing to have
+    // the machine pinned at full load and heated, and a prompt would break the
+    // output anyway. So `--json` does not imply consent -- it requires it to
+    // have been given explicitly, and says so in a way a script can act on.
+    if json {
+        if !assume_yes {
+            refuse!("--json cannot ask before heating the machine, so it needs --yes as well");
+        }
+    } else {
         preamble(&plan, platform.as_ref())?;
         if !assume_yes && !confirmed()? {
             println!("{}", dim("Nothing was run."));

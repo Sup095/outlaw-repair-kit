@@ -80,6 +80,12 @@ pub const PAGES: &[Page] = &[
         body: include_str!("../../../docs/watching.md"),
     },
     Page {
+        id: "startup",
+        title: "What starts with your computer",
+        summary: "Everything that runs on its own, and why this is not a rootkit scan.",
+        body: include_str!("../../../docs/startup.md"),
+    },
+    Page {
         id: "stress",
         title: "Stress and burn-in",
         summary: "Work the machine hard on purpose, to find what watching cannot.",
@@ -237,6 +243,7 @@ mod tests {
             "desktop",
             "fixing",
             "watching",
+            "startup",
             "stress",
             "ai-setup",
             "linking",

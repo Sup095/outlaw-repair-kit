@@ -189,7 +189,7 @@ pub async fn join(code: Option<String>, at: Option<String>, port: u16) -> Result
             found.retain(|machine| machine.pairing_open);
 
             match found.len() {
-                0 => anyhow::bail!(
+                0 => crate::refusal::refuse!(
                     "no machine on this network is showing a pairing code.\n\
                      Run `outlaw link host` on the other machine, or give this one an\n\
                      address with --at if it is somewhere else."
@@ -205,7 +205,7 @@ pub async fn join(code: Option<String>, at: Option<String>, port: u16) -> Result
                     for machine in &found {
                         println!("  {:<22}{}", machine.name, machine.address);
                     }
-                    anyhow::bail!("say which one with --at <address>");
+                    crate::refusal::refuse!("say which one with --at <address>");
                 }
             }
         }

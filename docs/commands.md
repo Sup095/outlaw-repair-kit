@@ -38,11 +38,14 @@ automatically.
 **Exit codes:** `0` nothing serious, `2` at least one high or critical finding,
 `1` the scan itself failed. Useful in scheduled tasks.
 
-> `full` adds two things. **Disk health** asks every drive whether it considers
+> `full` adds three things. **Disk health** asks every drive whether it considers
 > itself healthy -- cheap, but not something a quick look-around should be
 > telling you in passing. And the **application launch test** starts catalogued
 > applications such as Steam and closes them again, which is the reason it is
-> not part of a quick scan.
+> not part of a quick scan. And it lists **what starts with the machine** --
+> the usual answer to why a computer is slow for its first two minutes, and the
+> place anything that wants to survive a restart has to put itself. See [What
+> starts with your computer](startup.md).
 >
 > On Linux, disk health needs `smartmontools` installed and root, because
 > talking to a drive means talking to the device node. Without both, the check
@@ -54,8 +57,12 @@ automatically.
 > files still match what installed them. That means reading and hashing most of
 > what is installed, so it takes minutes to an hour, and there is no time limit
 > on it -- press Ctrl-C to stop. On Windows it needs administrator rights, and
-> is skipped with that reason shown when it does not have them. The rootkit scan
-> that tier is also meant for is not built yet.
+> is skipped with that reason shown when it does not have them.
+>
+> `deep` once also promised an exhaustive rootkit scan. That promise has been
+> withdrawn rather than met with something weaker, because such a check would be
+> running on the machine it is checking. What can be done honestly is done in a
+> `full` scan and described in [What starts with your computer](startup.md).
 >
 > No tier runs the stress and burn-in test, including this one. That is
 > `outlaw stress`, asked for on its own, because choosing a thorough scan is not
@@ -194,6 +201,11 @@ what was written to it. It does not clear the hardware.
 | `--memory-share S` | Share of free memory to test, `0.05` to `0.95`, default `0.6` |
 | `--threads N` | How many cores to work, default all |
 | `--yes`, `-y` | Start without asking |
+
+`--json` streams one JSON object per line -- start, progress, any fault as it
+happens, and the finished report -- and requires `--yes` alongside it. Asking
+for machine-readable output is not the same as agreeing to have the machine
+pinned at full load and heated, and a prompt would break the output anyway.
 
 Full detail, including what each memory pattern catches: [Stress and
 burn-in](stress.md).

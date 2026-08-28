@@ -15,8 +15,9 @@ output, never the live system.
 > **Status: usable, still young.** The diagnostic core, the command line, the
 > desktop app, the model router, the AI analysis layer, the triage queue, the
 > fix engine, linking two machines, the background watcher, and the stress and
-> burn-in test all exist and work. All three scan tiers run, though the rootkit
-> scan the Deep tier is also meant for is not built.
+> burn-in test all exist and work. All three scan tiers run. The Deep tier once
+> also promised a rootkit scan; that promise has been withdrawn rather than met
+> with something weaker, and [the reason](docs/startup.md) is worth reading.
 >
 > The honest caveat: the fix engine can carry out only two kinds of change --
 > restarting a service and removing a stale file -- and it will not apply even
@@ -142,6 +143,7 @@ you think it did.
 | [Using another machine](docs/remote-machine.md) | Point at an endpoint by hand, over any network |
 | [Fixing problems safely](docs/fixing.md) | What it will and will not change |
 | [Watching for changes](docs/watching.md) | Notice a problem appearing, instead of going looking |
+| [What starts with your computer](docs/startup.md) | Everything that runs on its own, and why this is not a rootkit scan |
 | [Stress and burn-in](docs/stress.md) | Work the machine hard, to find what watching cannot |
 | [Writing runbooks](docs/runbooks.md) | Teach it about a problem it does not know |
 | [Troubleshooting](docs/troubleshooting.md) | When something is not working |
@@ -282,9 +284,13 @@ cargo test
 9. **Full and Deep tiers** -- done. Full runs the disk health check and the
    application launch test. Deep verifies that the operating system's own files
    still match what installed them, which is what makes a deep scan take as
-   long as it does. **The rootkit scan is not built**, and both front-ends say
-   so where the tier is chosen. Stress and burn-in is built, but is deliberately
-   not part of any tier -- see below.
+   long as it does. Full also lists **what starts with the machine**, which is
+   the usual answer to why a computer is slow for its first two minutes and the
+   place anything wanting to survive a restart has to put itself. **The rootkit
+   scan has been withdrawn as a promise**, because such a check would be running
+   on the machine it is checking and a green tick would be a confident lie --
+   see [What starts with your computer](docs/startup.md). Stress and burn-in is
+   built, and deliberately not part of any tier.
 10. **An installer with a window, and the manual inside the program** -- done.
    Download one small file, run it, and read everything about the tool from
    the tool. See [Installing](docs/install.md).

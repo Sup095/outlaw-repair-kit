@@ -14,6 +14,7 @@ pub mod logs;
 pub mod memory;
 pub mod processes;
 pub mod services;
+pub mod startup;
 pub mod system_files;
 
 use crate::probe::{Probe, ProbeMeta};
@@ -36,6 +37,11 @@ pub fn default_registry() -> Vec<Box<dyn Probe>> {
         // permissions to answer the same question.
         Box::new(disk_health::DiskHealthProbe),
         Box::new(disk_health::SmartHealthProbe),
+        // What starts by itself. Cheap -- a registry read and a directory
+        // listing -- but a Full check, because "everything that has arranged
+        // to run on this machine" is not a question a quick look around
+        // should be answering unasked.
+        Box::new(startup::StartupProbe),
         // Launch tests start real programs, so they go after everything
         // that only observes.
         Box::new(apps::AppLaunchProbe),

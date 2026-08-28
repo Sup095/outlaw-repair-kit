@@ -21,12 +21,17 @@ pub enum ScanTier {
     Full,
     /// Everything in `Full`, plus system file checksum verification.
     ///
-    /// **What is actually built at this tier is the system file check** --
-    /// verifying that the operating system's own files still match what
-    /// installed them, which reads and hashes most of what is installed and is
-    /// why a deep scan takes as long as it does. The rootkit scan is not built,
-    /// and both front-ends say so where the tier is chosen rather than letting
-    /// somebody pick it expecting more.
+    /// **This tier is the system file check** -- verifying that the operating
+    /// system's own files still match what installed them, which reads and
+    /// hashes most of what is installed and is why a deep scan takes as long
+    /// as it does.
+    ///
+    /// It once also promised an exhaustive rootkit scan. That promise has been
+    /// withdrawn rather than satisfied with something weaker, because the
+    /// check would be running on the machine it is checking: software with
+    /// control of the kernel decides what every question we could ask gets
+    /// told. See [`crate::probes::startup`], which does the part that can be
+    /// done honestly and says plainly that it is not the other thing.
     ///
     /// Stress and burn-in is built, and is deliberately **not** here. See
     /// [`crate::stress`]: choosing a thorough scan is not consent to have the

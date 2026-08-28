@@ -10,6 +10,95 @@ not that the work has stopped.
 
 ---
 
+---
+
+## v0.8.1
+
+**What starts with your computer**, as part of a full scan.
+
+A machine that is slow from the moment you turn it on is usually a machine with
+thirty things starting alongside it, most of which arrived attached to
+something else and none of which anybody chose. Nobody ever gets told this;
+they get told to buy more memory. A full scan now lists them.
+
+The same list answers a second question. Anything that wants to still be
+running tomorrow has to be in it somewhere -- so entries pointing at a program
+that is not there, entries running out of a temporary or downloads folder, and
+commands that arrive encoded rather than written out are each called out. On
+Linux, `/etc/ld.so.preload` existing at all is reported, because anything named
+there loads into every program on the machine.
+
+Each of those is a statement about what was observed, never a verdict about
+what the thing is. A test checks that no finding here contains the words
+"malware", "virus", "infected", "trojan", or "rootkit", because a tool that
+cannot know must not tell somebody their machine is infected -- that is how a
+working computer gets reinstalled over a leftover registry entry.
+
+### The rootkit scan has been withdrawn as a promise
+
+The deep tier has listed "an exhaustive rootkit scan" since the first version.
+That is now removed from the roadmap, the tier description, and both
+front-ends, rather than quietly satisfied with something weaker.
+
+The reason is not effort. The check would be running on the machine it is
+checking, and software with control of the kernel decides what every question
+it could ask gets told -- the list of things that start automatically is read
+*through* the thing that would be hiding in it. Doing it honestly means
+examining the disk from a system that is not the compromised one. A green tick
+saying "no rootkits found" would be a confident lie, and the absence of the
+feature is better than that.
+
+### Three false accusations, found by running it
+
+All three reported a program sitting exactly where it should be as missing,
+which is the worst thing this check could do, and all three are now tested:
+
+- **Shortcuts were cut at the first space.** A path like `...\Start
+  Menu\Programs\Startup\Thing.lnk` has no `.exe` in it and spaces throughout,
+  so reading the program back out of it produced `C:\Users\...\Start`. Sources
+  that state the program exactly -- a shortcut's target, a scheduled task's
+  action -- are now believed rather than parsed, and shortcuts are followed so
+  what gets checked is the program rather than the shortcut.
+- **Quoted paths kept their quotes.** Windows stores a scheduled task's program
+  with quotation marks around it whenever the path contains a space, and a path
+  with quotation marks in the middle of it is a path that does not exist.
+- **A bare program name was called missing.** A scheduled task often names a
+  program with no folder and carries a working directory this cannot see. Not
+  finding one is now recorded as not knowing, which is not the same thing.
+
+### Also in this release
+
+- **A refusal is no longer filed as a bug.** Every command that failed was
+  recorded for the problem reporter, including the ones that failed on purpose.
+  "There is no page called that", "say which machine with `--at`", "`--json`
+  cannot ask before heating the machine" -- all the tool working correctly, all
+  landing in a list headed "what would be posted", until somebody eventually
+  posts one as an issue because the program told them it was worth reporting.
+  Refusals still stop the command and still exit non-zero, so a script can
+  tell. They are simply not faults. Genuine failures are recorded exactly as
+  before, and there is a test for each direction, because getting this wrong
+  the other way would quietly stop real bugs being recorded.
+
+- **`outlaw stress --json` no longer starts without being told to.** It skipped
+  the confirmation, on the reasoning that a prompt would corrupt
+  machine-readable output. True, and not a reason to treat "I would like JSON"
+  as "I agree to have this machine heated". It now requires `--yes` as well and
+  says so.
+
+- **`outlaw watch --once` said nothing at all when nothing had changed.** Right
+  for the scheduled task it is meant for -- a log that says "no change" every
+  hour is a log nobody reads -- and wrong for a person who has just typed it,
+  to whom silence and failure look identical. It now says one line when
+  somebody is watching and stays quiet when the output is going anywhere else.
+  If a check could not run, it says that instead, because "nothing changed" and
+  "nothing changed among the checks that ran" are different claims and only one
+  of them would be true.
+
+### Also
+
+- Video memory is reported through the shared size formatter, in the same
+  binary units as everywhere else.
+
 ## v0.8.0
 
 **Stress and burn-in.** The Deep tier has promised this since the first

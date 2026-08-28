@@ -11,6 +11,7 @@ pub(crate) mod common;
 pub mod disks;
 pub mod integrity;
 mod services;
+pub mod startup;
 
 #[cfg(target_os = "linux")]
 mod linux;

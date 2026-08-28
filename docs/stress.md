@@ -151,7 +151,7 @@ A clean run of under two minutes says even less, and the result says that too.
 | `--memory-share S` | Share of free memory to test, `0.05` to `0.95`. The reserve is kept whatever this says. |
 | `--threads N` | How many cores to work. All of them by default. |
 | `--yes` | Start without asking. For scripts and scheduled tasks. |
-| `--json` | Machine-readable events and result, for scripting. |
+| `--json` | Machine-readable events and result, one JSON object per line. Needs `--yes` as well: asking for machine-readable output is not the same as agreeing to have the machine heated, and a prompt would break the output anyway. |
 
 ## Related
 
