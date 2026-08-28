@@ -54,8 +54,12 @@ automatically.
 > files still match what installed them. That means reading and hashing most of
 > what is installed, so it takes minutes to an hour, and there is no time limit
 > on it -- press Ctrl-C to stop. On Windows it needs administrator rights, and
-> is skipped with that reason shown when it does not have them. The stress and
-> burn-in tests that tier is also meant for are not built yet.
+> is skipped with that reason shown when it does not have them. The rootkit scan
+> that tier is also meant for is not built yet.
+>
+> No tier runs the stress and burn-in test, including this one. That is
+> `outlaw stress`, asked for on its own, because choosing a thorough scan is not
+> consent to have the machine pinned at full load and heated.
 
 ---
 
@@ -135,6 +139,64 @@ cleanly and writes down what it learned.
 
 `--once` shares its memory with the running watcher, so a machine can be moved
 between the two without losing its history or getting a fresh wall of alerts.
+
+---
+
+## `outlaw stress`
+
+Work the machine hard on purpose, and see whether it gets anything wrong.
+
+```bash
+outlaw stress                      # ten minutes, all cores, most of the free memory
+outlaw stress --minutes 60         # a proper burn-in
+outlaw stress --no-cpu             # memory only
+outlaw stress --threads 4 -y       # four cores, no prompt
+```
+
+This is the one command here that acts on the hardware rather than observing
+it. It exists for the faults observation cannot see: memory that corrupts one
+bit an hour, a core that computes wrongly only when hot, a cooling system full
+of dust. Those are the faults that get mistaken for bad software, and get
+operating systems reinstalled for nothing.
+
+Every core is given arithmetic with a known correct answer and asked to repeat
+it, so a core that quietly returns the wrong number is caught with its number
+attached. A share of free memory is filled with five different patterns and
+read back, because each pattern catches a different physical fault. The
+temperature is read the whole time.
+
+It says what it is about to do -- how long, how many cores, how much memory --
+and asks before starting. `--yes` skips the asking, for scripts.
+
+The rails:
+
+- **It stops itself if the machine gets too hot**, judged against the
+  temperature that machine says is critical for the part getting hot.
+- **If nothing can be read, it says so**, before starting and again in the
+  result. An empty temperature list must never be mistaken for a cool machine.
+- **A gigabyte of memory is always left alone**, whatever share you ask for.
+- **Nothing is changed and nothing is written.**
+- **Ctrl-C stops it at any moment**, immediately.
+
+The number of minutes is not a time limit in the sense the rest of this tool
+avoids -- it is the work being asked for. Nothing is cut off for taking too
+long.
+
+A clean result means less than people want it to, and it says so: for as long
+as it ran, every core agreed with itself and the memory it could reach held
+what was written to it. It does not clear the hardware.
+
+| Option | What it does |
+| --- | --- |
+| `--minutes N` | How long to run, default 10 |
+| `--no-cpu` | Test the memory only |
+| `--no-memory` | Work the processor only |
+| `--memory-share S` | Share of free memory to test, `0.05` to `0.95`, default `0.6` |
+| `--threads N` | How many cores to work, default all |
+| `--yes`, `-y` | Start without asking |
+
+Full detail, including what each memory pattern catches: [Stress and
+burn-in](stress.md).
 
 ---
 

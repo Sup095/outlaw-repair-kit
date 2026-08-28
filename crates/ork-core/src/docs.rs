@@ -80,6 +80,12 @@ pub const PAGES: &[Page] = &[
         body: include_str!("../../../docs/watching.md"),
     },
     Page {
+        id: "stress",
+        title: "Stress and burn-in",
+        summary: "Work the machine hard on purpose, to find what watching cannot.",
+        body: include_str!("../../../docs/stress.md"),
+    },
+    Page {
         id: "ai-setup",
         title: "Setting up a model",
         summary: "Local, another machine, or hosted -- and why none is required.",
@@ -231,6 +237,7 @@ mod tests {
             "desktop",
             "fixing",
             "watching",
+            "stress",
             "ai-setup",
             "linking",
             "remote-machine",

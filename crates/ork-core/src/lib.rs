@@ -25,6 +25,7 @@ pub mod probe;
 pub mod probes;
 pub mod respond;
 pub mod scan;
+pub mod stress;
 pub mod tier;
 pub mod util;
 pub mod watch;

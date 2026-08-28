@@ -143,6 +143,16 @@ export const api = {
   watchStop: () => invoke<void>("watch_stop"),
   watchForget: () => invoke<void>("watch_forget"),
 
+  // The stress test. `stressStatus` takes the memory share because the whole
+  // point of asking is to show the real number -- how much of this machine's
+  // memory would actually be tested -- before anybody presses the button,
+  // rather than after.
+  stressStatus: (memoryShare: number) =>
+    invoke<StressStatus>("stress_status", { memoryShare }),
+  stressStart: (cpu: boolean, memoryTest: boolean, minutes: number, memoryShare: number) =>
+    invoke<void>("stress_start", { cpu, memoryTest, minutes, memoryShare }),
+  stressStop: () => invoke<void>("stress_stop"),
+
   manualContents: () => invoke<ManualEntry[]>("manual_contents"),
   manualPage: (id: string) => invoke<ManualPage>("manual_page", { id }),
   manualLicence: () => invoke<string>("manual_licence"),
@@ -266,6 +276,10 @@ export function onWatchEvent(handler: (event: WatchEvent) => void): Promise<Unli
   return listen<WatchEvent>("watch://event", (message) => handler(message.payload));
 }
 
+export function onStressEvent(handler: (event: StressEvent) => void): Promise<UnlistenFn> {
+  return listen<StressEvent>("stress://event", (message) => handler(message.payload));
+}
+
 export function onScanEvent(handler: (event: ScanEvent) => void): Promise<UnlistenFn> {
   return listen<ScanEvent>("scan://event", (message) => handler(message.payload));
 }
@@ -327,4 +341,69 @@ export interface WatchStatus {
   baseline: Baseline;
   baseline_path: string;
   history: Look[];
+}
+
+/** The hottest one part of the machine got during a stress test. */
+export interface Heat {
+  label: string;
+  peak_c: number;
+  critical_c: number | null;
+}
+
+/** Something the machine got wrong under load. Always a hardware fault. */
+export interface StressFault {
+  kind: string;
+  part: string;
+  detail: string;
+}
+
+export type StressEnding =
+  | { ending: "completed" }
+  | { ending: "cancelled" }
+  | { ending: "too-hot"; sensor: string; reached_c: number; ceiling_c: number };
+
+export type StressMemory =
+  | { memory: "ran"; bytes: number; patterns: number; mismatches: unknown[] }
+  | { memory: "not-run"; reason: string };
+
+export interface StressReport {
+  started_at: string;
+  asked_for_secs: number;
+  ran_for_secs: number;
+  ending: StressEnding;
+  cpu: { threads: number; blocks: number; wrong: number } | null;
+  memory: StressMemory | null;
+  heat: Heat[];
+  /** False means nothing was watching the temperature -- never that it stayed cool. */
+  watched_heat: boolean;
+  faults: StressFault[];
+}
+
+export type StressEvent =
+  | {
+      event: "started";
+      seconds: number;
+      cpu_threads: number;
+      memory_bytes: number;
+      watching_heat: boolean;
+    }
+  | {
+      event: "progress";
+      elapsed_secs: number;
+      total_secs: number;
+      blocks: number;
+      memory_patterns: number;
+      hottest: Heat | null;
+    }
+  | { event: "fault"; fault: StressFault }
+  | { event: "finished"; report: StressReport };
+
+export interface StressStatus {
+  running: boolean;
+  last: StressReport | null;
+  cores: number;
+  /** What would actually be tested at the current share. Zero means it would not be. */
+  memory_bytes: number;
+  memory_available_bytes: number;
+  memory_reserved_bytes: number;
 }

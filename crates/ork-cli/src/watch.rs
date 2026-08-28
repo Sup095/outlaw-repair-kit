@@ -82,6 +82,11 @@ pub async fn run(tier: ScanTier, every_minutes: u64, json: bool, once: bool) -> 
     });
 
     let outcome = watcher.run().await;
+    // The watcher holds the only other end of the channel the printer is
+    // reading, so it has to go before the printer will ever see the channel
+    // close. Without this, Ctrl-C stopped the watcher cleanly and then left
+    // the process sitting there, apparently ignoring it.
+    drop(watcher);
     let _ = printer.await;
     outcome
 }

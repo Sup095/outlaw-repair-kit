@@ -49,13 +49,14 @@
 
 {#if scan.tier === "deep"}
   <!-- Say what it adds *and* what it does not, so nobody picks it expecting
-       the stress tests and concludes the tool is broken when it finishes. -->
+       more and concludes the tool is broken when it finishes. -->
   <p class="dim note">
     Adds the system file check: verifies that the operating system's own files still
     match what installed them. It reads and hashes most of what is installed, so it
     takes minutes to an hour — and there is no time limit on it, only the Stop button.
     On Windows it needs administrator rights and says so if it does not have them.
-    The stress and burn-in tests this tier is also meant for are not built yet.
+    The rootkit scan this tier is also meant for is not built yet. Stress and burn-in
+    is built, and is on its own tab — no scan will heat your machine.
   </p>
 {:else if scan.tier === "full"}
   <p class="dim note">

@@ -10,6 +10,7 @@ mod fix;
 mod link;
 mod render;
 mod report;
+mod stress;
 mod style;
 mod watch;
 
@@ -50,8 +51,9 @@ enum Command {
         ///
         /// No tier has a time limit; press Ctrl-C to stop. `deep` adds the
         /// system file check, which reads and hashes most of the operating
-        /// system and takes minutes to an hour; the stress and burn-in checks
-        /// that tier is also meant for are not built yet.
+        /// system and takes minutes to an hour; the rootkit scan that tier is
+        /// also meant for is not built yet. No tier runs the stress and
+        /// burn-in test -- that is `outlaw stress`, asked for on its own.
         #[arg(long, short, default_value = "quick")]
         tier: ScanTier,
 
@@ -83,6 +85,46 @@ enum Command {
     },
     /// Show what the watcher remembers, without watching.
     Watching,
+    /// Work the machine hard on purpose, and see whether it gets anything wrong.
+    ///
+    /// This is the one command here that acts on the hardware rather than
+    /// observing it: every core is loaded and most of the free memory is
+    /// filled, deliberately, for as long as you ask. It exists for the faults
+    /// that observation cannot see -- memory that corrupts a bit an hour, a
+    /// core that computes wrongly only when hot, a cooling system full of dust
+    /// -- which are the faults that get mistaken for bad software.
+    ///
+    /// The machine gets hot and is slow to use while it runs. Nothing is
+    /// changed and nothing is written. It stops itself if any part of the
+    /// machine reaches the temperature that machine says is critical, and
+    /// Ctrl-C stops it at any moment.
+    Stress {
+        /// How many minutes to run for. Not a limit on work that would
+        /// otherwise continue -- it is the work.
+        #[arg(long, default_value = "10", value_name = "MINUTES")]
+        minutes: u64,
+
+        /// Leave the processor alone and only test the memory.
+        #[arg(long)]
+        no_cpu: bool,
+
+        /// Leave the memory alone and only work the processor.
+        #[arg(long)]
+        no_memory: bool,
+
+        /// What share of free memory to test, from 0.05 to 0.95. A gigabyte is
+        /// always left for the machine to keep running in, whatever this says.
+        #[arg(long, default_value = "0.6", value_name = "SHARE")]
+        memory_share: f64,
+
+        /// How many cores to work. All of them by default.
+        #[arg(long, value_name = "COUNT")]
+        threads: Option<usize>,
+
+        /// Start without asking. For scripts and scheduled tasks.
+        #[arg(long, short = 'y')]
+        yes: bool,
+    },
     /// Show which model would be used, and why.
     Models,
     /// Show problems waiting to be worked through.
@@ -299,6 +341,28 @@ async fn dispatch(cli: Cli) -> Result<()> {
             watch::run(tier, every, cli.json, once).await
         }
         Command::Watching => watch::status(cli.json),
+        Command::Stress {
+            minutes,
+            no_cpu,
+            no_memory,
+            memory_share,
+            threads,
+            yes,
+        } => {
+            // Something somebody sits and watches, like a scan, so the
+            // start-up screen belongs here too.
+            start_up(&cli, false).await;
+            stress::run(
+                !no_cpu,
+                !no_memory,
+                minutes,
+                memory_share,
+                threads,
+                cli.json,
+                yes,
+            )
+            .await
+        }
         Command::Docs { page } => render::docs(page, cli.json),
         Command::Probes => render::probes(cli.json),
         Command::Host => render::host(cli.json),

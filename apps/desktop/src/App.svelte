@@ -8,6 +8,7 @@
   import AuditView from "./lib/AuditView.svelte";
   import ChecksView from "./lib/ChecksView.svelte";
   import WatchView from "./lib/WatchView.svelte";
+  import StressView from "./lib/StressView.svelte";
   import ReportView from "./lib/ReportView.svelte";
   import InfoView from "./lib/InfoView.svelte";
   import type { BootReport } from "./lib/api";
@@ -17,6 +18,7 @@
     | "scan"
     | "checks"
     | "watch"
+    | "stress"
     | "queue"
     | "models"
     | "machines"
@@ -34,6 +36,10 @@
     // button, and somebody who has just run a scan is exactly the person who
     // wants to be told when the answer changes.
     { id: "watch", label: "Watching" },
+    // After Watching, because that is the order of escalation: look once, keep
+    // looking, and then -- when neither has explained it -- make the machine
+    // misbehave on purpose.
+    { id: "stress", label: "Stress" },
     { id: "queue", label: "Queue" },
     { id: "models", label: "Models" },
     { id: "machines", label: "Machines" },
@@ -92,6 +98,8 @@
         <ChecksView />
       {:else if view === "watch"}
         <WatchView />
+      {:else if view === "stress"}
+        <StressView />
       {:else if view === "queue"}
         <QueueView />
       {:else if view === "models"}

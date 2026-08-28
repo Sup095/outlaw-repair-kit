@@ -71,6 +71,7 @@ outlaw boot
 | **Scan** | Pick how thorough to be, watch checks report as they finish, read the findings, and ask for an explanation |
 | **Checks** | Every check this build knows how to run, grouped by tier, and whether each one can run on this machine |
 | **Watching** | Look on an interval and hear only about what changed |
+| **Stress** | Work the machine hard on purpose, and see whether it gets anything wrong |
 | **Queue** | Problems waiting to be worked through, worst first — and the buttons that work them |
 | **Models** | Which model would handle this run, and exactly why the others were passed over |
 | **Machines** | Pair with another computer so one can lend the other a model, and see what is wrong over there |
@@ -160,6 +161,41 @@ which -- if you did not mean to press it -- looks exactly like a watcher that
 has stopped noticing anything.
 
 Nothing here fixes anything. Findings go to the **Queue** in the ordinary way.
+
+## Stress, from the app
+
+The one screen here that acts on your computer rather than watching it. It
+loads every core and fills a share of the free memory, deliberately, for as
+long as you ask -- because a whole class of fault is invisible to observation
+and shows up only under load. The whole of it is described in [Stress and
+burn-in](stress.md); what is worth saying about the *screen* is what it does
+before and during a run.
+
+**It says what it is about to do, in numbers, and waits.** Pressing **Start**
+does not start anything. It replaces itself with the real figures for this
+machine -- how many minutes, how many cores, how much memory of how much free,
+and how much is being left alone -- and a second button. Those numbers track
+the slider as you move it, so the amount shown is the amount that would really
+be touched rather than a share you have to do arithmetic on.
+
+**Stop is the first thing on the panel while it runs**, and it is immediate.
+This is the one screen in the application where stopping is a safety control
+rather than a convenience, and it is placed accordingly.
+
+**It tells you if nothing is watching the temperature** while the run is going,
+not afterwards in the result. On a machine that reports no temperature that can
+be believed -- common on Windows without administrator rights, and on desktop
+boards that never publish one -- the run cannot stop itself when things get
+hot, and somebody about to heat a laptop should know that while there is still
+something they can do about it.
+
+**A fault appears the moment it happens.** It is not held back until the end.
+
+Leaving the screen does not stop the run or lose the result: both live outside
+the screen, the same way a scan does. Closing the window *does* stop it, which
+is the difference between this and the watcher -- a watcher that keeps watching
+after the window is closed is doing its job, and a stress test that kept
+heating the machine would be a program that had escaped.
 
 ## Fixing, from the app
 

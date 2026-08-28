@@ -19,17 +19,19 @@ pub enum ScanTier {
     /// on every drive, the complete log history, a full malware scan, and
     /// launch tests across everything installed.
     Full,
-    /// Everything in `Full`, plus stress-testing and burn-in of CPU, memory,
-    /// and GPU, an exhaustive rootkit scan, and system file checksum
-    /// verification.
+    /// Everything in `Full`, plus system file checksum verification.
     ///
     /// **What is actually built at this tier is the system file check** --
     /// verifying that the operating system's own files still match what
     /// installed them, which reads and hashes most of what is installed and is
-    /// why a deep scan takes as long as it does. The stress and burn-in work
-    /// and the rootkit scan are not built. Both front-ends say which of those
-    /// is true where the tier is chosen, rather than letting somebody pick it
-    /// expecting the rest.
+    /// why a deep scan takes as long as it does. The rootkit scan is not built,
+    /// and both front-ends say so where the tier is chosen rather than letting
+    /// somebody pick it expecting more.
+    ///
+    /// Stress and burn-in is built, and is deliberately **not** here. See
+    /// [`crate::stress`]: choosing a thorough scan is not consent to have the
+    /// machine pinned at full load and heated, so it is asked for on its own,
+    /// every time.
     Deep,
 }
 

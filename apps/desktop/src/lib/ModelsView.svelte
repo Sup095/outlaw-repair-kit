@@ -1,5 +1,6 @@
 <script lang="ts">
   import { api } from "./api";
+  import { formatBytes } from "./bytes";
 
   let routing = $state<any | null>(null);
   let error = $state<string | null>(null);
@@ -51,7 +52,17 @@
       <p class="dim">None detected.</p>
     {/if}
     {#each routing.gpus as gpu (gpu.name)}
-      <div>{gpu.name} <span class="dim">{gpu.vram_total_bytes ? `${(gpu.vram_total_bytes / 1024 ** 3).toFixed(1)} GB of video memory` : "video memory unknown"}</span></div>
+      <div>
+        {gpu.name}
+        <span class="dim">
+          <!-- Through the shared formatter, which labels binary units as
+               binary units. This said "GB" while dividing by 1024 three
+               times, so a 24 GiB card was reported as having 24 GB. -->
+          {gpu.vram_total_bytes
+            ? `${formatBytes(gpu.vram_total_bytes)} of video memory`
+            : "video memory unknown"}
+        </span>
+      </div>
     {/each}
     <p class="dim">{routing.vram_recommendation}</p>
   </section>

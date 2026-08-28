@@ -36,6 +36,30 @@ pub fn progress(event: &ScanEvent) {
 }
 
 /// The full human-readable report.
+/// One finding, written out.
+///
+/// Its own function because a scan is no longer the only thing that produces
+/// findings -- the stress test does too -- and two copies of this would be two
+/// places for the severity marker, the wrapping, and the "Fix:" prefix to
+/// drift apart.
+pub fn finding(finding: &ork_core::Finding) {
+    println!(
+        "{}  {}",
+        severity_label(finding.severity),
+        bold(&finding.title)
+    );
+    for line in wrap(&finding.detail, 76) {
+        println!("            {line}");
+    }
+    if let Some(hint) = &finding.remediation_hint {
+        for (index, line) in wrap(hint, 72).into_iter().enumerate() {
+            let prefix = if index == 0 { "Fix:  " } else { "      " };
+            println!("            {}", dim(&format!("{prefix}{line}")));
+        }
+    }
+    println!();
+}
+
 pub fn report(report: &ScanReport) {
     let findings = report.findings();
 
@@ -68,22 +92,8 @@ pub fn report(report: &ScanReport) {
     } else {
         println!("{}", bold(&format!("{} finding(s)", findings.len())));
         println!();
-        for finding in &findings {
-            println!(
-                "{}  {}",
-                severity_label(finding.severity),
-                bold(&finding.title)
-            );
-            for line in wrap(&finding.detail, 76) {
-                println!("            {line}");
-            }
-            if let Some(hint) = &finding.remediation_hint {
-                for (index, line) in wrap(hint, 72).into_iter().enumerate() {
-                    let prefix = if index == 0 { "Fix:  " } else { "      " };
-                    println!("            {}", dim(&format!("{prefix}{line}")));
-                }
-            }
-            println!();
+        for found in &findings {
+            finding(found);
         }
     }
 

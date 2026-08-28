@@ -14,9 +14,9 @@ output, never the live system.
 
 > **Status: usable, still young.** The diagnostic core, the command line, the
 > desktop app, the model router, the AI analysis layer, the triage queue, the
-> fix engine, linking two machines, and the background watcher all exist and
-> work. All three scan tiers run, though the stress and burn-in checks the Deep
-> tier is also meant for are not built.
+> fix engine, linking two machines, the background watcher, and the stress and
+> burn-in test all exist and work. All three scan tiers run, though the rootkit
+> scan the Deep tier is also meant for is not built.
 >
 > The honest caveat: the fix engine can carry out only two kinds of change --
 > restarting a service and removing a stale file -- and it will not apply even
@@ -94,6 +94,7 @@ outlaw link             # pair with another computer to borrow its model
 outlaw boot             # self-test and update check
 outlaw report           # turn a crash or an error into a bug report
 outlaw watch            # keep looking, and speak up only when something changes
+outlaw stress           # work the machine hard on purpose, and see what it gets wrong
 ```
 
 There is a desktop app too, with the same abilities and a **Machines** screen
@@ -141,6 +142,7 @@ you think it did.
 | [Using another machine](docs/remote-machine.md) | Point at an endpoint by hand, over any network |
 | [Fixing problems safely](docs/fixing.md) | What it will and will not change |
 | [Watching for changes](docs/watching.md) | Notice a problem appearing, instead of going looking |
+| [Stress and burn-in](docs/stress.md) | Work the machine hard, to find what watching cannot |
 | [Writing runbooks](docs/runbooks.md) | Teach it about a problem it does not know |
 | [Troubleshooting](docs/troubleshooting.md) | When something is not working |
 | [Reporting a problem](docs/reporting.md) | Turn a crash into an issue, with your details taken out |
@@ -280,8 +282,9 @@ cargo test
 9. **Full and Deep tiers** -- done. Full runs the disk health check and the
    application launch test. Deep verifies that the operating system's own files
    still match what installed them, which is what makes a deep scan take as
-   long as it does. **The stress and burn-in work is not built**, and both
-   front-ends say so where the tier is chosen.
+   long as it does. **The rootkit scan is not built**, and both front-ends say
+   so where the tier is chosen. Stress and burn-in is built, but is deliberately
+   not part of any tier -- see below.
 10. **An installer with a window, and the manual inside the program** -- done.
    Download one small file, run it, and read everything about the tool from
    the tool. See [Installing](docs/install.md).
@@ -291,7 +294,15 @@ cargo test
    six problems did not just develop six. A check that could not run clears
    nothing, because absent and fixed look identical and only one of them is
    good news. See [Watching for changes](docs/watching.md).
-12. **Escalation mode** -- to be proposed and reviewed for safety before it is
+12. **Stress and burn-in** -- done, and deliberately not part of any scan.
+    `outlaw stress` loads every core with arithmetic that has a known correct
+    answer, so a core returning the wrong number is caught with its number
+    attached, and fills a share of free memory with five patterns in turn,
+    because each one catches a different physical fault. It watches the
+    temperature throughout and stops itself if the machine gets too hot, always
+    leaves a gigabyte of memory alone, changes nothing, and says out loud what
+    a clean result does *not* prove. See [Stress and burn-in](docs/stress.md).
+13. **Escalation mode** -- to be proposed and reviewed for safety before it is
     built, not bolted on.
 
 Every released version and what it changed is in [the changelog](CHANGELOG.md),

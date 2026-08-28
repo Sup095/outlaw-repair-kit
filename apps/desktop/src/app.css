@@ -406,3 +406,61 @@ a:hover {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Checkboxes and sliders.
+ *
+ * The one place the operating system's own blue was still coming through into
+ * a screen that is otherwise entirely cyan and magenta. `accent-color` handles
+ * the checkbox; a range control has to be built by hand, because no browser
+ * lets you colour a track and a thumb separately without doing so.
+ *
+ * The width reset matters: the rule above gives every input `width: 100%`,
+ * which on a checkbox produces a stretched rectangle rather than a box. */
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+  accent-color: var(--cyan);
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  height: 1.1rem;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  background: var(--line-bright);
+  border: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4.5px;
+  background: var(--cyan);
+  border: none;
+  border-radius: 0;
+  box-shadow: var(--glow-cyan);
+  cursor: pointer;
+}
+
+input[type="range"]:disabled::-webkit-slider-thumb {
+  background: var(--text-dim);
+  box-shadow: none;
+  cursor: default;
+}
+
+input[type="range"]:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: var(--bloom-cyan);
+}

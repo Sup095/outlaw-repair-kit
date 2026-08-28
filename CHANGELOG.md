@@ -10,6 +10,85 @@ not that the work has stopped.
 
 ---
 
+## v0.8.0
+
+**Stress and burn-in.** The Deep tier has promised this since the first
+version and never delivered it. It is here now -- as `outlaw stress` and as its
+own tab in the window -- and it is deliberately not part of any tier.
+
+Everything else in this tool watches your computer. This is the part that makes
+it work, because a whole class of fault is invisible to watching. Memory that
+corrupts one bit an hour. A processor core that computes wrongly only when it
+is hot. A cooling system that was fine when the machine was new and is now full
+of dust. None of those appear in a log. They appear as a computer that is
+*unreliable*: a file that was fine yesterday will not open, a game crashes
+about once a week and never in the same place, a build fails and building again
+works. Every one of those gets blamed on software. People reinstall the
+operating system over them, twice, and then buy a new computer.
+
+Every core is given a block of arithmetic with a **known correct answer** and
+asked to repeat it, so a core that quietly returns the wrong number is caught,
+with its number attached. The correct answer is worked out at the start of the
+run on the same core that is then checked against it -- because the question is
+not whether your processor agrees with some reference machine, it is whether it
+agrees with itself.
+
+A share of the free memory is filled and read back under five patterns in turn.
+Five, because each catches a different physical fault: cells stuck high, cells
+stuck low, cells disturbed by what is written next to them, two addresses
+landing on one physical cell, and faults that happen to agree with whatever
+regular pattern is being written. A test that only writes zeroes catches almost
+nothing.
+
+The rails, because this is the one thing here that acts on the hardware:
+
+- **It watches the temperature and stops itself** if any part of the machine
+  reaches the temperature that machine states is critical for it, with a
+  margin. Where the machine states nothing, 95 °C is assumed.
+- **If nothing can be read it says so** -- before starting and again in the
+  result. An empty list of temperatures must never be mistaken for a machine
+  that stayed cool. On Windows the reading needs administrator rights, and many
+  desktop boards never publish it at all; the message says that too.
+- **A gigabyte of memory is always left alone**, whatever share you ask for.
+  Taking everything pushes the machine into swap, which tests the disk rather
+  than the memory and makes the computer unusable while it runs.
+- **Nothing is changed and nothing is written.**
+- **Stopping is instant**, and works even if the window is closed or the run is
+  abandoned by whatever started it.
+
+And it says what a clean result does *not* mean, because that is the way this
+feature could do harm: somebody runs it for ten minutes, reads "nothing went
+wrong", and concludes the hardware is fine when the fault they are chasing
+happens twice a week.
+
+No scan runs it. Choosing to have your computer checked carefully is not the
+same as agreeing to have it pinned at full load and heated, and a tool that
+treated one as the other would be doing something to your machine you did not
+ask for.
+
+### Also fixed
+
+- **Ctrl-C did not end `outlaw watch`.** The watcher stopped cleanly and wrote
+  down what it had learned, and then the process sat there, apparently ignoring
+  the interrupt, until it was killed. It was waiting on a channel that could
+  never close.
+- **A stress run that was abandoned rather than stopped kept going.** Found by
+  breaking the overheating rail on purpose to check the test for it would
+  notice: the test stopped failing and started hanging. Giving up on a run now
+  stops the workers, which matters most in the window, where a closed tab would
+  otherwise have left a laptop at full load with nothing watching how hot it
+  got.
+- **A memory test that did not finish reported as one that passed.** A short
+  run over a large region finished no complete pattern and reported "0", next
+  to "0 bad", under a heading saying it had finished -- three true numbers
+  adding up to the false impression that the memory had been checked. Coverage
+  is now counted per pattern read back in full, and a run that completed none
+  says so in those words.
+- Checkboxes and sliders in the window were still the operating system's blue,
+  which was the last thing on screen not in the application's own colours.
+
+---
+
 ## v0.7.1
 
 **The installer opened a blank white window.** On an ordinary Windows desktop
