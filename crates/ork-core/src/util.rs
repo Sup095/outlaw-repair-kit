@@ -58,6 +58,29 @@ fn render_time(stored: &str, offset: Option<time::UtcOffset>) -> String {
     }
 }
 
+/// A count and its noun, with the noun made plural when it needs to be.
+///
+/// Small, and worth having in one place: three screens were each writing
+/// `item(s)` and `entries` rather than deciding, and "Last 1 entries" is the
+/// sort of thing that makes a careful tool look careless on exactly the screen
+/// where somebody is deciding whether to trust it.
+///
+/// English plurals are not this simple in general. These are the ones this
+/// program actually counts -- items, entries, checks, problems, cores -- and a
+/// caller with an irregular noun passes the plural in with [`counted_as`].
+pub fn counted(count: usize, noun: &str) -> String {
+    counted_as(count, noun, &format!("{noun}s"))
+}
+
+/// As [`counted`], for a noun whose plural is not the singular plus `s`.
+pub fn counted_as(count: usize, one: &str, many: &str) -> String {
+    if count == 1 {
+        format!("{count} {one}")
+    } else {
+        format!("{count} {many}")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -118,5 +141,22 @@ mod tests {
         // "unknown" would throw away the only clue about what went wrong.
         assert_eq!(readable_time("not a date"), "not a date");
         assert_eq!(readable_time(""), "");
+    }
+
+    #[test]
+    fn one_of_something_is_singular_and_everything_else_is_not() {
+        assert_eq!(counted(1, "entry_x"), "1 entry_x");
+        assert_eq!(counted(0, "item"), "0 items");
+        assert_eq!(counted(2, "item"), "2 items");
+        assert_eq!(counted(1, "item"), "1 item");
+    }
+
+    #[test]
+    fn an_irregular_plural_is_given_rather_than_guessed() {
+        assert_eq!(counted_as(1, "entry", "entries"), "1 entry");
+        assert_eq!(counted_as(3, "entry", "entries"), "3 entries");
+        // Zero takes the plural in English, which is the case a naive
+        // `if count > 1` gets wrong.
+        assert_eq!(counted_as(0, "entry", "entries"), "0 entries");
     }
 }

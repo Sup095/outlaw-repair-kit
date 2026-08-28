@@ -148,6 +148,13 @@ fn seen_line(first_seen: &str, last_seen: &str) -> String {
     }
 }
 
+/// The most audit lines any one request will return.
+///
+/// Not a cap on what is kept -- the audit table is never pruned, because it is
+/// the record of everything the tool did. This is a cap on how much of it is
+/// read into memory and drawn at once.
+pub const MOST_AUDIT_LINES: usize = 500;
+
 /// One thing that was tried.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttemptRecord {
@@ -552,6 +559,13 @@ impl FixStore {
 
     /// The most recent audit entries, newest first.
     pub fn audit_log(&self, limit: usize) -> Result<Vec<AuditLine>> {
+        // Clamped here rather than by each caller. Asking for none returned
+        // none, which the command line then reported as "Nothing has been
+        // recorded yet" -- a true statement about the answer and a false one
+        // about the machine, on a screen whose entire job is to say what the
+        // tool has done. The window clamped and the terminal did not, which is
+        // the usual sign that a rule is in the wrong place.
+        let limit = limit.clamp(1, MOST_AUDIT_LINES);
         let mut statement = self
             .connection
             .prepare("SELECT at, kind, message FROM audit ORDER BY id DESC LIMIT ?1")?;
@@ -587,6 +601,30 @@ mod tests {
         FixAction::RestartService {
             service: "steam".to_string(),
         }
+    }
+
+    #[test]
+    fn asking_for_no_audit_lines_gives_one_rather_than_none() {
+        // `outlaw audit --limit 0` printed "Nothing has been recorded yet",
+        // which is true of the answer and false of the machine -- on the one
+        // screen whose job is to say what the tool has done.
+        let store = FixStore::in_memory().unwrap();
+        store.audit("queued", "something happened", None).unwrap();
+        store.audit("queued", "and another thing", None).unwrap();
+
+        assert_eq!(store.audit_log(0).unwrap().len(), 1);
+        assert_eq!(store.audit_log(1).unwrap().len(), 1);
+        assert_eq!(store.audit_log(50).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn asking_for_more_audit_lines_than_the_cap_gives_the_cap() {
+        let store = FixStore::in_memory().unwrap();
+        for _ in 0..3 {
+            store.audit("queued", "something happened", None).unwrap();
+        }
+        // Not the number itself -- that a huge request is bounded at all.
+        assert!(store.audit_log(usize::MAX).unwrap().len() <= MOST_AUDIT_LINES);
     }
 
     #[test]

@@ -155,8 +155,8 @@ pub fn probes(json: bool) -> Result<()> {
     println!(
         "{}",
         bold(&format!(
-            "{} check(s), {} of them able to run here",
-            catalogue.checks.len(),
+            "{}, {} of them able to run here",
+            ork_core::util::counted(catalogue.checks.len(), "check"),
             catalogue.checks.len() - unavailable
         ))
     );

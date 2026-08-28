@@ -282,5 +282,7 @@ pub fn queue_list() -> CmdResult<serde_json::Value> {
 #[tauri::command]
 pub fn audit_list(limit: usize) -> CmdResult<Vec<ork_fix::store::AuditLine>> {
     let store = open_store().map_err(fail)?;
-    store.audit_log(limit.clamp(1, 500)).map_err(fail)
+    // The clamp lives in the store now, so both front-ends get the same
+    // answer to the same question without either of them knowing the number.
+    store.audit_log(limit).map_err(fail)
 }

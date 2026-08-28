@@ -68,6 +68,21 @@ run, so a list that drifts out of date is caught rather than believed.
   reports a stalled program now says a saturated machine looks the same from
   the outside.
 
+- **Three ways to ask for a test that does nothing, all now refused.**
+  `outlaw stress --minutes 0` finished instantly and reported "nothing went
+  wrong in 0 seconds", which reads exactly like a clean result to somebody
+  scrolling past. `--threads 0` quietly used one core instead. And
+  `outlaw audit --limit 0` printed "Nothing has been recorded yet" on a machine
+  with a full audit log -- true about the answer, false about the machine, on
+  the one screen whose job is to say what the tool has done. The first two are
+  refused with a reason; the third gives you a line rather than a lie. The
+  window clamped that limit and the terminal did not, so the rule now lives in
+  one place and both get it.
+
+- **Counts read like English.** `Last 1 entries`, `1 crash(es) recorded`,
+  `13 check(s)`. Small, and on the screens where somebody is deciding whether
+  this tool looks like it was made carefully.
+
 - **The queue says when it last actually saw each problem.** It kept a problem
   until somebody worked it, and stated every one of them in the present tense,
   so something found a fortnight ago and quietly resolved since read exactly

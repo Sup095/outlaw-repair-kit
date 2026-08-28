@@ -50,6 +50,22 @@ pub async fn run(
         refuse!("nothing to test: --no-cpu and --no-memory together leave this with no work to do");
     }
 
+    // The same objection, from two other directions. A run of no minutes
+    // finished instantly and reported "nothing went wrong in 0 seconds", and
+    // a run of no cores quietly used one and reported on that -- both answers
+    // to a question nobody asked, and the first of them reads exactly like a
+    // clean result to somebody scrolling past.
+    if minutes == 0 {
+        refuse!(
+            "--minutes 0 would finish before doing anything and report that nothing went wrong"
+        );
+    }
+    if threads == Some(0) {
+        refuse!(
+            "--threads 0 leaves no core to work; ask for at least one, or leave it out to use all of them"
+        );
+    }
+
     let platform = ork_core::platform::detect()?;
 
     // Asking for machine-readable output is not the same as agreeing to have

@@ -142,13 +142,19 @@ fn check_recorded_problems() -> CheckResult {
         (0, errors) => CheckResult::new(
             "recorded problems",
             CheckState::Pass,
-            format!("{errors} error(s) recorded -- `outlaw report` if one needs looking at"),
+            format!(
+                "{} recorded -- `outlaw report` if one needs looking at",
+                ork_core::util::counted(errors, "error")
+            ),
             started,
         ),
         (crashes, _) => CheckResult::new(
             "recorded problems",
             CheckState::Warn,
-            format!("{crashes} crash(es) recorded -- `outlaw report` turns one into a bug report"),
+            format!(
+                "{} recorded -- `outlaw report` turns one into a bug report",
+                ork_core::util::counted_as(crashes, "crash", "crashes")
+            ),
             started,
         ),
     }
@@ -289,7 +295,10 @@ fn check_state_store() -> CheckResult {
             Ok(pending) => CheckResult::new(
                 "state database",
                 CheckState::Pass,
-                format!("{} item(s) in the triage queue", pending.len()),
+                format!(
+                    "{} in the triage queue",
+                    ork_core::util::counted(pending.len(), "item")
+                ),
                 started,
             ),
             // The file opened but its contents are unreadable. The audit trail

@@ -22,7 +22,7 @@
             : event.event === "wrong-code"
               ? event.attempts_left === 0
                 ? "Too many wrong codes — pairing closed. Show a new code to try again."
-                : `Wrong pairing code — ${event.attempts_left} attempt(s) left`
+                : `Wrong pairing code — ${event.attempts_left} attempt${event.attempts_left === 1 ? "" : "s"} left`
               : `Running the model for ${event.name}`;
         activity = [...activity, line].slice(-5);
         if (event.event === "linked") load();

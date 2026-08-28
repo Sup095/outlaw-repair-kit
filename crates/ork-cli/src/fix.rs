@@ -66,7 +66,10 @@ pub fn show_queue(json: bool) -> Result<()> {
         .count();
     println!(
         "{}",
-        bold(&format!("{} item(s), {pending} still to work", items.len()))
+        bold(&format!(
+            "{}, {pending} still to work",
+            ork_core::util::counted(items.len(), "item")
+        ))
     );
     println!();
 
@@ -112,7 +115,10 @@ pub fn show_audit(limit: usize, json: bool) -> Result<()> {
 
     println!(
         "{}",
-        bold(&format!("Last {} entries, newest first", entries.len()))
+        bold(&format!(
+            "Last {}, newest first",
+            ork_core::util::counted_as(entries.len(), "entry", "entries")
+        ))
     );
     println!();
     for entry in entries {

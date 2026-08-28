@@ -68,14 +68,14 @@ fn damage(report: &IntegrityReport, files: &[String]) -> Finding {
         )
     } else {
         format!(
-            "{} file(s) belonging to installed packages no longer match what installed them. \
+            "{} belonging to installed packages no longer match what installed them. \
              This can mean a half-finished update, a disk that corrupted a file it was holding, \
              a program that overwrote a shared library with its own copy -- or something that \
              replaced a system file deliberately.\n\nBe aware that anything you edited yourself \
              counts as altered by this check, and on this platform the packaging tools do not \
              mark which files you were meant to edit. Recognising your own changes in this list \
              is the first thing to do with it.",
-            files.len()
+            crate::util::counted(files.len(), "file")
         )
     };
 
@@ -154,8 +154,8 @@ fn altered_config(report: &IntegrityReport) -> Finding {
         .severity(Severity::Info)
         .category(Category::Configuration)
         .title(format!(
-            "{} configuration file(s) differ from the packaged version",
-            report.altered_config.len()
+            "{} differ from the packaged version",
+            crate::util::counted(report.altered_config.len(), "configuration file")
         ))
         .detail(
             "These are files the packages themselves marked as configuration -- files you are \

@@ -190,10 +190,16 @@ pub async fn boot(mut on_event: impl FnMut(BootEvent)) -> BootReport {
         if warnings == 0 {
             "all systems ready".to_string()
         } else {
-            format!("ready, with {warnings} warning(s)")
+            format!(
+                "ready, with {}",
+                ork_core::util::counted(warnings, "warning")
+            )
         }
     } else {
-        format!("{} check(s) failed", report.selftest.failures().count())
+        format!(
+            "{} failed",
+            ork_core::util::counted(report.selftest.failures().count(), "check")
+        )
     };
     on_event(BootEvent::Finished {
         ready: report.ready(),
