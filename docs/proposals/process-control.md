@@ -1,7 +1,7 @@
 # Proposal: process control and cleanup
 
-**Status: proposed, not built.** This is for review before any of it exists,
-the same way escalation mode is. Nothing here is in the tool.
+**Status: proposed, not built.** This is for review before any of it exists.
+Nothing here is in the tool.
 
 *In a subdirectory on purpose: `docs/` is the manual, compiled into the binary,
 and a manual must only describe what the program actually does. A proposal is
@@ -11,206 +11,265 @@ not documentation.*
 
 ## What is being asked for
 
-Four things, in the words they were asked for:
+1. One button that stops everything non-essential, completely, so the machine
+   is clear and you can start what you actually want without overhead from
+   things you are not using.
+2. Start Steam, or whatever else, back up afterwards.
+3. Detect programs you never use that are not essential.
+4. Block those permanently if you want to.
 
-1. Choose to shut off all non-essential processes to clear the system and free
-   resources.
-2. Start things like Steam back up afterwards.
-3. Detect processes you do not use at all and that are not essential.
-4. Choose to block those permanently, to save the resources they take while
-   running for no reason.
+Essential means: system processes, drivers, control panels — audio, graphics,
+that sort of thing — and security software.
 
 Process Lasso is the nearest existing thing. The difference this tool can make
-is not more control — it is **being honest about what it did and able to put it
-back**, which is the same difference it makes everywhere else.
+is not more control. It is **being honest about what it did and able to put it
+back**, which is the difference it tries to make everywhere else.
 
 ## The one hard problem
 
-Everything else in this tool is reversible by copying a file first. Processes
-are not. You cannot snapshot a running program, and terminating one with
-unsaved work in it destroys that work with no way back.
+Everything else in this tool is made reversible by copying a file first. You
+cannot snapshot a running program. Closing one that has unsaved work in it
+destroys that work, and no confirmation dialog makes that acceptable.
 
-That single fact shapes the whole design. It is why this proposal splits what
-looks like one feature into four, and why the safest two are worth building
-first even if the other two never happen.
+Stopping completely is what was asked for, and it is the right default —
+suspending frees processor time but not memory, and memory is most of the point.
+So the design cannot lean on "we only suspended it" for safety. It has to lean
+on **never stopping anything that could lose you something**, and on knowing how
+to start things again before it stops them.
 
-## Four separate capabilities, deliberately not one
+## The button
 
-They are ordered by how hard they are to undo. Conflating them is exactly how a
-tool ends up having permanently disabled something somebody needed.
+**Name:** *Stop everything non-essential.* Plain, and says what it does.
 
-| | What it does | How you undo it | Risk |
-| --- | --- | --- | --- |
-| **1. Idle-weight report** | Watches over days and reports what runs constantly without you ever using it | Nothing to undo | None. It only looks |
-| **2. Quiet mode** | Suspends non-essential processes for a while; restores them | One command, or automatically | Low. Nothing is closed |
-| **3. Stop and restart** | Closes a known set of programs; starts them again on request | The tool starts them back up | Medium. Programs actually close |
-| **4. Permanent block** | Stops something starting with the machine at all | Undone from the same screen | Highest. Survives a reboot |
+**Where:** the Processes screen in the window, and `outlaw quiet start` in the
+terminal. Nothing the window can do is unreachable from a script, as everywhere
+else.
 
-## 1. Idle-weight report
+### Before the button does anything
 
-The observation the other three rest on, and useful on its own.
+The screen shows the list first, always. Pressing the button opens the
+confirmation; it never acts directly. What is on screen:
 
-The question "which processes do I not use?" cannot be answered from a snapshot.
-A program that has been open for three seconds and one that has been open for
-three weeks look identical in a process list. It needs watching over time, and
-the watcher already exists.
+- **Every process that would be stopped**, with the memory it is holding and
+  how long it has been running, sorted by memory.
+- **The total that would be freed**, stated as an estimate, because a working
+  set is not the same as memory returned to the machine and it must not be
+  presented as though it were.
+- **What will not be touched, and why** — collapsed, but there, because a list
+  of what a tool considers untouchable is worthless if nobody can read it.
+- **Anything it does not know how to start again**, called out separately.
 
-Per program, recorded over days: total processor time used, memory held,
-whether it ever had a window in front of you, and whether it ever received
-input.
+Each row has a checkbox. A row can be excluded permanently, and that choice is
+remembered.
 
-What it must say, and the exact shape of it:
+### The three classes
 
-> `Foo Updater` has been running for 14 days, has held 380 MB the whole time,
-> has used 4 seconds of processor time in total, and has never had a window in
-> front of you.
+Each candidate falls into one, and the class decides the default:
 
-What it must **never** say: "you do not use this." That is a claim about you,
-made from four numbers, and it will be wrong for the backup tool that quietly
-does its job at three in the morning. The report states what was observed and
-lets the person recognise their own machine. This is the same rule the start-up
-check follows: *this is where something hiding would put itself* is a fair
-thing to say; *you have something hiding* is not.
+| Class | What it means | Default |
+| --- | --- | --- |
+| **Safe to stop** | No document state, and the tool knows the command that starts it again — launchers, updaters, tray utilities, Steam, game clients, sync agents | Ticked |
+| **May hold unsaved work** | Browsers, chat clients, anything with a text box in it | **Unticked.** You can tick it; it will never be ticked for you |
+| **Cannot be restarted by the tool** | It knows how to stop it and not how to start it — started by Explorer, or by a service, or with an environment it cannot reproduce | **Unticked**, and labelled as one-way |
 
-Nothing in this stage stops anything.
+Editors, office applications, and IDEs are never offered at all, at any
+severity, however much memory they are holding. There is no severity of
+slowness that justifies losing an afternoon's work.
 
-## 2. Quiet mode
+That third class is the one most tools quietly get wrong. If the tool cannot
+start something again, saying so **before** you press the button is the whole
+difference between a feature and a trap.
 
-A session with a beginning and an end. `outlaw quiet start` suspends
-non-essential processes; `outlaw quiet stop` puts every one of them back.
+### The confirmation
 
-**Suspend, not terminate.** A suspended process stops using the processor
-immediately, keeps everything it had in memory, and resumes exactly where it
-was with nothing lost. `SIGSTOP`/`SIGCONT` on Linux; the equivalent on Windows.
-It does not free memory, and the tool must say so rather than let people assume
-a number it did not deliver.
+A separate dialog, not a checkbox on the same screen. Roughly:
 
-**The restore list is written before anything is suspended.** For each process:
-its identifier, image path, command line, working directory, and the service it
-belongs to if any. It is written to disk first, so that a crash, a forced
-reboot, or the tool being killed still leaves `outlaw quiet stop` able to do its
-job from the file alone. This is the snapshot, in the only form processes allow.
+> **Stop 23 programs?**
+>
+> This will close them now. About **6.2 GB** should come back, though the real
+> figure is usually lower — that is what will actually be measured and reported
+> afterwards.
+>
+> - **2 of these may have unsaved work in them.** *Discord, Firefox.* Anything
+>   you have not saved in those will be gone. Untick them if you are not sure.
+> - **1 cannot be started again by this tool.** *Realtek Audio Console.* You
+>   would start it yourself, or it will come back at the next restart.
+> - Some will start themselves again straight away. That is not a fault, and
+>   it will be reported honestly rather than counted as freed.
+>
+> Nothing essential is touched: system services, drivers, your graphics and
+> audio control panels, and your security software are all left alone. The full
+> list of what that covers is on the previous screen.
+>
+> **Everything stopped here is written down first.** *Restore everything* puts
+> back what can be put back, whenever you want, and a restart puts back the
+> rest.
+>
+> `[ Cancel ]`  `[ Stop 23 programs ]`
 
-**A deadman.** If nothing renews the session, everything is resumed
-automatically. A machine must never be left in a state the tool put it in and
-then forgot about. The stress test already works this way and for the same
-reason.
+Cancel is the default. The confirm button carries the count so that pressing it
+by reflex still shows what is about to happen. In the terminal the same thing
+is typed rather than clicked, and `--yes` skips it exactly as it does for the
+stress test.
 
-**Verification, for the first time on a resource problem.** Free memory and
-processor load are measured before and after, and the report states the actual
-difference. If suspending forty processes freed nothing, it says so. It never
-prints a benefit it did not measure. This is also what would let
-`memory.high-pressure` have a verifier at last — re-running the same
-measurement that produced the finding is exactly what the fix engine requires,
-and it is why this capability fits the existing loop rather than sitting beside
-it.
+### After
 
-## 3. Stop and restart
+- What was actually stopped, what refused to stop, and what started itself
+  again within seconds.
+- The measured difference in free memory — **measured, not estimated**. If
+  stopping 23 programs freed 900 MB rather than 6 GB, it says 900 MB.
+- A persistent *Restore everything* control, visible while the session is open.
 
-Closing programs, and starting them again afterwards. This is where the "start
-Steam back up" part lives.
+## Quiet mode as a session
 
-Only for programs whose restart is **defined**: the tool knows the command that
-starts it, and the program holds no user document that could be lost. Steam, a
-launcher, an updater, a tray utility — yes. A text editor, an office
-application, a browser, anything with a document in it — never, at any
-severity, however much memory it is holding. There is no confirmation dialog
-that makes destroying somebody's unsaved work acceptable.
+Everything the button does is a **session** with a beginning and an end, and it
+is written to disk before anything is stopped.
 
-That distinction has to be a property of a program, not a guess, which means a
-list that ships with the tool and is added to deliberately. A program that is
-not on it is suspended rather than stopped, or left alone.
+The restore file holds, per process: image path, command line, working
+directory, the account it ran as, the service it belongs to if any, and whether
+it was stopped or suspended. It is written **first**, so a crash, a power cut,
+or the tool being killed still leaves the machine restorable from the file
+alone.
 
-## 4. Permanent block
+### Surviving a reboot
 
-Stopping something from starting with the machine at all.
+A toggle, as asked for. Both behaviours are wanted and they are genuinely
+different:
 
-Most of this already exists: the start-up check enumerates every entry, from
-the registry, both Start-up folders, scheduled tasks, and the Linux equivalents.
-Blocking is disabling one of those entries, and it is reversible because the
-entry is recorded in full before it is touched.
+- **Off (default).** A restart brings everything back. The safest promise, and
+  the easiest one to keep.
+- **On.** The session is re-applied after the machine restarts, so a machine
+  set up for gaming stays that way. Re-applied only after the desktop has
+  settled, and never before the security software is up.
 
-The rules that would apply:
+### Picking up where it left off
 
-- Never on first sight. Something has to have been observed idle for days
-  before it can be offered.
-- The entry is recorded in full first, and one screen restores it.
-- Nothing is ever blocked without being asked, and never in bulk.
-- It changes what starts; it never deletes the program.
+Separately from the toggle, and this is the part that matters most:
+
+**An unfinished session is never silently lost.** If the machine restarts —
+whether you asked it to, or it fell over — the tool notices on next start that a
+session was open and offers to pick it up:
+
+> A quiet session was open when this machine restarted, on 28 August at 21:04.
+> 23 programs were stopped then. **Restore them**, **carry on where it left
+> off**, or **forget it**.
+
+So the toggle decides whether it happens *automatically*; the session record
+means it is *available* either way. Nothing is re-applied without being asked
+unless the toggle says so, and a session record older than a set number of days
+is offered for deletion rather than acted on.
 
 ## What "essential" means
 
-The word doing the most work in the request, and the one most likely to cause
-harm if it is loose. Proposed as a layered list, never as a heuristic:
+The word doing the most work here, and the one most likely to cause harm if it
+is loose. A layered list, shipped visible and editable — a hidden list of what a
+tool considers essential is a list nobody can check.
 
 **Never touched, on any platform, for any reason:**
-the kernel and session infrastructure; anything the security software of the
-machine is made of (antivirus and endpoint agents — suspending one is
-indistinguishable from what malware does, and will get the tool flagged, quite
-rightly); the display, input, and audio stack; the network stack; disk
-encryption; accessibility software, because suspending a screen reader locks
-somebody out of their own computer; the tool itself and the terminal or window
-it is running in.
 
-**Not touched by default:** anything running as SYSTEM or root; anything with a
-window currently in front of you; anything started in the last few minutes;
-anything the person has pinned.
+- The kernel, the session, and the process tree the desktop hangs off.
+- **Security software.** Antivirus and endpoint agents. Suspending one is
+  indistinguishable from what malware does, and would get this tool flagged,
+  quite rightly.
+- **Drivers and their control panels** — graphics, audio, chipset, input. The
+  NVIDIA and Realtek style of thing. Some of them are genuinely idle and it does
+  not matter: stopping the panel that owns your audio to save 40 MB is a bad
+  trade every time.
+- The display, input, and audio stack itself.
+- Networking, and anything holding a network connection open on behalf of the
+  system.
+- Disk encryption and anything holding a volume open.
+- **Accessibility software.** Stopping a screen reader locks somebody out of
+  their own computer with no way to undo it.
+- Backup and sync agents **mid-transfer** — idle ones are fair game, one with a
+  file open is not.
+- The tool itself, and the terminal or window it is running in.
 
-**Candidates:** everything else, and even then only what the idle-weight report
-has actually watched.
+**Not stopped by default:**
 
-The list ships with the tool, is visible, and is editable. A hidden list of
-what a tool considers essential is a list nobody can check.
+- Anything running as SYSTEM or root.
+- Anything with a window in front of you right now.
+- Anything started in the last few minutes.
+- Anything you have pinned.
+
+**Candidates:** everything else, and even then only shown with what it is
+holding so the decision is yours.
+
+## Finding what you never use
+
+Cannot be answered from a snapshot. A program open for three seconds and one
+open for three weeks look identical in a process list. It needs watching over
+time, and the watcher already exists.
+
+Per program, over days: processor time used, memory held, whether it ever had a
+window in front of you, whether it ever received input.
+
+What it says:
+
+> `Foo Updater` has been running for 14 days, has held 380 MB the whole time,
+> has used 4 seconds of processor time, and has never had a window in front of
+> you.
+
+What it must **never** say: *"you do not use this."* That is a claim about you
+made from four numbers, and it will be wrong for the backup tool that quietly
+does its job at three in the morning. State what was observed; let the person
+recognise their own machine. Same rule the start-up check follows.
+
+## Blocking permanently
+
+Mostly already built. The start-up check enumerates every entry — registry, both
+Start-up folders, scheduled tasks, and the Linux equivalents — and blocking is
+disabling one of those, reversibly, because the entry is recorded in full first.
+
+- Never on first sight. Something must have been observed idle for days.
+- Never in bulk.
+- It changes what starts. It never deletes the program.
 
 ## What it must never do
 
-- Never terminate a process that could hold unsaved work.
-- Never act without being asked, and never in bulk without showing the list
-  first.
-- Never claim resources were freed without measuring the difference.
-- Never say "you do not use this." Say what was observed.
+- Never close anything that could hold unsaved work without being ticked
+  deliberately, one at a time.
+- Never stop something it cannot start again without saying so first.
+- Never claim memory it did not measure.
+- Never say "you do not use this."
 - Never leave the machine in a state it will not restore itself from.
-- Never require administrator rights to run the parts that do not need them.
+- Never touch security software, drivers, or accessibility software.
 
 ## Where it would live
 
-Following the existing seams rather than cutting new ones:
-
 - `ork-core/src/processes/` — enumeration, classification, and the essential
   lists, one per platform behind the existing platform trait.
-- A probe, `processes.idle-weight`, emitting `process.idle-resident`. It
-  declares what it emits like every other probe, and needs a runbook answer
-  before it can ship.
-- Two new typed actions in the fix engine's closed set — suspend and resume —
-  and a verifier that re-measures memory and load. Typed operations, never a
-  command string, exactly as now.
-- `outlaw processes` and `outlaw quiet start|stop|status`, with `--json`.
-- A **Processes** screen in the window, doing nothing the command line cannot.
+- A probe, `processes.idle-weight`, emitting `process.idle-resident`, declaring
+  what it emits like every other probe and needing a runbook answer to ship.
+- Typed actions in the fix engine's closed set — stop, suspend, resume, restart
+  — never a command string, exactly as now.
+- A verifier that re-measures free memory. This gives `memory.high-pressure` its
+  first verifier: re-running the same measurement that produced the finding is
+  precisely what the fix engine requires.
+- `outlaw processes` and `outlaw quiet start|stop|status|resume`, with `--json`.
+- A **Processes** screen in the window.
 
 ## Order of work
 
-1. **Idle-weight report.** No risk, immediately useful, and it produces the
-   observations everything else needs. Worth building even alone.
-2. **Quiet mode with suspend and restore**, including the restore file and the
-   deadman.
-3. **Measured verification**, which also gives the memory-pressure finding its
-   first verifier.
-4. **Stop and restart**, for the defined list only.
-5. **Permanent block**, built on the start-up enumeration that already exists.
+1. **Enumeration and classification**, with the essential lists. No stopping.
+2. **The screen and the list**, showing what would be stopped and what is held
+   back. Still no stopping. At this point it is already useful.
+3. **The button**, the confirmation, the restore file, and *Restore everything*.
+4. **Measured verification**, which also gives memory pressure its verifier.
+5. **Session survival** — the reboot toggle and picking up where it left off.
+6. **Idle-weight watching** over days.
+7. **Permanent blocking**, on top of the start-up enumeration.
 
-Stages 1 to 3 are worth having on their own. If the answer to stage 4 is ever
-"not safely", the first three still do most of what was asked.
+Stages 1 and 2 are worth having alone. Nothing stops a process until stage 3,
+by which point the list has been looked at on real machines.
 
-## Questions this proposal does not answer
+## Still open
 
-- **Elevation.** A good number of the heaviest processes run as SYSTEM. Reaching
-  them means the elevation broker, which is a separate piece of work. Quiet mode
-  without it would still work on everything running as you, and should say
-  plainly what it could not reach rather than quietly covering less.
-- **Should quiet mode survive a reboot?** Proposed as no: a reboot restores
-  everything. That is the safer default and the easier promise to keep.
-- **Launching a game into quiet mode.** `outlaw quiet run <program>` — quiet
-  until it exits, then everything back. Attractive, and worth deciding on
-  separately.
-- **How long is "you do not use this"?** Fourteen days is a guess. It should be
-  a setting with a stated default, not a constant buried in the code.
+- **Elevation.** Many of the heaviest processes run as SYSTEM. Reaching them
+  needs the elevation broker, which is separate work. Without it the sweep still
+  works on everything running as you, and must say plainly what it could not
+  reach rather than quietly covering less.
+- **How long is "you never use this"?** Fourteen days is a guess. A setting with
+  a stated default, not a constant buried in the code.
+- **`outlaw quiet run <program>`** — quiet until that program exits, then
+  everything back. Attractive for launching a game. Decide separately.

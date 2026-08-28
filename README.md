@@ -310,8 +310,19 @@ cargo test
     temperature throughout and stops itself if the machine gets too hot, always
     leaves a gigabyte of memory alone, changes nothing, and says out loud what
     a clean result does *not* prove. See [Stress and burn-in](docs/stress.md).
-13. **Escalation mode** -- to be proposed and reviewed for safety before it is
-    built, not bolted on.
+13. **Escalation mode** -- proposed, not built. For severe cases and in-depth
+    debugging: looking much harder, with the argument for whether it should
+    ever *act* harder kept deliberately separate. See
+    [the proposal](docs/proposals/escalation-mode.md).
+14. **Process control and cleanup** -- proposed, not built. One button that
+    stops everything non-essential so the machine is clear for what you
+    actually want to run, and puts it back afterwards -- with system
+    processes, drivers, control panels, and security software never touched.
+    See [the proposal](docs/proposals/process-control.md).
+
+Both are written down before any of them exists, because the safety argument is
+the hard part and it is worth losing an argument about a document rather than
+about somebody's machine.
 
 Every released version and what it changed is in [the changelog](CHANGELOG.md),
 which is also readable from inside the program: `outlaw docs changelog`, or the
