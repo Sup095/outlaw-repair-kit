@@ -37,6 +37,14 @@ annoyances, however long the annoyance has been sitting there.
 The same problem seen by two scans is one queue item, not two. A problem on two
 different drives is two items, because fixing one does not fix the other.
 
+Each item says when it was last actually seen, and every scan that finds it
+again moves that forward. This matters more than it looks: a queue keeps a
+problem until it is worked, so without it, something found a fortnight ago and
+quietly resolved since reads exactly like something the machine has now -- and
+`outlaw fix` would offer to act on it. Nothing decides on your behalf when an
+item has gone stale, because there is no honest threshold for that. It tells
+you when it was last seen and leaves the judgement where it belongs.
+
 ## The fix-attempt loop
 
 For each queued problem, working through candidates least disruptive first:

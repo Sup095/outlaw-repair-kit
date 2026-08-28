@@ -239,6 +239,9 @@ mod tests {
             finding,
             state: crate::store::ItemState::Pending,
             attempts: 0,
+            first_seen: "2026-01-01T00:00:00Z".to_string(),
+            last_seen: "2026-01-01T00:00:00Z".to_string(),
+            seen: "seen once, 2026-01-01 00:00:00".to_string(),
         }
     }
 

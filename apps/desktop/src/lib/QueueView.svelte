@@ -7,10 +7,11 @@
     type FixAsk,
     type FixEvent,
     type ItemOutcome,
+    type QueueItem,
   } from "./api";
   import type { UnlistenFn } from "@tauri-apps/api/event";
 
-  let items = $state<any[]>([]);
+  let items = $state<QueueItem[]>([]);
   let error = $state<string | null>(null);
   let loaded = $state(false);
 
@@ -197,6 +198,7 @@
       <div class="side dim">
         <div>{current === item.occurrence_key ? "working…" : item.state}</div>
         <div>{item.attempts} attempt{item.attempts === 1 ? "" : "s"}</div>
+        <div>{item.seen}</div>
       </div>
     </article>
   {/each}

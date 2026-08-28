@@ -113,6 +113,39 @@ pub struct TriageItem {
     pub finding: Finding,
     pub state: ItemState,
     pub attempts: usize,
+    /// When this problem was first put on the queue.
+    pub first_seen: String,
+    /// When a scan last actually observed it.
+    ///
+    /// The same as `first_seen` until a second scan finds it again. Kept apart
+    /// from the state's own timestamp because "still true" and "somebody
+    /// changed its state" are different events, and it is the first one a
+    /// person needs when deciding whether to act on a queued problem.
+    pub last_seen: String,
+    /// The two above, as one sentence for a person to read.
+    ///
+    /// Built here rather than by each front-end for the reason the audit log
+    /// carries its own `readable`: the window and the command line formatted
+    /// the same timestamp two different ways once already, badly in both
+    /// cases. A queue item shown in two places should say the same thing in
+    /// both.
+    pub seen: String,
+}
+
+/// When a queued problem was last observed, in words.
+///
+/// Said on every item rather than only on old ones, because there is no
+/// threshold at which a problem becomes stale and inventing one would put the
+/// tool's guess where the person's knowledge belongs. A queue is a record of
+/// what scans have found, and a record that states everything in the present
+/// tense is offering to fix things the machine may have stopped having.
+fn seen_line(first_seen: &str, last_seen: &str) -> String {
+    let last = readable_time(last_seen);
+    if first_seen == last_seen {
+        format!("seen once, {last}")
+    } else {
+        format!("first seen {}, last seen {last}", readable_time(first_seen))
+    }
 }
 
 /// One thing that was tried.
@@ -224,7 +257,42 @@ impl FixStore {
             CREATE INDEX IF NOT EXISTS attempts_by_finding ON attempts(finding_id);
             ",
         )?;
+
+        // When the problem was last actually observed, as opposed to when the
+        // row was first written or its state last changed. Added separately
+        // because databases from earlier versions already exist and a
+        // `CREATE TABLE IF NOT EXISTS` does nothing to those.
+        //
+        // Backfilled from `created_at` rather than left null or set to now:
+        // the first sighting is the only sighting anybody recorded, and
+        // stamping old rows with today's date would make every stale item
+        // look like it had just been seen, which is the exact claim this
+        // column exists to stop the tool making.
+        if self.add_column_if_missing("queue", "last_seen_at", "TEXT")? {
+            self.connection
+                .execute("UPDATE queue SET last_seen_at = created_at", [])?;
+        }
         Ok(())
+    }
+
+    /// Add a column unless it is already there. Answers whether it added one.
+    fn add_column_if_missing(&self, table: &str, column: &str, decl: &str) -> Result<bool> {
+        let mut statement = self
+            .connection
+            .prepare(&format!("PRAGMA table_info({table})"))?;
+        let present = statement
+            .query_map([], |row| row.get::<_, String>("name"))?
+            .collect::<rusqlite::Result<Vec<_>>>()?
+            .iter()
+            .any(|name| name == column);
+        if present {
+            return Ok(false);
+        }
+        self.connection.execute(
+            &format!("ALTER TABLE {table} ADD COLUMN {column} {decl}"),
+            [],
+        )?;
+        Ok(true)
     }
 
     fn now() -> String {
@@ -249,16 +317,26 @@ impl FixStore {
             )
             .optional()?;
 
+        let now = Self::now();
+
         if existing.is_some() {
+            // Not a new item, but it *was* just seen, and that is the whole
+            // difference between a problem the machine still has and one it
+            // had a fortnight ago. Without this the queue states a stale
+            // finding in the present tense and `outlaw fix` offers to act on
+            // it.
+            self.connection.execute(
+                "UPDATE queue SET last_seen_at = ?1 WHERE occurrence_key = ?2",
+                params![now, key],
+            )?;
             return Ok(false);
         }
 
-        let now = Self::now();
         self.connection.execute(
             "INSERT INTO queue
                 (occurrence_key, finding_id, subject, severity, title, finding_json,
-                 state, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
+                 state, created_at, updated_at, last_seen_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8, ?8)",
             params![
                 key,
                 finding.id,
@@ -283,6 +361,13 @@ impl FixStore {
 
     fn row_to_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<TriageItem> {
         let finding_json: String = row.get("finding_json")?;
+        let first_seen: String = row.get("created_at")?;
+        // Null only for a row written before the column existed and somehow
+        // missed by the backfill; the first sighting is the honest answer in
+        // that case, not today.
+        let last_seen: String = row
+            .get::<_, Option<String>>("last_seen_at")?
+            .unwrap_or_else(|| first_seen.clone());
         let state: String = row.get("state")?;
         let severity: String = row.get("severity")?;
         Ok(TriageItem {
@@ -307,6 +392,9 @@ impl FixStore {
             })?,
             state: ItemState::parse(&state),
             attempts: 0,
+            seen: seen_line(&first_seen, &last_seen),
+            first_seen,
+            last_seen,
         })
     }
 }
@@ -499,6 +587,86 @@ mod tests {
         FixAction::RestartService {
             service: "steam".to_string(),
         }
+    }
+
+    #[test]
+    fn seeing_a_queued_problem_again_records_that_it_is_still_there() {
+        // The difference between a problem the machine still has and one it
+        // had a fortnight ago. Without this the queue states a stale finding
+        // in the present tense, and `outlaw fix` offers to act on it.
+        let store = FixStore::in_memory().unwrap();
+        let problem = finding("app.launch-failed", "steam", Severity::High);
+        store.enqueue(&problem).unwrap();
+
+        let first = store.pending().unwrap().remove(0);
+        assert_eq!(
+            first.first_seen, first.last_seen,
+            "one sighting means both times are the same"
+        );
+
+        // Reach past the clock rather than waiting a second for it, and set
+        // the stored time back so that a second sighting has to move it.
+        store
+            .connection
+            .execute(
+                "UPDATE queue SET created_at = ?1, last_seen_at = ?1",
+                params!["2020-01-01T00:00:00Z"],
+            )
+            .unwrap();
+
+        assert!(!store.enqueue(&problem).unwrap(), "still one item");
+
+        let again = store.pending().unwrap().remove(0);
+        assert_eq!(
+            again.first_seen, "2020-01-01T00:00:00Z",
+            "the first sighting does not move"
+        );
+        assert_ne!(
+            again.last_seen, "2020-01-01T00:00:00Z",
+            "seeing it again should have been recorded"
+        );
+    }
+
+    #[test]
+    fn a_database_written_before_the_column_existed_still_opens() {
+        // The shape of every queue database already out there. Opening one
+        // must add the column and fill it from the first sighting -- not from
+        // today, which would make every stale item look freshly seen and is
+        // the exact claim the column exists to stop the tool making.
+        let store = FixStore::in_memory().unwrap();
+        store
+            .connection
+            .execute_batch("ALTER TABLE queue DROP COLUMN last_seen_at")
+            .unwrap();
+        store
+            .connection
+            .execute(
+                "INSERT INTO queue
+                    (occurrence_key, finding_id, subject, severity, title, finding_json,
+                     state, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
+                params![
+                    "old-key",
+                    "app.launch-failed",
+                    "steam",
+                    "high",
+                    "an old problem",
+                    serde_json::to_string(&finding("app.launch-failed", "steam", Severity::High))
+                        .unwrap(),
+                    ItemState::Pending.as_str(),
+                    "2019-06-01T00:00:00Z",
+                ],
+            )
+            .unwrap();
+
+        store.migrate().unwrap();
+
+        let item = store.pending().unwrap().remove(0);
+        assert_eq!(item.first_seen, "2019-06-01T00:00:00Z");
+        assert_eq!(
+            item.last_seen, "2019-06-01T00:00:00Z",
+            "an old row was last seen when it was seen, not today"
+        );
     }
 
     #[test]

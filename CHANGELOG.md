@@ -39,6 +39,18 @@ run, so a list that drifts out of date is caught rather than believed.
 
 ### Also in this release
 
+- **The queue says when it last actually saw each problem.** It kept a problem
+  until somebody worked it, and stated every one of them in the present tense,
+  so something found a fortnight ago and quietly resolved since read exactly
+  like something the machine has now -- and `outlaw fix` offered to act on it.
+  Each item now says when it was first seen and when it was last seen, and
+  every scan that finds it again moves that forward. Nothing decides on your
+  behalf when an item has gone stale, because there is no honest threshold for
+  that; it tells you when it was last seen and leaves the judgement to you.
+  Databases from earlier versions gain the column on first open, filled in from
+  when each problem was first seen -- not from today, which would make every
+  stale item look freshly found.
+
 - **`outlaw probes` says what each check can report**, on a `can report:` line,
   and the same list appears on each check in the **Checks** screen. "What can
   this thing actually tell me" is a fair question to ask of a diagnostic tool

@@ -105,7 +105,7 @@ export const api = {
   secretSet: (which: string, value: string) => invoke<void>("secret_set", { which, value }),
   secretClear: (which: string) => invoke<void>("secret_clear", { which }),
   routing: () => invoke<any>("routing_status"),
-  queue: () => invoke<any[]>("queue_list"),
+  queue: () => invoke<QueueItem[]>("queue_list"),
   // Returns once the run has finished. `true` means it was stopped early.
   fixRun: (apply: boolean) => invoke<boolean>("fix_run", { apply }),
   fixAnswer: (id: number, answer: FixAnswer) => invoke<boolean>("fix_answer", { id, answer }),
@@ -255,6 +255,28 @@ export type FixEvent =
   | { event: "finished"; resolved: number; stopped: boolean };
 
 /// A change waiting on permission. Nothing happens until this is answered.
+/// One problem on the triage queue.
+export interface QueueItem {
+  id: number;
+  occurrence_key: string;
+  finding_id: string;
+  subject: string | null;
+  severity: Severity;
+  title: string;
+  finding: Finding;
+  state: "pending" | "resolved" | "exhausted" | "dismissed";
+  attempts: number;
+  /// When this problem was first put on the queue, RFC 3339 in UTC.
+  first_seen: string;
+  /// When a scan last actually observed it. The same as `first_seen` until a
+  /// second scan finds it again -- which is the difference between a problem
+  /// the machine still has and one it had a fortnight ago.
+  last_seen: string;
+  /// The two above as one sentence, built by the backend so that the window
+  /// and the command line cannot word it differently.
+  seen: string;
+}
+
 export interface FixAsk {
   id: number;
   action: string;

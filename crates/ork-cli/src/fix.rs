@@ -85,6 +85,7 @@ pub fn show_queue(json: bool) -> Result<()> {
                 item.attempts, item.occurrence_key
             ))
         );
+        println!("            {}", dim(&item.seen));
     }
     println!();
     println!(
@@ -225,6 +226,7 @@ pub async fn work_queue(apply: bool, json: bool) -> Result<()> {
 
         if !json {
             println!("{}  {}", severity_label(item.severity), bold(&item.title));
+            println!("  {}", dim(&item.seen));
         }
 
         // A problem with no verifier gets advice rather than a change. That
