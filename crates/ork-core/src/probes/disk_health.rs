@@ -30,6 +30,10 @@ use crate::tier::ScanTier;
 
 const PROBE_ID: &str = "storage.health";
 
+/// What either half of this check can report. Shared, because both probes ask
+/// the same question of the same drives and only the way they ask differs.
+const DRIVE_FINDINGS: &[&str] = &["storage.drive-failing", "storage.drive-warning"];
+
 /// Turn one drive's verdict into a finding, if there is one to make.
 ///
 /// A healthy drive produces nothing. So does one that would not answer: not
@@ -150,6 +154,7 @@ impl Probe for DiskHealthProbe {
             min_tier: ScanTier::Full,
             platforms: &[PlatformKind::Windows],
             requires_tools: &[],
+            emits: DRIVE_FINDINGS,
             requires_elevation: false,
         }
     }
@@ -178,6 +183,7 @@ impl Probe for SmartHealthProbe {
             min_tier: ScanTier::Full,
             platforms: &[PlatformKind::Linux],
             requires_tools: &["smartctl"],
+            emits: DRIVE_FINDINGS,
             // Talking to a drive means talking to the device node, and that
             // is root's business on every distribution.
             requires_elevation: true,

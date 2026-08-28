@@ -40,6 +40,20 @@ pub struct ProbeMeta {
     pub platforms: &'static [PlatformKind],
     /// External executables this probe needs. Missing ones cause a skip.
     pub requires_tools: &'static [&'static str],
+    /// Every finding id this probe can report.
+    ///
+    /// Declared rather than discovered, because the interesting question --
+    /// "is there an answer prepared for everything this tool can say?" -- has
+    /// no way to be asked otherwise. The ids are string literals scattered
+    /// through the probe's body; nothing can enumerate them at run time, so a
+    /// test that wants the full set has to restate it by hand, and a
+    /// hand-written list next to the assertion cannot fail when a probe grows
+    /// a new finding. That is not a hypothetical: it is how the start-up
+    /// probe shipped five findings with no runbook answer for any of them.
+    ///
+    /// The orchestrator checks this against what actually comes back, so a
+    /// list that drifts out of date is caught rather than believed.
+    pub emits: &'static [&'static str],
     /// Whether this probe needs administrator or root rights.
     pub requires_elevation: bool,
 }
@@ -234,6 +248,7 @@ mod tests {
             min_tier: ScanTier::Quick,
             platforms: &[PlatformKind::Linux],
             requires_tools: &[],
+            emits: &[],
             requires_elevation: true,
         }
     }

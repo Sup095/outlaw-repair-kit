@@ -128,6 +128,7 @@ impl Probe for AppLaunchProbe {
                 PlatformKind::MacOs,
             ],
             requires_tools: &[],
+            emits: &["app.launch-failed", "app.launch-hung"],
             requires_elevation: false,
         }
     }

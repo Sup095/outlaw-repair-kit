@@ -70,6 +70,12 @@ pub struct CheckInfo {
     pub platforms: Vec<String>,
     pub requires_elevation: bool,
     pub required_tools: Vec<String>,
+    /// Every problem this check is able to report.
+    ///
+    /// The answer to "what can this thing actually tell me", which is a fair
+    /// question to ask of a diagnostic tool before running it and one the
+    /// description alone only gestures at.
+    pub reports: Vec<String>,
     /// Whether this machine can run it at all.
     pub available: bool,
     /// Why not, in the same words the scan would use.
@@ -109,6 +115,7 @@ pub fn catalogue(platform: &dyn crate::Platform, elevated: bool) -> Catalogue {
                 platforms: meta.platforms.iter().map(|kind| kind.to_string()).collect(),
                 requires_elevation: meta.requires_elevation,
                 required_tools: meta.requires_tools.iter().map(|t| t.to_string()).collect(),
+                reports: meta.emits.iter().map(|id| (*id).to_string()).collect(),
                 available: blocked.is_none(),
                 unavailable_reason: blocked.map(|reason| reason.to_string()),
             }

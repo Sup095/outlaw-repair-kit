@@ -92,6 +92,7 @@ impl Probe for LauncherProbe {
                 crate::PlatformKind::MacOs,
             ],
             requires_tools: &[],
+            emits: &["app.launch-failed"],
             requires_elevation: false,
         }
     }

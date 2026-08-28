@@ -10,6 +10,49 @@ not that the work has stopped.
 
 ---
 
+## v0.9.0
+
+**Eight kinds of problem the tool could find but had nothing to say about.**
+
+Every finding is supposed to arrive with a prepared answer -- what it means,
+and what to do -- so that the common problems never need a language model at
+all. Eight did not have one. All five things the start-up check reports, and
+all three from the deep scan's system-file check, fell through to whatever
+model happened to be configured, every single time they occurred. On a machine
+with no model set up, they arrived with nothing attached at all.
+
+There was a test meant to prevent exactly this. It could not: it held a
+hand-written list of finding ids and checked each had an answer, and a list
+written next to the assertion does not grow when a new check is added. It was
+green the whole time.
+
+So the list is no longer written by hand. Each check now declares what it can
+report, the test reads that from the checks themselves, and adding a new kind
+of finding without writing an answer for it now fails the build. Two things
+have to be done deliberately to get past it: declare the finding, and either
+write the answer or record here that there deliberately is not one -- which is
+the honest state for three of them, where a large process might be a memory
+leak or a virtual machine and no canned answer fits.
+
+The declarations are checked against what the checks actually report while they
+run, so a list that drifts out of date is caught rather than believed.
+
+### Also in this release
+
+- **`outlaw probes` says what each check can report**, on a `can report:` line,
+  and the same list appears on each check in the **Checks** screen. "What can
+  this thing actually tell me" is a fair question to ask of a diagnostic tool
+  before running it, and the one-line description only gestured at the answer.
+
+- `probes --json` gains a `reports` field on each check, carrying the same
+  list. Nothing was removed or renamed.
+
+- The build now checks the half of itself this project's own development
+  machine cannot see. Code reachable only from Windows and from tests compiles
+  cleanly on Windows and is dead code on Linux, where warnings are errors --
+  which is how the last release went out green locally and red on both CI
+  runners. `docs/architecture.md` says what to run.
+
 ---
 
 ## v0.8.1

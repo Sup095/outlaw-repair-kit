@@ -107,6 +107,13 @@ impl Probe for DeviceHealthProbe {
             min_tier: ScanTier::Quick,
             platforms: &[PlatformKind::Windows, PlatformKind::Linux],
             requires_tools: &[],
+            // Built from `DeviceIssueKind`, one id per variant.
+            emits: &[
+                "device.not-working",
+                "device.driver-missing",
+                "device.driver-mismatch",
+                "device.reboot-required",
+            ],
             requires_elevation: false,
         }
     }

@@ -152,6 +152,7 @@ impl Probe for DiskSpaceProbe {
                 PlatformKind::MacOs,
             ],
             requires_tools: &[],
+            emits: &["storage.volume-low-on-space"],
             requires_elevation: false,
         }
     }

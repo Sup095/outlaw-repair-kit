@@ -80,6 +80,9 @@
               {#if !check.available}
                 <p class="reason">Will not run here — {check.unavailable_reason}</p>
               {/if}
+              {#if check.reports.length}
+                <p class="reports">Can report: {check.reports.join(", ")}</p>
+              {/if}
             </div>
             <div class="side dim">
               <div>{check.platforms.join(", ")}</div>
@@ -96,6 +99,11 @@
 {/if}
 
 <style>
+  .reports {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-top: 0.35rem;
+  }
   .head { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
   .head button { margin-left: auto; }
   .intro { max-width: 66ch; margin: 0 0 1rem; font-size: 12.5px; }

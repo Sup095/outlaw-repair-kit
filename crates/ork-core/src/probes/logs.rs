@@ -412,6 +412,17 @@ impl Probe for RecentLogErrorsProbe {
             min_tier: ScanTier::Quick,
             platforms: &[PlatformKind::Windows, PlatformKind::Linux],
             requires_tools: &[],
+            emits: &[
+                "logs.unexpected-shutdown",
+                "logs.bugcheck",
+                "logs.kernel-panic",
+                "logs.hardware-error",
+                "logs.display-driver-timeout",
+                "logs.gpu-fault",
+                "logs.oom-kill",
+                "logs.storage-error",
+                "logs.repeated-error",
+            ],
             requires_elevation: false,
         }
     }

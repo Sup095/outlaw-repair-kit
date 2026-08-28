@@ -156,6 +156,7 @@ impl Probe for FailedServicesProbe {
             min_tier: ScanTier::Quick,
             platforms: &[crate::PlatformKind::Windows, crate::PlatformKind::Linux],
             requires_tools: &[],
+            emits: &["service.stopped"],
             requires_elevation: false,
         }
     }

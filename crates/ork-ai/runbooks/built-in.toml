@@ -537,3 +537,219 @@ invasiveness = "inspect"
 [[entry.fixes]]
 description = "Note the reallocated-sector and error counts on the finding, then scan again in a few days. A number that has not moved is a different problem from one that has."
 invasiveness = "inspect"
+
+# --- What starts with the machine -------------------------------------------
+#
+# These five come from the start-up check. Read `docs/startup.md` before
+# changing the wording of any of them: the difference between "this is where
+# something hiding would put itself" and "you have something hiding" is the
+# whole reason that check is careful, and a runbook is exactly where that care
+# gets thrown away.
+
+[[entry]]
+id = "startup.encoded-command"
+title = "A start-up entry runs a command written so it cannot be read"
+finding_ids = ["startup.encoded-command"]
+explanation = """
+Something arranged to run at every start-up, and the command it runs is \
+encoded rather than written out. The encoding is not encryption and hides \
+nothing from a determined reader -- but it does hide the command from the \
+person scrolling the list, which is the only reason to use it there.
+
+Installers and management software do occasionally do this, so it is not proof \
+of anything on its own. What can be said is narrower and worth saying plainly: \
+of everything that starts with this machine, this is the entry whose purpose \
+cannot be read at a glance, and that is worth two minutes of your attention \
+rather than none.
+
+Decode it before deciding anything. The encoded text is base64; decoding it \
+changes nothing on the machine and tells you what the command actually is. If \
+what comes out is something you recognise, the matter is closed."""
+
+[[entry.fixes]]
+description = "Decode the command and read it. It only prints the text -- it runs nothing."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "If you do not recognise what it does, look up the program it runs before removing anything. Removing a start-up entry that something depends on is easy to undo; acting on a guess about what it was is not."
+invasiveness = "inspect"
+
+[[entry]]
+id = "startup.temporary-location"
+title = "A start-up entry runs a program from a temporary folder"
+finding_ids = ["startup.temporary-location"]
+explanation = """
+Something starts with the machine from a temporary folder, a downloads folder, \
+or a browser cache. Those places are for files on their way somewhere else. A \
+program that arranged to be started from one of them either was installed \
+carelessly, or was never installed at all and is running from where it landed.
+
+Installers that ask to run at start-up before they have finished installing do \
+this, and so does the other thing. Neither is confirmed by the location \
+alone."""
+
+[[entry.fixes]]
+description = "Look at the program named in the evidence below. If it belongs to something you installed and the installation finished, the entry is stale rather than sinister."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "If you do not recognise it, look the file up before deleting it, and prefer removing the start-up entry to deleting the file -- the entry can be put back."
+invasiveness = "inspect"
+
+[[entry]]
+id = "startup.points-at-nothing"
+title = "A start-up entry names a program that is not there"
+finding_ids = ["startup.points-at-nothing"]
+explanation = """
+The machine is asked to run these every time it starts, and the file each one \
+names is not on the disk. Nothing is broken by them: the operating system \
+tries, fails, and carries on. Almost always this is what an uninstaller left \
+behind when it removed the program but not the instruction to start it.
+
+They are clutter rather than a fault, and their real cost is to the list they \
+are in -- a start-up list with eleven dead entries in it is a list nobody \
+reads, which is the condition under which something worth noticing goes \
+unnoticed."""
+
+[[entry.fixes]]
+description = "Safe to remove: there is nothing behind them to break. Windows: Task Manager, Start-up apps tab, or the Start-up folder itself. Linux: the .desktop file in ~/.config/autostart."
+invasiveness = "low"
+
+[[entry.fixes]]
+description = "Check first that you did not want the program. This says it is gone, not that it is switched off -- so if you still want it, reinstalling it is the fix here, not removing the entry."
+invasiveness = "inspect"
+
+[[entry]]
+id = "startup.library-preload"
+title = "Every program on this machine is told to load an extra library first"
+finding_ids = ["startup.library-preload"]
+explanation = """
+A system-wide preload is set, which means every program that starts is told to \
+load this library before its own code. That is a legitimate mechanism -- \
+debuggers, compatibility shims, and some audio and graphics tools use it -- and \
+it is also the most direct way to make code run inside every program on a \
+machine without modifying any of them.
+
+Which of those it is depends entirely on what the library is, so that is the \
+question to answer. It is one file, and it is named below."""
+
+[[entry.fixes]]
+description = "Find out what the library is and what installed it. On Linux the setting lives in /etc/ld.so.preload and in the LD_PRELOAD environment variable; listing the file and asking the package manager which package owns it answers most cases."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "If nothing owns it and you did not put it there, that is worth pursuing properly rather than by deleting the file. A machine where this is malicious is a machine whose own tools are worth doubting, and the reliable answer is to check it from something that is not it."
+invasiveness = "inspect"
+
+[[entry]]
+id = "startup.crowded"
+title = "A great many things start with the machine"
+finding_ids = ["startup.crowded"]
+explanation = """
+Each of these is asked to start before the machine is usable, so they compete \
+for the disk and the processor at exactly the moment there is least of both to \
+go round. This is the usual answer to a computer that is slow for its first \
+two minutes and fine afterwards.
+
+Nothing here is wrong. A long list is a long list, and most of it is probably \
+software you chose. It is worth reading once, because almost nobody has ever \
+read theirs."""
+
+[[entry.fixes]]
+description = "Read the list and turn off the ones you do not need running before you have asked for them. Updaters, launchers, and printer utilities are the usual candidates; most will start themselves when you actually open the program."
+invasiveness = "low"
+
+[[entry.fixes]]
+description = "Turn them off rather than uninstalling them, and do it a few at a time. Disabling a start-up entry is immediately reversible and tells you what it was doing for you."
+invasiveness = "low"
+
+# --- System file integrity ---------------------------------------------------
+
+[[entry]]
+id = "system.files-altered"
+title = "System files no longer match their packages"
+finding_ids = ["system.files-altered"]
+explanation = """
+Files belonging to the operating system are not the files that were installed. \
+There are four ordinary explanations and one that is not: an update that did \
+not finish, a disk that corrupted a file it was holding, a program that \
+overwrote a shared library with its own copy, a file you edited yourself -- or \
+something that replaced a system file deliberately.
+
+The check cannot tell those apart, and neither can anything else that runs on \
+this machine. What it can do is give you the list, which is the part that takes \
+a computer hours and a person minutes. Read it first: your own edits are \
+usually obvious to you and to nobody else, and every one you recognise is one \
+fewer thing to explain."""
+
+[[entry.fixes]]
+description = "Go through the list and mark off anything you changed yourself. Configuration under /etc, hosts files, and anything you remember editing all count as altered here."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "Repair the rest by reinstalling the package that owns each file, rather than by replacing files individually."
+invasiveness = "medium"
+
+[[entry.fixes]]
+description = "Windows: run the repairing version of the same check this tool ran, from an administrator prompt. If it cannot fix them, repair the store it draws replacements from and run it again."
+invasiveness = "medium"
+command = "sfc /scannow"
+platforms = ["windows"]
+
+[[entry.fixes]]
+description = "Linux: find the owning package, then reinstall it. Use pacman -Qo then pacman -S on Arch, rpm -qf then dnf reinstall on Fedora, dpkg -S then apt install --reinstall on Debian."
+invasiveness = "medium"
+platforms = ["linux"]
+
+[[entry]]
+id = "system.config-altered"
+title = "Configuration files differ from the packaged versions"
+finding_ids = ["system.config-altered"]
+explanation = """
+These are the files the packaging system marks as yours to edit, and they have \
+been edited. That is what they are for, and this is listed separately from the \
+altered system files for exactly that reason: on most machines it is a record \
+of decisions somebody made on purpose, not a problem.
+
+It is worth a read when something started misbehaving after an update, because \
+a package update leaves your version of a configuration file in place and puts \
+its new version alongside it. A setting that stopped working is often a setting \
+that moved."""
+
+[[entry.fixes]]
+description = "Nothing to do unless something is actually wrong. If it is, compare each file against the packaged version to see what your machine does differently."
+invasiveness = "inspect"
+
+[[entry.fixes]]
+description = "After an update, look for files left beside these ones with a .pacnew, .rpmnew, or .dpkg-dist suffix. Those are the new defaults, waiting for somebody to merge them."
+invasiveness = "inspect"
+platforms = ["linux"]
+
+[[entry]]
+id = "system.files-unverified"
+title = "System files could not be verified"
+finding_ids = ["system.files-unverified"]
+explanation = """
+The integrity check did not run, so nothing is known about the operating \
+system's own files -- which is not the same as knowing they are fine, and is \
+reported rather than passed over for that reason. This is most of what a deep \
+scan does that a full scan does not, and a deep scan that quietly skipped it \
+would read exactly like one that ran it and found nothing wrong.
+
+The usual causes are ordinary. Windows needs the scan to be run as an \
+administrator. Linux needs the distribution's package manager to be one this \
+tool knows how to ask, and some do not offer the question at all."""
+
+[[entry.fixes]]
+description = "Windows: run the deep scan again from a terminal opened as administrator. Verifying system files means reading files that are not readable otherwise."
+invasiveness = "inspect"
+platforms = ["windows"]
+
+[[entry.fixes]]
+description = "Linux: check whether your package manager can verify installed files at all. Arch, Fedora, and Debian each offer it under a different name, and if yours is not one of them the check has nothing to ask."
+invasiveness = "inspect"
+platforms = ["linux"]
+
+[[entry.fixes]]
+description = "If you asked for a deep scan because you suspect the machine has been tampered with, this is the check you wanted, and it is worth getting it to run. A machine that cannot verify itself is also the machine you would least want to take the answer from -- checking its disk from another system is the stronger version of this."
+invasiveness = "inspect"

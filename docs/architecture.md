@@ -42,10 +42,23 @@ installer cannot have prerequisites.
 `crates/ork-core`. This does most of the real work.
 
 A **probe** is one deterministic check. It declares up front which platforms it
-supports, which external tools it needs, and whether it requires elevation. The
-orchestrator gates on those declarations and records a *visible skip with a
-reason* rather than running a probe that cannot work. Probes emit `Finding`s:
-a stable slug, a severity, plain-language text, and structured evidence.
+supports, which external tools it needs, whether it requires elevation, and
+every problem it is able to report. The orchestrator gates on the first three
+and records a *visible skip with a reason* rather than running a probe that
+cannot work. Probes emit `Finding`s: a stable slug, a severity, plain-language
+text, and structured evidence.
+
+The last of those declarations exists because of a question nothing could
+otherwise ask: *is there a prepared answer for everything this tool can say?*
+Finding ids are string literals scattered through a probe's body, so a test
+that wants the full set has to restate it -- and a hand-written list next to an
+assertion cannot fail when a probe grows a new finding. That is not
+hypothetical. It is how the start-up check shipped five findings with a runbook
+answer for none of them, past a test written to catch exactly that. The list is
+now read from the probes, and the orchestrator checks each declaration against
+what actually comes back, so a list that drifts is caught rather than believed.
+`outlaw probes` prints it, because "what can this thing tell me" is a fair
+question to ask before running a diagnostic.
 
 Probes run one at a time on purpose. Several of them measure CPU, I/O, and
 memory pressure; running them concurrently would have them measure each other.

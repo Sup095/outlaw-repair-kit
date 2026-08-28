@@ -119,6 +119,7 @@ impl Probe for BrokenProbe {
                 PlatformKind::MacOs,
             ],
             requires_tools: &[],
+            emits: &[],
             requires_elevation: false,
         }
     }
@@ -146,6 +147,7 @@ impl Probe for NeedsMissingToolProbe {
                 PlatformKind::MacOs,
             ],
             requires_tools: &["definitely-not-installed"],
+            emits: &[],
             requires_elevation: false,
         }
     }
@@ -261,6 +263,7 @@ async fn a_probe_is_skipped_on_a_platform_it_does_not_support() {
                 min_tier: ScanTier::Quick,
                 platforms: &[PlatformKind::Linux],
                 requires_tools: &[],
+                emits: &[],
                 requires_elevation: false,
             }
         }
@@ -303,6 +306,7 @@ async fn a_probe_above_the_requested_tier_does_not_run() {
                     PlatformKind::MacOs,
                 ],
                 requires_tools: &[],
+                emits: &["test.deep-ran"],
                 requires_elevation: false,
             }
         }

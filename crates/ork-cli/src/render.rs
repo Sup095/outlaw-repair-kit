@@ -194,6 +194,12 @@ pub fn probes(json: bool) -> Result<()> {
         if check.requires_elevation {
             println!("  {}", dim("needs administrator rights"));
         }
+        if !check.reports.is_empty() {
+            println!(
+                "  {}",
+                dim(&format!("can report: {}", check.reports.join(", ")))
+            );
+        }
         // The useful line, and the reason this reads the catalogue rather
         // than the bare metadata: what a build knows how to do and what will
         // actually happen on this machine are different questions.

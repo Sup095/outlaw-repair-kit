@@ -106,6 +106,7 @@ impl Probe for MemoryPressureProbe {
                 PlatformKind::MacOs,
             ],
             requires_tools: &[],
+            emits: &["memory.high-pressure"],
             requires_elevation: false,
         }
     }

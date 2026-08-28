@@ -466,6 +466,13 @@ impl Probe for StartupProbe {
             min_tier: ScanTier::Full,
             platforms: &[PlatformKind::Windows, PlatformKind::Linux],
             requires_tools: &[],
+            emits: &[
+                "startup.encoded-command",
+                "startup.temporary-location",
+                "startup.points-at-nothing",
+                "startup.library-preload",
+                "startup.crowded",
+            ],
             // Deliberately not. Everything read here is readable by the person
             // whose machine it is, and a check that only runs for
             // administrators is a check most people never see.

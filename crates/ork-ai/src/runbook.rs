@@ -253,6 +253,18 @@ impl RunbookLibrary {
     }
 
     /// The entry that answers this finding, if the library has one.
+    /// Whether any entry claims this finding id at all.
+    ///
+    /// Deliberately not [`Self::lookup`]: that also applies each entry's
+    /// keywords, which narrow between several entries for the same id and
+    /// need a realistic finding to judge. The coverage question -- has
+    /// anybody written an answer for this kind of problem -- is about the id.
+    pub fn answers(&self, finding_id: &str) -> bool {
+        self.entries
+            .iter()
+            .any(|entry| entry.finding_ids.iter().any(|id| id == finding_id))
+    }
+
     pub fn lookup(&self, finding: &Finding) -> Option<&RunbookEntry> {
         // A more specific entry -- one that also requires a keyword -- wins
         // over a general one for the same finding.
@@ -317,37 +329,47 @@ mod tests {
 
     #[test]
     fn every_finding_the_probes_emit_has_an_answer() {
-        // If a probe grows a new finding id, this fails until the library
-        // learns about it -- which is the point. A finding with no runbook
+        // Asked of the probe registry rather than of a list written here.
+        // The list version of this test could not fail: it named seventeen
+        // ids and asserted each had an entry, so adding a probe with five new
+        // findings and no runbook answers left it green -- which is exactly
+        // what happened to the start-up probe. A finding with no runbook
         // falls through to the model every single time it occurs.
+        //
+        // Two things now have to be done deliberately to get past it: declare
+        // the finding on the probe, and either write an answer or say here
+        // that there deliberably is not one.
         let library = RunbookLibrary::built_in().unwrap();
-        let emitted = [
-            "storage.volume-low-on-space",
-            "memory.high-pressure",
-            "process.zombie-buildup",
-            "device.driver-mismatch",
-            "device.driver-missing",
-            "device.not-working",
-            "device.reboot-required",
-            "app.launch-failed",
-            "app.launch-hung",
-            "logs.unexpected-shutdown",
-            "logs.bugcheck",
-            "logs.hardware-error",
-            "logs.display-driver-timeout",
-            "logs.kernel-panic",
-            "logs.gpu-fault",
-            "logs.oom-kill",
-            "logs.storage-error",
-        ];
+        // A set, because two probes asking the same question of different
+        // operating systems report the same ids, and naming each twice makes
+        // the failure harder to read than the list it is reporting.
+        let unanswered: std::collections::BTreeSet<&str> = ork_core::probes::all_meta()
+            .iter()
+            .flat_map(|meta| meta.emits.iter().copied())
+            .filter(|id| !LEFT_TO_THE_MODEL.contains(id))
+            .filter(|id| !library.answers(id))
+            .collect();
 
-        for id in emitted {
-            assert!(
-                library.lookup(&finding(id, "some detail")).is_some(),
-                "no runbook entry answers `{id}`"
-            );
-        }
+        assert!(
+            unanswered.is_empty(),
+            "no runbook entry answers: {}",
+            unanswered.into_iter().collect::<Vec<_>>().join(", ")
+        );
     }
+
+    /// Findings with no canned answer, on purpose.
+    ///
+    /// Kept beside the test that skips them so that adding an id here is a
+    /// visible decision rather than a quiet omission.
+    const LEFT_TO_THE_MODEL: &[&str] = &[
+        // A large process might be a leak or a virtual machine, and busy is
+        // what a computer is for. Which one it is depends on the machine.
+        "process.memory-hog",
+        "process.sustained-high-cpu",
+        // Unrecognised by definition: if it were recognised it would be one
+        // of the specific log findings above it.
+        "logs.repeated-error",
+    ];
 
     #[test]
     fn findings_that_are_deliberately_left_to_the_model_have_no_entry() {
@@ -356,11 +378,7 @@ mod tests {
         // unrecognised by definition. Inventing a canned answer for them would
         // be worse than admitting there is not one.
         let library = RunbookLibrary::built_in().unwrap();
-        for id in [
-            "process.memory-hog",
-            "process.sustained-high-cpu",
-            "logs.repeated-error",
-        ] {
+        for id in LEFT_TO_THE_MODEL {
             assert!(
                 library.lookup(&finding(id, "detail")).is_none(),
                 "{id} unexpectedly matched"

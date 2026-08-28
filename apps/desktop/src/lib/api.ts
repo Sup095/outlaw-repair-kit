@@ -179,6 +179,8 @@ export interface CheckInfo {
   platforms: string[];
   requires_elevation: boolean;
   required_tools: string[];
+  /// Every problem this check is able to report.
+  reports: string[];
   /// Whether it can run on this machine, decided by the same rule the scanner
   /// uses rather than by a second copy of it here.
   available: boolean;

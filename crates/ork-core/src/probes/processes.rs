@@ -214,6 +214,11 @@ impl Probe for ProcessesProbe {
                 PlatformKind::MacOs,
             ],
             requires_tools: &[],
+            emits: &[
+                "process.memory-hog",
+                "process.sustained-high-cpu",
+                "process.zombie-buildup",
+            ],
             requires_elevation: false,
         }
     }

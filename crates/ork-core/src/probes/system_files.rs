@@ -28,6 +28,14 @@ use crate::tier::ScanTier;
 
 const PROBE_ID: &str = "system.files";
 
+/// What either half of this check can report. Shared for the same reason as
+/// the disk-health pair: one question, two ways of asking it.
+const INTEGRITY_FINDINGS: &[&str] = &[
+    "system.files-altered",
+    "system.config-altered",
+    "system.files-unverified",
+];
+
 /// How many damaged files to name in the finding itself.
 ///
 /// The rest are counted. A finding with nine hundred paths in it is not a
@@ -203,6 +211,7 @@ impl Probe for SystemFilesProbe {
             min_tier: ScanTier::Deep,
             platforms: &[PlatformKind::Windows],
             requires_tools: &[],
+            emits: INTEGRITY_FINDINGS,
             requires_elevation: true,
         }
     }
@@ -234,6 +243,7 @@ impl Probe for PackageFilesProbe {
             min_tier: ScanTier::Deep,
             platforms: &[PlatformKind::Linux],
             requires_tools: &[],
+            emits: INTEGRITY_FINDINGS,
             requires_elevation: false,
         }
     }

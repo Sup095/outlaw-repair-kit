@@ -264,6 +264,29 @@ impl Scanner {
                 }
             };
 
+            // A probe declares what it can report, and this is what keeps
+            // that declaration honest. Without it the list is a comment: it
+            // would go stale the first time somebody added a finding, and the
+            // things built on top of it -- chiefly the check that every
+            // finding has a prepared answer -- would quietly stop covering
+            // the new one. Warned about always, and a hard failure under test,
+            // so it is caught by whichever test happens to run the probe
+            // rather than needing a test of its own for each.
+            for finding in &findings {
+                if !meta.emits.contains(&finding.id.as_str()) {
+                    tracing::warn!(
+                        probe = meta.id,
+                        finding = %finding.id,
+                        "probe reported a finding it does not declare"
+                    );
+                    debug_assert!(
+                        false,
+                        "probe `{}` reported `{}`, which is not in its `emits` list",
+                        meta.id, finding.id
+                    );
+                }
+            }
+
             let outcome = ProbeOutcome {
                 probe: meta.id.to_string(),
                 name: meta.name.to_string(),
