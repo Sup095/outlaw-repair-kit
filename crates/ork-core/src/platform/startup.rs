@@ -144,20 +144,73 @@ pub fn library_preload() -> Option<String> {
     }
 }
 
+/// One entry as PowerShell hands it over.
+#[derive(Debug, Deserialize)]
+struct Raw {
+    name: Option<String>,
+    source: Option<String>,
+    command: Option<String>,
+    /// Set where the source already knows exactly what runs, rather than
+    /// leaving it to be read back out of a command line.
+    program: Option<String>,
+    machine: Option<bool>,
+}
+
+/// Read what PowerShell sent back.
+///
+/// Its own function, and not behind a `cfg`, because the two things most
+/// likely to go wrong here can both be checked without a Windows machine and
+/// neither was being checked at all:
+///
+/// * **One result comes back as an object, not a list.** `ConvertTo-Json`
+///   does that whenever the collection has a single element, and it is the
+///   classic way a parser that works everywhere breaks on the one machine
+///   with exactly one start-up entry.
+/// * **Nothing at all comes back** when every source was unavailable, and an
+///   empty answer must be an empty list rather than an error.
+fn read_entries(text: &str) -> Vec<StartupEntry> {
+    let text = text.trim();
+    if text.is_empty() {
+        return Vec::new();
+    }
+    let raw: Vec<Raw> = match serde_json::from_str::<Vec<Raw>>(text) {
+        Ok(list) => list,
+        Err(_) => match serde_json::from_str::<Raw>(text) {
+            Ok(one) => vec![one],
+            Err(error) => {
+                tracing::debug!(%error, "could not read the list of start-up entries");
+                return Vec::new();
+            }
+        },
+    };
+
+    raw.into_iter()
+        .filter_map(|entry| {
+            let command = entry.command?;
+            if command.trim().is_empty() {
+                return None;
+            }
+            Some(
+                StartupEntry {
+                    name: entry.name.unwrap_or_else(|| "unnamed".to_string()),
+                    source: entry.source.unwrap_or_default(),
+                    command,
+                    program: entry
+                        .program
+                        .map(|program| program.trim().to_string())
+                        .filter(|program| !program.is_empty()),
+                    program_exists: None,
+                    for_all_users: entry.machine.unwrap_or(false),
+                }
+                .resolved(),
+            )
+        })
+        .collect()
+}
+
 #[cfg(windows)]
 fn windows_entries() -> Result<Vec<StartupEntry>> {
     use super::common;
-
-    #[derive(Debug, Deserialize)]
-    struct Raw {
-        name: Option<String>,
-        source: Option<String>,
-        command: Option<String>,
-        /// Set where the source already knows exactly what runs, rather than
-        /// leaving it to be read back out of a command line.
-        program: Option<String>,
-        machine: Option<bool>,
-    }
 
     // One PowerShell invocation for all three places, because three would be
     // three chances to be slow on a machine that is already unwell.
@@ -250,58 +303,42 @@ $found | ConvertTo-Json -Compress -Depth 3
 "#;
 
     let output = common::run_capture("powershell", &["-NoProfile", "-Command", SCRIPT])?;
-    let text = output.stdout.trim();
-    if text.is_empty() {
-        return Ok(Vec::new());
-    }
-    // A single result comes back as an object rather than a list, which is
-    // PowerShell's habit and has broken more than one parser.
-    let raw: Vec<Raw> = match serde_json::from_str::<Vec<Raw>>(text) {
-        Ok(list) => list,
-        Err(_) => match serde_json::from_str::<Raw>(text) {
-            Ok(one) => vec![one],
-            Err(error) => {
-                tracing::debug!(%error, "could not read the list of start-up entries");
-                return Ok(Vec::new());
-            }
-        },
-    };
-
-    Ok(raw
-        .into_iter()
-        .filter_map(|entry| {
-            let command = entry.command?;
-            if command.trim().is_empty() {
-                return None;
-            }
-            Some(
-                StartupEntry {
-                    name: entry.name.unwrap_or_else(|| "unnamed".to_string()),
-                    source: entry.source.unwrap_or_default(),
-                    command,
-                    program: entry
-                        .program
-                        .map(|program| program.trim().to_string())
-                        .filter(|program| !program.is_empty()),
-                    program_exists: None,
-                    for_all_users: entry.machine.unwrap_or(false),
-                }
-                .resolved(),
-            )
-        })
-        .collect())
+    Ok(read_entries(&output.stdout))
 }
 
 #[cfg(target_os = "linux")]
 fn linux_entries() -> Result<Vec<StartupEntry>> {
+    let home = dirs::home_dir();
+    Ok(walk(
+        &[
+            (
+                home.as_ref().map(|home| home.join(".config/autostart")),
+                false,
+            ),
+            (Some(std::path::PathBuf::from("/etc/xdg/autostart")), true),
+        ],
+        home.as_ref()
+            .map(|home| home.join(".config/systemd/user"))
+            .as_deref(),
+    ))
+}
+
+/// Read start-up entries out of the directories they live in.
+///
+/// Takes the directories rather than knowing them, so that the whole walk --
+/// which is most of what the Linux side of this consists of -- can be run
+/// against a made-up machine on any operating system. Before this it was
+/// executed by nothing at all: the two parsers below had tests, and the code
+/// that finds files for them to parse did not.
+#[cfg(any(target_os = "linux", test))]
+pub fn walk(
+    autostart: &[(Option<std::path::PathBuf>, bool)],
+    user_units: Option<&std::path::Path>,
+) -> Vec<StartupEntry> {
     let mut found = Vec::new();
 
-    let home = dirs::home_dir();
-    let user_autostart = home.as_ref().map(|home| home.join(".config/autostart"));
-    for (directory, for_all_users) in [
-        (user_autostart.clone(), false),
-        (Some(std::path::PathBuf::from("/etc/xdg/autostart")), true),
-    ] {
+    for (directory, for_all_users) in autostart {
+        let for_all_users = *for_all_users;
         let Some(directory) = directory else { continue };
         let Ok(listing) = std::fs::read_dir(&directory) else {
             continue;
@@ -332,9 +369,8 @@ fn linux_entries() -> Result<Vec<StartupEntry>> {
     }
 
     // User systemd units, which by definition were not put there by a package.
-    if let Some(home) = &home {
-        let units = home.join(".config/systemd/user");
-        if let Ok(listing) = std::fs::read_dir(&units) {
+    if let Some(units) = user_units {
+        if let Ok(listing) = std::fs::read_dir(units) {
             for item in listing.flatten() {
                 let path = item.path();
                 if path.extension().and_then(|ext| ext.to_str()) != Some("service") {
@@ -364,7 +400,7 @@ fn linux_entries() -> Result<Vec<StartupEntry>> {
         }
     }
 
-    Ok(found)
+    found
 }
 
 /// The name and command out of a `.desktop` file.
@@ -432,6 +468,185 @@ mod tests {
         assert_eq!(unquote("a b"), "a b");
         assert_eq!(unquote("\"a b"), "\"a b");
         assert_eq!(unquote("a\"b"), "a\"b");
+    }
+
+    /// A directory of files, cleaned up when it goes out of scope.
+    struct Scratch(std::path::PathBuf);
+
+    impl Scratch {
+        fn new(label: &str) -> Self {
+            let dir = std::env::temp_dir().join(format!("ork-startup-{label}"));
+            let _ = std::fs::remove_dir_all(&dir);
+            std::fs::create_dir_all(&dir).expect("a scratch directory");
+            Self(dir)
+        }
+
+        fn write(&self, name: &str, contents: &str) -> &Self {
+            std::fs::write(self.0.join(name), contents).expect("a file");
+            self
+        }
+
+        fn path(&self) -> std::path::PathBuf {
+            self.0.clone()
+        }
+    }
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn the_walk_finds_autostart_files_and_says_who_they_are_for() {
+        // The whole Linux side of the enumeration, run against a made-up
+        // machine. Before this the two parsers had tests and the code that
+        // finds files for them to parse was executed by nothing at all.
+        let mine = Scratch::new("mine");
+        mine.write(
+            "backup.desktop",
+            "[Desktop Entry]\nName=Backup helper\nExec=/usr/bin/backup --daemon\n",
+        )
+        .write("notes.txt", "not a desktop file, and not an entry")
+        // A file an editor left behind, holding a command that would parse
+        // perfectly well. Nothing starts it, so reporting it would be
+        // inventing a start-up entry out of a backup file.
+        .write(
+            "backup.desktop.bak",
+            "[Desktop Entry]\nName=Old backup helper\nExec=/usr/bin/backup --old\n",
+        )
+        .write("broken.desktop", "[Desktop Entry]\nName=No command\n");
+
+        let everyones = Scratch::new("everyones");
+        everyones.write(
+            "printer.desktop",
+            "[Desktop Entry]\nName=Printer applet\nExec=/usr/bin/printer-applet\n",
+        );
+
+        let found = walk(
+            &[
+                (Some(mine.path()), false),
+                (Some(everyones.path()), true),
+                // A directory that is not there is an ordinary state, not a
+                // failure: plenty of machines have no /etc/xdg/autostart.
+                (Some(std::path::PathBuf::from("/definitely/not/here")), true),
+                (None, false),
+            ],
+            None,
+        );
+
+        let names: Vec<&str> = found.iter().map(|entry| entry.name.as_str()).collect();
+        assert!(names.contains(&"Backup helper"), "{names:?}");
+        assert!(names.contains(&"Printer applet"), "{names:?}");
+        assert!(
+            !names.contains(&"Old backup helper"),
+            "reported a leftover backup file as something that starts: {names:?}"
+        );
+        assert_eq!(found.len(), 2, "{names:?}");
+
+        let backup = found
+            .iter()
+            .find(|entry| entry.name == "Backup helper")
+            .unwrap();
+        assert_eq!(backup.command, "/usr/bin/backup --daemon");
+        assert_eq!(backup.program.as_deref(), Some("/usr/bin/backup"));
+        assert!(!backup.for_all_users);
+
+        let printer = found
+            .iter()
+            .find(|entry| entry.name == "Printer applet")
+            .unwrap();
+        assert!(printer.for_all_users, "a shared entry should say so");
+    }
+
+    #[test]
+    fn the_walk_finds_user_systemd_units_and_ignores_everything_else() {
+        // User units only, because a system unit was almost certainly put
+        // there by a package and listing four hundred of those would drown
+        // the one somebody wrote by hand.
+        let units = Scratch::new("units");
+        units
+            .write(
+                "sync.service",
+                "[Unit]\nDescription=Sync\n\n[Service]\nExecStart=/usr/bin/sync-thing --serve\n",
+            )
+            .write("sync.timer", "[Timer]\nOnCalendar=daily\n")
+            .write("empty.service", "[Unit]\nDescription=Nothing\n");
+
+        let found = walk(&[], Some(&units.path()));
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].name, "sync.service");
+        assert_eq!(found[0].command, "/usr/bin/sync-thing --serve");
+        assert!(!found[0].for_all_users);
+    }
+
+    #[test]
+    fn a_machine_with_nowhere_to_look_produces_an_empty_list_not_a_failure() {
+        assert!(walk(&[], None).is_empty());
+        assert!(walk(&[(None, false)], Some(std::path::Path::new("/nope"))).is_empty());
+    }
+
+    #[test]
+    fn a_list_of_entries_is_read_back() {
+        let text = r#"[
+          {"name":"Thing","source":"HKLM","command":"C:\\Thing\\thing.exe -q","machine":true},
+          {"name":"Other","source":"HKCU","command":"C:\\Other\\other.exe","machine":false}
+        ]"#;
+        let found = read_entries(text);
+        assert_eq!(found.len(), 2);
+        assert_eq!(found[0].name, "Thing");
+        assert!(found[0].for_all_users);
+        assert!(!found[1].for_all_users);
+    }
+
+    #[test]
+    fn a_single_entry_arriving_as_an_object_is_still_read() {
+        // PowerShell's `ConvertTo-Json` emits an object rather than a list
+        // whenever the collection holds exactly one thing. A parser that only
+        // understands lists works on every machine except the one with a
+        // single start-up entry, and that machine is not rare.
+        let text =
+            r#"{"name":"Only","source":"HKCU","command":"C:\\Only\\only.exe","machine":false}"#;
+        let found = read_entries(text);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].name, "Only");
+    }
+
+    #[test]
+    fn a_stated_program_is_used_and_a_missing_one_is_worked_out() {
+        let text = r#"[
+          {"name":"Task","source":"Scheduled task","command":"\"C:\\P F\\t.exe\" -a",
+           "program":"\"C:\\P F\\t.exe\"","machine":true},
+          {"name":"Key","source":"HKCU","command":"C:\\P F\\k.exe --go","machine":false}
+        ]"#;
+        let found = read_entries(text);
+        assert_eq!(found[0].program.as_deref(), Some("C:\\P F\\t.exe"));
+        assert_eq!(found[1].program.as_deref(), Some("C:\\P F\\k.exe"));
+    }
+
+    #[test]
+    fn nothing_at_all_is_an_empty_list_rather_than_an_error() {
+        // Every source unavailable is an ordinary outcome -- a locked-down
+        // machine, a policy blocking the scheduler -- and must not lose the
+        // whole check.
+        assert!(read_entries("").is_empty());
+        assert!(read_entries("   \n  ").is_empty());
+    }
+
+    #[test]
+    fn output_that_is_not_json_at_all_loses_the_check_and_not_the_scan() {
+        // PowerShell writing a warning where JSON was expected happens, and
+        // the answer is no entries rather than a failed scan.
+        assert!(read_entries("At line:1 char:1 + something went wrong").is_empty());
+    }
+
+    #[test]
+    fn an_entry_that_runs_nothing_is_dropped() {
+        let text = r#"[
+          {"name":"Empty","source":"HKCU","command":"   ","machine":false},
+          {"name":"NoCommand","source":"HKCU","machine":false}
+        ]"#;
+        assert!(read_entries(text).is_empty());
     }
 
     #[test]
