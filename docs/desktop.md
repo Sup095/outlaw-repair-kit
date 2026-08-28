@@ -101,16 +101,21 @@ a key is stored, not what it is.
 
 ## The look
 
-Amber and cyan on near-black, in a monospaced face, with a faint grid and
-scanlines behind everything -- the same palette as the terminal, so the two
-front-ends read as one tool.
+Neon. Electric cyan and hot magenta over a near-black that leans violet, with
+amber for the things that are ours and red for the things that are wrong.
+Behind everything: two grids offset from each other so they cross rather than
+stack, a magenta bloom low and a cyan one high as though something off-screen
+is lit, scanlines, and a vignette that keeps the corners dark so the middle
+reads as the lit part. Panels are lit boxes, bracketed cyan where reading
+starts and magenta where it ends. The same palette as the terminal boot
+screen, so the two front-ends read as one tool.
 
-It is deliberately restrained about it. Glow is on headings, accents, and
-states: the active tab, a button under the pointer, a severity badge. It is
-never on body text, never on a log line, never on anything you have to read a
-hundred of. This is a screen somebody reads when their computer is broken, and
-one that looks tremendous and is tiring to read has failed at the only job it
-has.
+It is deliberately disciplined about where the neon goes. Chrome, headings,
+borders, and states glow: the active tab, a button under the pointer, a
+severity badge, a scan in progress. Body text does not -- no glow, no tinting,
+no colour games. This is a screen somebody reads when their computer is broken,
+and one that looks tremendous and is tiring to read has failed at the only job
+it has.
 
 The one thing that moves on its own is a pulse travelling along the rule under
 the header, once every eight seconds. It sits in a single row of pixels at the

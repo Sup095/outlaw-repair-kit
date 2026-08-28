@@ -130,11 +130,16 @@
     align-items: center;
     gap: 2rem;
     padding: 0.75rem 1.25rem;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--line-bright);
     background:
-      linear-gradient(180deg, #141a26 0%, #0a0d14 100%);
+      linear-gradient(180deg, rgba(0, 240, 255, 0.05), transparent 60%),
+      linear-gradient(180deg, #10102a 0%, #07070f 100%);
+    box-shadow: 0 8px 32px -14px rgba(0, 240, 255, 0.35);
   }
 
+  /* The rule under the header runs cyan to magenta and back, so the two
+     colours the rest of the window is built from are stated once, at the top,
+     before anything else. */
   header::after {
     content: "";
     position: absolute;
@@ -145,12 +150,13 @@
     background: linear-gradient(
       90deg,
       transparent,
-      var(--amber-dim) 18%,
-      var(--amber) 50%,
-      var(--amber-dim) 82%,
+      var(--cyan) 14%,
+      var(--violet) 38%,
+      var(--magenta) 58%,
+      var(--amber) 82%,
       transparent
     );
-    opacity: 0.75;
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.5), 0 0 20px rgba(255, 45, 149, 0.3);
   }
 
   /* A pulse that travels along that rule, once every eight seconds. It is
@@ -162,16 +168,16 @@
     position: absolute;
     left: 0;
     bottom: -1px;
-    width: 120px;
+    width: 160px;
     height: 1px;
-    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
-    box-shadow: var(--glow-cyan);
+    background: linear-gradient(90deg, transparent, #fff, transparent);
+    box-shadow: 0 0 14px rgba(255, 255, 255, 0.9), 0 0 28px rgba(0, 240, 255, 0.7);
     animation: run 8s linear infinite;
     pointer-events: none;
   }
 
   @keyframes run {
-    0% { transform: translateX(-140px); opacity: 0; }
+    0% { transform: translateX(-180px); opacity: 0; }
     8% { opacity: 1; }
     92% { opacity: 1; }
     100% { transform: translateX(100vw); opacity: 0; }
@@ -183,11 +189,20 @@
     gap: 0.55rem;
   }
 
+  /* The wordmark is split into two offset colour copies behind the real one --
+     the misconvergence of a screen that is not quite aligned. Static, and
+     under a pixel, so it reads as a property of the display rather than as an
+     effect. */
   .mark {
+    position: relative;
     color: var(--amber);
     font-weight: 700;
     letter-spacing: 0.24em;
-    text-shadow: var(--glow-amber);
+    text-shadow:
+      var(--glow-amber),
+      0 0 28px rgba(255, 194, 26, 0.45),
+      1px 0 0 rgba(255, 45, 149, 0.55),
+      -1px 0 0 rgba(0, 240, 255, 0.55);
   }
 
   .sub {
@@ -207,22 +222,31 @@
     border-color: transparent;
     border-bottom: 2px solid transparent;
     box-shadow: none;
+    color: var(--text-dim);
   }
 
   nav button:hover:not(.active) {
     box-shadow: none;
-    background: rgba(34, 224, 226, 0.05);
-    border-bottom-color: var(--cyan-dim);
+    background: rgba(0, 240, 255, 0.06);
+    border-bottom-color: var(--cyan);
     color: var(--cyan);
     text-shadow: var(--glow-cyan);
   }
 
-  /* The active tab is the one thing on this screen that is always lit. */
+  /* The active tab is the one thing on this screen that is always lit: a
+     magenta underline with the glow spilling up behind the label. */
   nav button.active {
     color: var(--amber);
-    border-bottom-color: var(--amber);
-    text-shadow: var(--glow-amber);
-    box-shadow: 0 6px 14px -8px var(--amber);
+    border-bottom-color: var(--magenta);
+    text-shadow: var(--glow-amber), 0 0 26px rgba(255, 194, 26, 0.4);
+    background: linear-gradient(180deg, transparent 55%, rgba(255, 45, 149, 0.14));
+    box-shadow: 0 10px 22px -12px var(--magenta);
+  }
+
+  nav button.active::after {
+    /* The sweep belongs to buttons you press. The active tab is a state, not
+       an action, so it does not shimmer every time the pointer crosses it. */
+    display: none;
   }
 
   .meta {
@@ -234,16 +258,18 @@
   }
 
   .version {
-    color: var(--cyan-dim);
+    color: var(--cyan);
     letter-spacing: 0.1em;
+    text-shadow: var(--glow-cyan);
   }
 
   .warn {
     color: var(--yellow);
-    border: 1px solid #4a3a12;
+    border: 1px solid var(--yellow);
     padding: 0.15rem 0.5rem;
     cursor: help;
-    text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
+    text-shadow: 0 0 10px rgba(255, 217, 61, 0.6);
+    box-shadow: 0 0 16px rgba(255, 217, 61, 0.22), inset 0 0 14px rgba(255, 217, 61, 0.07);
   }
 
   .update {
@@ -251,10 +277,11 @@
     align-items: center;
     gap: 1rem;
     padding: 0.6rem 1.25rem;
-    background: linear-gradient(90deg, #1f1809, #14100633);
-    border-bottom: 1px solid #4a3a12;
+    background: linear-gradient(90deg, rgba(255, 194, 26, 0.14), transparent 70%);
+    border-bottom: 1px solid var(--amber-dim);
     color: var(--amber);
     font-size: 12.5px;
+    text-shadow: var(--glow-amber);
   }
 
   .update button {
@@ -269,9 +296,10 @@
 
   footer {
     position: relative;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--line-bright);
     padding: 0.5rem 1.25rem;
     font-size: 11.5px;
-    background: linear-gradient(180deg, transparent, rgba(4, 5, 10, 0.85));
+    background: linear-gradient(180deg, transparent, rgba(3, 3, 8, 0.9));
+    box-shadow: 0 -8px 26px -16px rgba(255, 45, 149, 0.55);
   }
 </style>

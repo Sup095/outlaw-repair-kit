@@ -1,43 +1,60 @@
-/* The look: a diagnostic terminal that has been left running in a dark room.
-   Amber and cyan phosphor on near-black, with magenta where something wants
-   your attention. Square and hard-edged rather than glossy -- corner brackets
-   instead of rounded corners, visible structure, nothing that looks soft.
+/* The look: neon. A diagnostic terminal in a room lit only by itself.
+   Electric cyan and hot magenta over a near-black that leans violet, with
+   amber for the things that are ours and red for the things that are wrong.
+   Everything structural glows a little; everything important glows a lot.
 
    The palette is shared with the terminal boot screen so the two front-ends
-   feel like one tool.
+   read as one tool.
 
-   One rule holds the whole thing together, and it is why this is restrained
-   where it could easily not be: **this is a tool somebody reads when their
-   computer is broken.** Glow goes on headings, accents, and states -- never on
-   body text, never on a log line, never on anything somebody has to read a
-   hundred of. A screen that looks tremendous and is tiring to read has failed
-   at the only job it has. Every effect below is either behind the content or
-   on something you look at rather than read. */
+   One rule keeps this from becoming unreadable, and it is worth stating
+   plainly because everything below is pushing against it: **this is a screen
+   somebody reads when their computer is broken.** Neon goes on chrome,
+   headings, borders, and states -- the things you look at. Body text stays
+   plain and high-contrast: no glow, no colour games, no tinting. A screen
+   that looks tremendous and is tiring to read has failed at the only job it
+   has. Every effect below is either behind the content, or on something you
+   glance at rather than read. */
 
 :root {
-  --bg: #070910;
-  --bg-deep: #04050a;
-  --bg-panel: #0e121b;
-  --bg-raised: #151a26;
-  --line: #232c3d;
-  --line-bright: #35405280;
-  --text: #dce3f0;
-  --text-dim: #7d8aa3;
-  --amber: #ffb000;
-  --amber-dim: #a87400;
-  --cyan: #22e0e2;
-  --cyan-dim: #0e7d7e;
-  --magenta: #ff3d81;
-  --green: #4ade80;
-  --yellow: #fbbf24;
-  --red: #ff4d5e;
+  /* Ground. Not grey -- a very dark violet, which is what makes the cyan and
+     magenta on top of it read as light rather than as paint. */
+  --bg: #06060f;
+  --bg-deep: #030308;
+  --bg-panel: #0c0c1a;
+  --bg-raised: #14142a;
+
+  --line: #2a2b52;
+  --line-bright: #3d3f7a;
+
+  --text: #e6ecff;
+  --text-dim: #8b93bf;
+
+  /* The neons. Brighter and more saturated than a palette meant for print,
+     because these are only ever seen emitting on black. */
+  --amber: #ffc21a;
+  --amber-dim: #b3820a;
+  --cyan: #00f0ff;
+  --cyan-dim: #0a8f99;
+  --magenta: #ff2d95;
+  --magenta-dim: #99164f;
+  --violet: #a855f7;
+  --green: #39ff88;
+  --yellow: #ffd93d;
+  --red: #ff2d55;
+
   --mono: "Cascadia Mono", "JetBrains Mono", "DejaVu Sans Mono", Consolas, monospace;
 
-  /* Phosphor bloom. Named rather than repeated, because the difference between
-     a screen that glows and a screen that smears is one number, and it should
-     be one number. */
-  --glow-amber: 0 0 12px rgba(255, 176, 0, 0.45);
-  --glow-cyan: 0 0 12px rgba(34, 224, 226, 0.45);
+  /* Bloom, in two strengths. Named rather than repeated: the difference
+     between a screen that glows and a screen that smears is these numbers,
+     and they should be in one place where they can be turned down. */
+  --glow-amber: 0 0 10px rgba(255, 194, 26, 0.55);
+  --glow-cyan: 0 0 10px rgba(0, 240, 255, 0.6);
+  --glow-magenta: 0 0 10px rgba(255, 45, 149, 0.6);
+  --glow-red: 0 0 10px rgba(255, 45, 85, 0.65);
+
+  --bloom-cyan: 0 0 22px rgba(0, 240, 255, 0.35), 0 0 44px rgba(0, 240, 255, 0.12);
+  --bloom-magenta: 0 0 22px rgba(255, 45, 149, 0.35), 0 0 44px rgba(255, 45, 149, 0.12);
+  --bloom-amber: 0 0 22px rgba(255, 194, 26, 0.32), 0 0 44px rgba(255, 194, 26, 0.1);
 
   color-scheme: dark;
 }
@@ -60,21 +77,35 @@ body {
   font-size: 14px;
   line-height: 1.5;
 
-  /* Three layers, back to front: a scanline wash, a faint engineering grid,
-     and a vignette that darkens the corners so the middle reads as lit. All
-     of it sits behind everything and none of it moves. */
+  /* Five layers, front to back: scanlines; a cyan grid; a magenta grid offset
+     from it so the two cross rather than stack, which is what stops the
+     background reading as graph paper; a magenta bloom low and a cyan bloom
+     high, as though something off-screen is lit; and the vignette that keeps
+     the corners dark so the middle reads as the lit part. None of it moves. */
   background-image:
     repeating-linear-gradient(
       to bottom,
-      rgba(190, 220, 255, 0.017) 0px,
-      rgba(190, 220, 255, 0.017) 1px,
+      rgba(200, 225, 255, 0.022) 0px,
+      rgba(200, 225, 255, 0.022) 1px,
       transparent 1px,
       transparent 3px
     ),
-    linear-gradient(rgba(34, 224, 226, 0.028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(34, 224, 226, 0.028) 1px, transparent 1px),
-    radial-gradient(ellipse 120% 90% at 50% 40%, transparent 40%, rgba(0, 0, 0, 0.55) 100%);
-  background-size: auto, 44px 44px, 44px 44px, auto;
+    linear-gradient(rgba(0, 240, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(rgba(255, 45, 149, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 45, 149, 0.022) 1px, transparent 1px),
+    radial-gradient(ellipse 70% 45% at 12% 108%, rgba(255, 45, 149, 0.13), transparent 70%),
+    radial-gradient(ellipse 75% 50% at 88% -8%, rgba(0, 240, 255, 0.11), transparent 70%),
+    radial-gradient(ellipse 120% 90% at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.72) 100%);
+  background-size:
+    auto,
+    46px 46px,
+    46px 46px,
+    138px 138px,
+    138px 138px,
+    auto,
+    auto,
+    auto;
   background-attachment: fixed;
 }
 
@@ -87,14 +118,15 @@ h3 {
   margin: 0;
 }
 
-/* Screen titles carry a leading bar, the way a readout
-   labels a section rather than the way a document labels a chapter. */
+/* Screen titles carry a lit bar, the way a readout labels a section rather
+   than the way a document labels a chapter -- and the glow is doubled on the
+   text so the title reads as the brightest thing on the screen. */
 h2 {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   color: var(--amber);
-  text-shadow: var(--glow-amber);
+  text-shadow: var(--glow-amber), 0 0 26px rgba(255, 194, 26, 0.3);
 }
 
 h2::before {
@@ -105,48 +137,69 @@ h2::before {
   /* Takes the heading's own colour, so the bar beside a cyan heading in the
      manual is cyan rather than the amber of the screen titles. */
   background: currentColor;
-  box-shadow: 0 0 10px currentColor;
+  box-shadow: 0 0 12px currentColor, 0 0 26px currentColor;
 }
 
 h3 {
   color: var(--cyan);
+  text-shadow: var(--glow-cyan);
 }
 
-/* Buttons are notched at one corner -- the cheapest way to look machined
-   rather than drawn, and it costs no space. The clip is on a background layer
-   rather than the element, so the border survives it. */
+/* Buttons read as lit outlines rather than as filled controls: a dark slab, a
+   thin border, and the whole thing coming up in neon when the pointer is on
+   it. The sweep is a highlight travelling across the face on hover -- a
+   quarter of a second, once, not a loop. */
 button {
   position: relative;
+  overflow: hidden;
   font: inherit;
   color: var(--text);
-  background:
-    linear-gradient(160deg, var(--bg-raised), #0f131c);
-  border: 1px solid var(--line);
+  background: linear-gradient(160deg, var(--bg-raised), #0b0b16);
+  border: 1px solid var(--line-bright);
   padding: 0.45rem 0.9rem;
   cursor: pointer;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 12px;
   transition:
-    border-color 120ms,
-    color 120ms,
-    background 120ms,
-    box-shadow 160ms;
+    border-color 140ms,
+    color 140ms,
+    background 140ms,
+    box-shadow 200ms,
+    text-shadow 140ms;
+}
+
+button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 35%,
+    rgba(0, 240, 255, 0.16) 50%,
+    transparent 65%
+  );
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
+button:hover:not(:disabled)::after {
+  transform: translateX(120%);
+  transition: transform 480ms ease-out;
 }
 
 button:hover:not(:disabled) {
-  border-color: var(--amber);
-  color: var(--amber);
-  box-shadow:
-    var(--glow-amber),
-    inset 0 0 18px rgba(255, 176, 0, 0.07);
-  text-shadow: var(--glow-amber);
+  border-color: var(--cyan);
+  color: var(--cyan);
+  text-shadow: var(--glow-cyan);
+  box-shadow: var(--bloom-cyan), inset 0 0 22px rgba(0, 240, 255, 0.09);
 }
 
 button:focus-visible {
   outline: none;
-  border-color: var(--cyan);
-  box-shadow: var(--glow-cyan);
+  border-color: var(--magenta);
+  color: var(--magenta);
+  box-shadow: var(--bloom-magenta);
 }
 
 button:active:not(:disabled) {
@@ -155,25 +208,38 @@ button:active:not(:disabled) {
 }
 
 button:disabled {
-  opacity: 0.35;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
+/* The one button on a screen that does the thing. Lit before you touch it. */
 button.primary {
-  border-color: var(--amber-dim);
+  border-color: var(--amber);
   color: var(--amber);
-  background: linear-gradient(160deg, #1d1708, #120e05);
+  background: linear-gradient(160deg, #2a2007, #150f03);
+  text-shadow: var(--glow-amber);
+  box-shadow: var(--bloom-amber), inset 0 0 20px rgba(255, 194, 26, 0.07);
 }
 
 button.primary:hover:not(:disabled) {
-  background: linear-gradient(160deg, #2a2009, #191204);
+  background: linear-gradient(160deg, #3a2c09, #1d1504);
+  border-color: var(--amber);
+  color: var(--amber);
+  text-shadow: var(--glow-amber), 0 0 26px rgba(255, 194, 26, 0.4);
+  box-shadow:
+    0 0 26px rgba(255, 194, 26, 0.45),
+    0 0 52px rgba(255, 194, 26, 0.16),
+    inset 0 0 24px rgba(255, 194, 26, 0.12);
 }
 
 button.danger:hover:not(:disabled) {
   border-color: var(--red);
   color: var(--red);
-  box-shadow: 0 0 12px rgba(255, 77, 94, 0.4);
-  text-shadow: 0 0 12px rgba(255, 77, 94, 0.4);
+  text-shadow: var(--glow-red);
+  box-shadow:
+    0 0 22px rgba(255, 45, 85, 0.4),
+    0 0 44px rgba(255, 45, 85, 0.14),
+    inset 0 0 20px rgba(255, 45, 85, 0.08);
 }
 
 input,
@@ -193,61 +259,69 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--cyan);
-  box-shadow: var(--glow-cyan), inset 0 0 14px rgba(34, 224, 226, 0.06);
+  box-shadow: var(--bloom-cyan), inset 0 0 16px rgba(0, 240, 255, 0.08);
 }
 
 code {
   color: var(--cyan);
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.35);
 }
 
 a {
-  color: var(--cyan);
-  text-decoration-color: var(--cyan-dim);
+  color: var(--magenta);
+  text-decoration-color: var(--magenta-dim);
+  text-shadow: 0 0 8px rgba(255, 45, 149, 0.35);
 }
 
 a:hover {
-  text-shadow: var(--glow-cyan);
+  text-shadow: var(--glow-magenta), 0 0 24px rgba(255, 45, 149, 0.3);
 }
 
 .dim {
   color: var(--text-dim);
 }
 
-/* Panels carry corner brackets rather than rounded corners: the frame a
-   heads-up display draws around a thing it is tracking. Two pseudo-elements,
-   one bracket each, on opposite corners -- enough to read as a frame without
-   boxing every panel in four times over. */
+/* Panels are lit boxes: a dark face, a border that glows faintly on its own,
+   a cyan wash down from the top edge, and a hairline of neon along that edge.
+   The corner brackets are the frame a heads-up display draws around a thing it
+   is tracking -- cyan at the top-left where reading starts, magenta at the
+   bottom-right where it ends, so a panel is bracketed by both of the screen's
+   colours rather than boxed in one. */
 .panel {
   position: relative;
   background:
-    linear-gradient(180deg, rgba(34, 224, 226, 0.022), transparent 90px),
-    var(--bg-panel);
-  border: 1px solid var(--line);
+    linear-gradient(180deg, rgba(0, 240, 255, 0.045), transparent 120px),
+    linear-gradient(180deg, var(--bg-panel), #0a0a14);
+  border: 1px solid var(--line-bright);
   padding: 1rem 1.15rem;
+  box-shadow:
+    0 0 24px rgba(0, 240, 255, 0.05),
+    inset 0 1px 0 rgba(0, 240, 255, 0.16);
 }
 
 .panel::before,
 .panel::after {
   content: "";
   position: absolute;
-  width: 9px;
-  height: 9px;
-  border: 1px solid var(--cyan-dim);
+  width: 10px;
+  height: 10px;
   pointer-events: none;
 }
 
 .panel::before {
   top: -1px;
   left: -1px;
-  border-right: none;
-  border-bottom: none;
+  border-top: 1px solid var(--cyan);
+  border-left: 1px solid var(--cyan);
+  box-shadow: -2px -2px 10px rgba(0, 240, 255, 0.45);
 }
 
 .panel::after {
   bottom: -1px;
   right: -1px;
-  border-left: none;
-  border-top: none;
+  border-bottom: 1px solid var(--magenta);
+  border-right: 1px solid var(--magenta);
+  box-shadow: 2px 2px 10px rgba(255, 45, 149, 0.45);
 }
 
 /* Severity badges.
@@ -258,8 +332,8 @@ a:hover {
  * and this badge is the single thing on any of those screens somebody scans
  * for first.
  *
- * The two that matter glow. Not decoration: on a screen with thirty findings
- * on it, the eye should land on the worst one without reading anything. */
+ * The bad ones burn. Not decoration: on a screen with thirty findings on it,
+ * the eye should land on the worst one without reading anything. */
 .sev {
   text-transform: uppercase;
   font-size: 10.5px;
@@ -273,21 +347,24 @@ a:hover {
   color: #fff;
   background: var(--red);
   border-color: var(--red);
-  box-shadow: 0 0 14px rgba(255, 77, 94, 0.55);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 20px rgba(255, 45, 85, 0.7), 0 0 40px rgba(255, 45, 85, 0.25);
 }
 
 .sev.high {
   color: var(--red);
-  text-shadow: 0 0 10px rgba(255, 77, 94, 0.55);
+  text-shadow: var(--glow-red);
+  box-shadow: 0 0 14px rgba(255, 45, 85, 0.22);
 }
 
 .sev.medium {
   color: var(--yellow);
-  text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
+  text-shadow: 0 0 10px rgba(255, 217, 61, 0.5);
 }
 
 .sev.low {
   color: var(--cyan);
+  text-shadow: 0 0 9px rgba(0, 240, 255, 0.45);
 }
 
 .sev.info {
@@ -304,17 +381,18 @@ a:hover {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--line);
+  background: linear-gradient(180deg, var(--cyan-dim), var(--magenta-dim));
   border: 1px solid var(--bg-deep);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--amber-dim);
+  background: linear-gradient(180deg, var(--cyan), var(--magenta));
 }
 
 ::selection {
   background: var(--magenta);
-  color: #000;
+  color: #05050c;
+  text-shadow: none;
 }
 
 /* Anyone who has asked their system not to animate things gets a still

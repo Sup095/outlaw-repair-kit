@@ -162,13 +162,13 @@
   .doc :global(ul), .doc :global(ol) { margin: 0 0 0.85rem; padding-left: 1.3rem; }
   .doc :global(li) { margin-bottom: 0.25rem; }
   .doc :global(code) {
-    background: #171c25;
+    background: var(--bg-deep);
     border: 1px solid var(--line);
     padding: 0.05rem 0.3rem;
     font-size: 12px;
   }
   .doc :global(pre) {
-    background: #10141b;
+    background: var(--bg-deep);
     border: 1px solid var(--line);
     padding: 0.7rem 0.9rem;
     overflow-x: auto;
@@ -184,7 +184,9 @@
   .doc :global(table) { border-collapse: collapse; margin: 0 0 0.9rem; font-size: 12px; display: block; overflow-x: auto; }
   .doc :global(th), .doc :global(td) { border: 1px solid var(--line); padding: 0.35rem 0.6rem; text-align: left; vertical-align: top; }
   .doc :global(th) { color: var(--cyan); font-weight: 600; }
-  .doc :global(a) { color: var(--cyan); }
+  /* Magenta, matching links everywhere else, and so that a link is not the
+     same colour as the heading above it. */
+  .doc :global(a) { color: var(--magenta); text-shadow: 0 0 8px rgba(255, 45, 149, 0.35); }
   .doc :global(hr) { border: none; border-top: 1px solid var(--line); margin: 1.4rem 0; }
   .doc :global(strong) { color: var(--text); font-weight: 600; }
 </style>

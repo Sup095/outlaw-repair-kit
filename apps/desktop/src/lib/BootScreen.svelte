@@ -120,7 +120,7 @@
     inset: 0;
     display: grid;
     place-items: center;
-    background: radial-gradient(ellipse at 50% 40%, #131a24 0%, #07080b 70%);
+    background: radial-gradient(ellipse at 50% 40%, #131033 0%, #040409 72%);
     overflow: hidden;
   }
 
@@ -129,8 +129,8 @@
   .grid {
     position: absolute;
     inset: -50% -50% -20% -50%;
-    background-image: linear-gradient(rgba(34, 224, 226, 0.13) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(34, 224, 226, 0.13) 1px, transparent 1px);
+    background-image: linear-gradient(rgba(0, 240, 255, 0.16) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 45, 149, 0.13) 1px, transparent 1px);
     background-size: 46px 46px;
     transform: perspective(420px) rotateX(66deg);
     animation: drift 6s linear infinite;
@@ -146,7 +146,10 @@
   .glow {
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at 50% 30%, rgba(255, 176, 0, 0.09), transparent 55%);
+    background:
+      radial-gradient(circle at 50% 28%, rgba(255, 194, 26, 0.11), transparent 52%),
+      radial-gradient(ellipse 60% 40% at 15% 92%, rgba(255, 45, 149, 0.16), transparent 70%),
+      radial-gradient(ellipse 60% 40% at 85% 8%, rgba(0, 240, 255, 0.13), transparent 70%);
     pointer-events: none;
   }
 
@@ -158,43 +161,59 @@
 
   .title {
     position: relative;
+    z-index: 1;
     font-size: clamp(3rem, 11vw, 6.5rem);
     font-weight: 700;
     letter-spacing: 0.22em;
     color: var(--amber);
-    text-shadow: 0 0 26px rgba(255, 176, 0, 0.45);
+    text-shadow:
+      0 0 18px rgba(255, 194, 26, 0.75),
+      0 0 46px rgba(255, 194, 26, 0.4);
     line-height: 1;
   }
 
-  /* Chromatic split, offset a hair each way and jittered occasionally. */
+  /* Chromatic split: two copies of the word offset a hair each way, in cyan
+     and magenta, and jittered occasionally.
+     
+     They sit *behind* the real one rather than over it, which is the whole
+     point -- over it, the copies recoloured the wordmark and it came out pink,
+     so the one piece of branding on the screen was not the brand's colour. 
+     Behind, they read as the colour fringing of a display that is not quite
+     converged, and the word stays amber. */
   .title::before,
   .title::after {
     content: attr(data-text);
     position: absolute;
     inset: 0;
+    z-index: -1;
     letter-spacing: 0.22em;
   }
 
   .title::before {
     color: var(--cyan);
+    text-shadow: 0 0 22px rgba(0, 240, 255, 0.7);
     animation: glitch-a 4.5s infinite steps(1);
   }
 
   .title::after {
-    color: #ff3b6b;
+    color: var(--magenta);
+    text-shadow: 0 0 22px rgba(255, 45, 149, 0.7);
     animation: glitch-b 4.5s infinite steps(1);
   }
 
+  /* At rest the copies sit three pixels out, which is the fringe. The jitter
+     is three frames every four and a half seconds -- a display losing sync for
+     an instant, not a strobe. */
   @keyframes glitch-a {
-    0%, 92%, 100% { transform: translate(-2px, 0); clip-path: inset(0 0 62% 0); opacity: 0.45; }
-    94% { transform: translate(-7px, -2px); opacity: 0.85; }
-    97% { transform: translate(4px, 1px); clip-path: inset(48% 0 0 0); }
+    0%, 92%, 100% { transform: translate(-3px, 0); opacity: 0.85; }
+    94% { transform: translate(-11px, -3px); opacity: 1; }
+    97% { transform: translate(6px, 2px); opacity: 1; }
   }
 
   @keyframes glitch-b {
-    0%, 92%, 100% { transform: translate(2px, 0); clip-path: inset(58% 0 0 0); opacity: 0.35; }
-    95% { transform: translate(6px, 2px); opacity: 0.7; }
-    98% { transform: translate(-4px, -1px); clip-path: inset(0 0 55% 0); }
+    0%, 92%, 100% { transform: translate(3px, 0); opacity: 0.8; }
+    95% { transform: translate(10px, 3px); opacity: 1; }
+    98% { transform: translate(-6px, -2px); opacity: 1; }
   }
 
   .subtitle {
@@ -226,15 +245,15 @@
   .seg {
     flex: 1;
     height: 12px;
-    background: #1b2029;
-    border: 1px solid #232a36;
+    background: var(--bg-deep);
+    border: 1px solid var(--line);
     transition: background 180ms ease, box-shadow 180ms ease;
   }
 
   .seg.on {
     background: var(--amber);
     border-color: var(--amber);
-    box-shadow: 0 0 9px rgba(255, 176, 0, 0.65);
+    box-shadow: 0 0 12px rgba(255, 194, 26, 0.8), 0 0 26px rgba(255, 194, 26, 0.35);
   }
 
   .percent {
@@ -242,6 +261,7 @@
     color: var(--amber);
     letter-spacing: 0.2em;
     font-size: 12px;
+    text-shadow: var(--glow-amber);
   }
 
   .log {

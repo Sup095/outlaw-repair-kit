@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Outlaw Repair Kit</title>
+    <!-- The ground colour, inline, before any stylesheet is fetched.
+         Without it the webview paints its own white for the frame or two
+         before the styles arrive, and a full-window flash of white on the way
+         into a black application looks exactly like something going wrong.
+         The window itself is given the same colour in tauri.conf.json, for the
+         frame before the webview paints at all. -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #06060f;
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>

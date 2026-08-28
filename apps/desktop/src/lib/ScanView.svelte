@@ -191,14 +191,16 @@
   .idle-mark .ring {
     width: 100%;
     height: 100%;
-    border: 1px solid var(--cyan-dim);
+    border: 1px solid var(--cyan);
+    box-shadow: 0 0 16px rgba(0, 240, 255, 0.5), inset 0 0 16px rgba(0, 240, 255, 0.18);
     animation: sweep 3.4s ease-in-out infinite;
   }
 
   .idle-mark .ring.two {
     width: 62%;
     height: 62%;
-    border-color: var(--amber-dim);
+    border-color: var(--magenta);
+    box-shadow: 0 0 16px rgba(255, 45, 149, 0.5), inset 0 0 16px rgba(255, 45, 149, 0.18);
     animation-delay: 1.1s;
   }
 
@@ -206,7 +208,7 @@
     width: 7px;
     height: 7px;
     background: var(--amber);
-    box-shadow: var(--glow-amber);
+    box-shadow: var(--glow-amber), 0 0 24px rgba(255, 194, 26, 0.6);
   }
 
   @keyframes sweep {
@@ -256,12 +258,16 @@
 
   .track {
     height: 6px;
-    background: #1b2029;
+    background: var(--bg-deep);
+    border: 1px solid var(--line);
   }
 
+  /* The bar runs cyan into magenta and casts light on the track around it, so
+     a scan in progress is visible from across a room. */
   .fill {
     height: 100%;
-    background: var(--cyan);
+    background: linear-gradient(90deg, var(--cyan), var(--violet) 60%, var(--magenta));
+    box-shadow: 0 0 14px rgba(0, 240, 255, 0.65), 0 0 28px rgba(255, 45, 149, 0.4);
     transition: width 200ms ease;
   }
 
@@ -273,6 +279,7 @@
     border-color: var(--red);
     color: var(--red);
     margin-bottom: 1rem;
+    box-shadow: 0 0 22px rgba(255, 45, 85, 0.25), inset 0 1px 0 rgba(255, 45, 85, 0.35);
   }
 
   .finding {

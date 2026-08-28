@@ -260,6 +260,8 @@
     color: var(--green);
     border: 1px solid var(--green);
     padding: 0.1rem 0.45rem;
+    text-shadow: 0 0 10px rgba(57, 255, 136, 0.6);
+    box-shadow: 0 0 18px rgba(57, 255, 136, 0.3), inset 0 0 14px rgba(57, 255, 136, 0.08);
   }
 
   .layout { display: grid; grid-template-columns: 1fr minmax(240px, 300px); gap: 1rem; align-items: start; }
@@ -286,15 +288,23 @@
     padding: 0.05rem 0.4rem;
     white-space: nowrap;
   }
-  .tag.critical { color: #fff; background: var(--red); border-color: var(--red); }
-  .tag.high { color: var(--red); }
-  .tag.medium { color: var(--yellow); }
-  .tag.low { color: var(--cyan); }
+  .tag.critical {
+    color: #fff;
+    background: var(--red);
+    border-color: var(--red);
+    box-shadow: 0 0 18px rgba(255, 45, 85, 0.65);
+  }
+  .tag.high { color: var(--red); text-shadow: var(--glow-red); }
+  .tag.medium { color: var(--yellow); text-shadow: 0 0 10px rgba(255, 217, 61, 0.5); }
+  .tag.low { color: var(--cyan); text-shadow: var(--glow-cyan); }
   .tag.info { color: var(--text-dim); }
   /* The only good news this screen prints. Showing it in the same red as
      everything else would make somebody's heart sink at being told a problem
      went away. */
-  .tag.good { color: var(--green); }
+  .tag.good {
+    color: var(--green);
+    text-shadow: 0 0 10px rgba(57, 255, 136, 0.55);
+  }
 
   .gap { margin: 0.6rem 0 0; font-size: 11.5px; }
 
