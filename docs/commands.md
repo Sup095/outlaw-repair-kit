@@ -72,8 +72,17 @@ automatically.
 
 ## `outlaw probes`
 
-List every check this build knows how to run, what it needs, and which
-platforms it supports.
+List every check this build knows how to run, what it needs, which platforms
+it supports, and **every problem it is able to report**.
+
+That last line is the one worth reading before a scan. A description says what
+a check looks at; the list says what it can actually come back and tell you,
+which is the question somebody deciding whether to run a diagnostic is really
+asking. Each check is also marked with whether it can run *here* -- a check
+needing administrator rights or a tool that is not installed says so rather
+than quietly finding nothing.
+
+`--json` gives the same, including a `reports` field on each check.
 
 ---
 
@@ -278,7 +287,14 @@ land in your shell history or the process list.
 ## `outlaw queue`
 
 Show problems waiting to be worked, worst first, with how many attempts each
-has had and what state it is in.
+has had, what state it is in, and **when it was last actually seen**.
+
+A queue keeps a problem until somebody works it, so without that last part
+something found a fortnight ago and quietly resolved since reads exactly like
+something the machine has now. Every scan that finds a problem again moves the
+time forward. Nothing here decides when an item has gone stale -- three days is
+nothing for a driver fault and a long time for a runaway process -- so it
+reports when it was last seen and leaves the judgement to you.
 
 ---
 
@@ -332,7 +348,7 @@ Nothing in the link can change the machine at the other end.
 
 ## `outlaw boot`
 
-Run the start-up screen on its own: six self-checks and an update check. Exits
+Run the start-up screen on its own: 7 self-checks and an update check. Exits
 non-zero if a check failed.
 
 ```bash
@@ -340,8 +356,14 @@ outlaw boot
 outlaw boot --json
 ```
 
-Start-up runs automatically before `scan` and `fix`. Skip it with `--no-boot`,
-which is also implied by `--json`.
+Start-up runs automatically before `scan` and `fix`. `--no-boot` skips it, and
+is the only thing that does.
+
+`--json` does **not** skip it -- it runs the same checks and prints nothing,
+because asking for machine-readable output is a statement about the output and
+not about which safety checks apply. It used to skip it, which meant
+`outlaw --json fix --apply` changed the machine without the self-test that is
+supposed to refuse when the snapshot area cannot be vouched for.
 
 The update check reports and never installs. See [desktop.md](desktop.md) for
 what each check covers.

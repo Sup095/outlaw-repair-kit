@@ -458,10 +458,20 @@ mod tests {
     #[test]
     fn a_process_doing_real_work_is_never_declared_stuck() {
         // This is the whole point of a liveness check rather than a timeout.
-        // The process produces no output at all and runs for twice the stall
-        // window, but it is busy, so it must be allowed to finish.
-        const STALL_SECS: u64 = 2;
-        const WORK_SECS: u32 = 4;
+        // The process produces no output at all and runs for well past the
+        // stall window, but it is busy, so it must be allowed to finish.
+        //
+        // The window is generous because this test starts a real process and
+        // then depends on the operating system scheduling it. At two seconds
+        // it failed on a machine that was running the tool's own stress test
+        // across every core: the workload was starved of processor time for
+        // 2.8 seconds, which is a fact about that machine and not about the
+        // supervisor. The case where a process runs but never registers a
+        // *rate* is covered next door without any real process at all, which
+        // is where that belongs. Here the point is that the whole thing works
+        // end to end, and headroom is worth more than seconds saved.
+        const STALL_SECS: u64 = 5;
+        const WORK_SECS: u32 = 8;
 
         let (program, args) = busy_command(WORK_SECS);
         let args: Vec<&str> = args.iter().map(String::as_str).collect();

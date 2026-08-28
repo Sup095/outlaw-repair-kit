@@ -39,6 +39,35 @@ run, so a list that drifts out of date is caught rather than believed.
 
 ### Also in this release
 
+- **`--json` no longer skipped the start-up self-test.** It turned the whole
+  thing off rather than quietening it, and the self-test is what refuses to
+  change anything when the tool cannot vouch for its own snapshot area. So
+  `outlaw --json fix --apply` applied fixes with that refusal switched off.
+  Asking for machine-readable output is a statement about the output, not about
+  which safety checks apply. The checks now run either way and simply print
+  nothing, `--no-boot` is the only thing that skips them, and `outlaw --json
+  boot` is now actually JSON rather than JSON with a banner drawn across it.
+
+- **The manual is now checked against the program.** Documentation drifts
+  silently, and several pages had: the runbook page said eighteen entries when
+  thirty ship and its table was missing eleven findings, the command reference
+  said six start-up checks when there are seven, and the front page's table of
+  what a scan looks at had lost a whole check. Those are all corrected, and the
+  counts, the finding table, the check list, and every link between pages are
+  now compared against the code by tests. A manual carried inside the program
+  for the machine that cannot reach the internet has to be right, because there
+  is nowhere else to look.
+
+- **Two tests that would have failed for somebody else.** Found by running the
+  suite while the tool's own stress test held every processor core. One asked a
+  600-millisecond run to complete more than two blocks of work, which is a
+  statement about how fast the machine is; the other gave a busy process two
+  seconds to prove it was alive, and the process was starved for 2.8. Neither
+  had failed here before, and both would eventually have failed on a shared
+  build machine. Nothing about the tool changed, except that the check which
+  reports a stalled program now says a saturated machine looks the same from
+  the outside.
+
 - **The queue says when it last actually saw each problem.** It kept a problem
   until somebody worked it, and stated every one of them in the present tense,
   so something found a fortnight ago and quietly resolved since read exactly

@@ -254,7 +254,9 @@ fn from_outcome(
             reason: format!(
                 "the check stopped responding after {} seconds of no activity at all, and was \
                  stopped. A machine that goes silent part-way through reading its own system \
-                 files is often one with a disk that cannot read them.",
+                 files is often one with a disk that cannot read them -- though a machine with \
+                 every processor already saturated looks the same from here, so this is worth \
+                 repeating on a quiet machine before reading anything into it.",
                 idle.as_secs()
             ),
         },

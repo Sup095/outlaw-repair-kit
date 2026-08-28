@@ -158,6 +158,113 @@ pub fn contents() -> Vec<(&'static str, &'static str, &'static str)> {
 mod tests {
     use super::*;
 
+    /// Pages in `docs/` that deliberately are not carried in the binary.
+    ///
+    /// Only one, and only because it is the index of the folder for somebody
+    /// browsing the repository -- a list of links to the other files, which is
+    /// exactly what `outlaw docs` with no argument already prints, from the
+    /// list below rather than from a file that could disagree with it.
+    const NOT_CARRIED: &[&str] = &["README"];
+
+    #[test]
+    fn every_page_in_the_folder_is_carried_in_the_binary() {
+        // Reads the directory rather than trusting a list, because `PAGES` is
+        // written by hand and a page added to `docs/` without a line here
+        // compiles perfectly and is simply absent from the program. Nothing
+        // else would notice: the file exists, the links to it work on the web,
+        // and the machine that cannot reach the web is the one that needed it.
+        let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs");
+        let mut missing = Vec::new();
+
+        for entry in std::fs::read_dir(&folder)
+            .expect("the docs folder")
+            .flatten()
+        {
+            let path = entry.path();
+            if path.extension().and_then(|ext| ext.to_str()) != Some("md") {
+                continue;
+            }
+            let Some(stem) = path.file_stem().and_then(|stem| stem.to_str()) else {
+                continue;
+            };
+            if NOT_CARRIED.contains(&stem) {
+                continue;
+            }
+            if find(stem).is_none() {
+                missing.push(stem.to_string());
+            }
+        }
+
+        assert!(
+            missing.is_empty(),
+            "written but not carried: {}. Add each to `PAGES`, or to `NOT_CARRIED` with a reason.",
+            missing.join(", ")
+        );
+    }
+
+    #[test]
+    fn every_carried_page_is_a_file_that_exists() {
+        // The other direction. A page whose file was renamed would fail to
+        // compile, but one pointed at a file elsewhere in the tree would not,
+        // and `outlaw docs` is meant to be the same text the repository has.
+        let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../docs");
+        for page in PAGES {
+            // The changelog is the exception by design: it lives at the top
+            // of the repository because that is where people look for it.
+            if page.id == "changelog" {
+                continue;
+            }
+            let path = folder.join(format!("{}.md", page.id));
+            assert!(
+                path.exists(),
+                "`{}` is carried but `docs/{}.md` does not exist",
+                page.id,
+                page.id
+            );
+        }
+    }
+
+    #[test]
+    fn no_page_links_to_a_file_that_is_not_there() {
+        // The front page was checked for broken links and the pages it leads
+        // to were not, which is the wrong way round: somebody following
+        // `docs/watching.md` to a page that was renamed is already several
+        // steps in and has no reason to doubt the trail.
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let docs = root.join("docs");
+        let mut broken = Vec::new();
+
+        for page in PAGES {
+            // Links are written relative to the file they are in, and every
+            // page except the changelog lives in `docs/`.
+            let from = if page.id == "changelog" { &root } else { &docs };
+            for target in links(page.body) {
+                if target.starts_with("http") || target.starts_with('#') || target.is_empty() {
+                    continue;
+                }
+                let path = target.split('#').next().unwrap_or(&target);
+                if !from.join(path).exists() {
+                    broken.push(format!("{} -> {path}", page.id));
+                }
+            }
+        }
+
+        assert!(broken.is_empty(), "links to nothing: {broken:?}");
+    }
+
+    /// Every markdown link target in a page.
+    fn links(body: &str) -> Vec<String> {
+        let mut found = Vec::new();
+        let mut rest = body;
+        while let Some(at) = rest.find("](") {
+            let after = &rest[at + 2..];
+            let Some(end) = after.find(')') else { break };
+            found.push(after[..end].to_string());
+            rest = &after[end..];
+        }
+        found
+    }
+
     #[test]
     fn every_page_carries_something() {
         // `include_str!` on a file that has been emptied still compiles. This

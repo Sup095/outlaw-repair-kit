@@ -168,11 +168,27 @@ fn print_banner() {
     println!();
 }
 
-/// Show the boot screen and run the start-up sequence.
+/// Run the start-up sequence, showing the boot screen.
 ///
 /// Returns the report so the caller can decide what a failure means; this
 /// function only reports, it never exits the process.
 pub async fn run() -> BootReport {
+    show_and_run().await
+}
+
+/// The same sequence with nothing printed.
+///
+/// For `--json`, which needs the self-test to have actually happened and
+/// cannot have a banner drawn across its output. The two used to be the same
+/// choice: `--json` skipped the boot entirely rather than quieten it, which
+/// meant `--json fix --apply` changed the machine without the self-test that
+/// is supposed to stop it doing so when the snapshot area cannot be vouched
+/// for. Quiet is a presentation decision; whether the check runs is not.
+pub async fn run_quietly() -> BootReport {
+    ork_boot::boot(|_| {}).await
+}
+
+async fn show_and_run() -> BootReport {
     let _palette = Palette::apply();
     print_banner();
 

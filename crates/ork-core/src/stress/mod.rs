@@ -1093,7 +1093,17 @@ mod tests {
         assert!(report.clean(), "{:?}", report.faults);
         let cpu = report.cpu.expect("the processor was worked");
         assert_eq!(cpu.threads, 2);
-        assert!(cpu.blocks > 2, "did no real work: {} blocks", cpu.blocks);
+        // More than none, and deliberately not more than some number. This
+        // asked for more than two blocks in 600 milliseconds, which is a
+        // statement about how fast the machine running the test is -- and it
+        // failed the first time the rest of the suite happened to be using
+        // the processor at the same time. A CI runner is two shared cores
+        // doing several things at once, so that assertion was a flake waiting
+        // for somebody else's build. What this test is for is that the run
+        // came back Completed having actually counted work rather than
+        // returning an empty report; that each block is genuinely verifiable
+        // arithmetic is the business of the tests in `cpu.rs`.
+        assert!(cpu.blocks > 0, "did no work at all");
         assert_eq!(cpu.wrong, 0);
     }
 

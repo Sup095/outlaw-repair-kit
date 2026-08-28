@@ -321,7 +321,15 @@ async fn dispatch(cli: Cli) -> Result<()> {
             Some(LinkAction::Remove { name }) => link::remove(&name),
         },
         Command::Boot => {
-            let report = boot::run().await;
+            // Quietly when the answer is being read by something rather than
+            // somebody: the banner and the progress pane are drawn on stdout,
+            // and JSON with a picture in front of it is not JSON. Asked for
+            // explicitly, so `--no-boot` has no say here.
+            let report = if cli.json {
+                boot::run_quietly().await
+            } else {
+                boot::run().await
+            };
             if cli.json {
                 println!("{}", serde_json::to_string_pretty(&report)?);
             }
@@ -399,12 +407,41 @@ async fn dispatch(cli: Cli) -> Result<()> {
 /// `required` is set for runs that change the machine: if the tool cannot
 /// vouch for its own state database or snapshot area, it must not start
 /// applying fixes, because the promise to roll back would be empty.
-async fn start_up(cli: &Cli, required: bool) {
-    if cli.no_boot || cli.json {
-        return;
-    }
+/// Whether to run the start-up self-test, and whether to show it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Boot {
+    /// Do not run it. Only `--no-boot` asks for this.
+    Skip,
+    /// Run it without printing anything.
+    Quietly,
+    /// Run it with the boot screen.
+    OnScreen,
+}
 
-    let report = boot::run().await;
+/// Decide from the flags alone, so the decision can be tested.
+///
+/// It was wrong, and invisibly so. `--json` skipped the self-test outright,
+/// which quietly took the guard in [`start_up`] with it: a run that changes
+/// the machine got no self-test at all, so the one case that guard exists for
+/// -- a snapshot area the tool cannot vouch for -- sailed straight through as
+/// long as somebody asked for JSON. Asking for machine-readable output is a
+/// statement about the output, not about which safety checks apply.
+fn boot_style(no_boot: bool, json: bool) -> Boot {
+    if no_boot {
+        Boot::Skip
+    } else if json {
+        Boot::Quietly
+    } else {
+        Boot::OnScreen
+    }
+}
+
+async fn start_up(cli: &Cli, required: bool) {
+    let report = match boot_style(cli.no_boot, cli.json) {
+        Boot::Skip => return,
+        Boot::Quietly => boot::run_quietly().await,
+        Boot::OnScreen => boot::run().await,
+    };
     if required && !report.ready() {
         eprintln!("Refusing to change anything while the self-test is failing.");
         std::process::exit(1);
@@ -484,6 +521,31 @@ async fn run_scan(tier: ScanTier, json: bool, explain: bool) -> Result<()> {
 /// These check the parts that can be checked mechanically, so that keeping the
 /// manual honest is a build failure rather than a thing to remember.
 #[cfg(test)]
+mod startup {
+    use super::{Boot, boot_style};
+
+    #[test]
+    fn machine_readable_output_still_runs_the_self_test() {
+        // The bug this replaced: `--json` meant no self-test at all, so
+        // `outlaw --json fix --apply` would change the machine without the
+        // check that refuses to when the snapshot area cannot be vouched for.
+        assert_eq!(boot_style(false, true), Boot::Quietly);
+    }
+
+    #[test]
+    fn only_no_boot_skips_the_self_test() {
+        // One flag turns it off, and it is the one named after doing so.
+        assert_eq!(boot_style(true, false), Boot::Skip);
+        assert_eq!(boot_style(true, true), Boot::Skip);
+    }
+
+    #[test]
+    fn a_person_at_a_terminal_gets_the_boot_screen() {
+        assert_eq!(boot_style(false, false), Boot::OnScreen);
+    }
+}
+
+#[cfg(test)]
 mod documentation {
     use super::Cli;
     use clap::CommandFactory;
@@ -541,6 +603,25 @@ mod documentation {
     }
 
     #[test]
+    fn the_command_reference_counts_the_self_checks_right() {
+        // It said six when there were seven. A number in prose is the easiest
+        // thing in a manual to leave behind, and the hardest for a reader to
+        // doubt.
+        let claimed = COMMANDS_PAGE
+            .split_whitespace()
+            .zip(COMMANDS_PAGE.split_whitespace().skip(1))
+            .find(|(_, next)| next.starts_with("self-checks"))
+            .and_then(|(count, _)| count.parse::<usize>().ok())
+            .expect("the page should say how many self-checks there are");
+        assert_eq!(
+            claimed,
+            ork_boot::selftest::CHECK_COUNT,
+            "docs/commands.md claims {claimed} self-checks and there are {}",
+            ork_boot::selftest::CHECK_COUNT
+        );
+    }
+
+    #[test]
     fn the_changelog_has_an_entry_for_this_version() {
         // A release that changed nothing anybody can read about is a release
         // nobody can decide whether to install.
@@ -564,6 +645,30 @@ mod documentation {
             newest.trim(),
             env!("CARGO_PKG_VERSION"),
             "the newest changelog entry is not the version being built"
+        );
+    }
+
+    #[test]
+    fn the_front_page_lists_every_check_this_build_runs() {
+        // The front page has a table of what a scan looks at, and it is where
+        // somebody decides whether this tool is worth downloading. It had
+        // fallen a check behind: the start-up check was described further down
+        // in the roadmap and missing from the table, so the one place people
+        // actually read undersold what the tool does.
+        //
+        // Matched on the check's own name rather than on wording, so the table
+        // can be written however reads best and still has to mention each one.
+        let mut missing: Vec<String> = ork_core::probes::all_meta()
+            .iter()
+            .map(|meta| meta.name.to_string())
+            .filter(|name| !README.contains(name.as_str()))
+            .collect();
+        missing.sort();
+        missing.dedup();
+
+        assert!(
+            missing.is_empty(),
+            "README.md does not mention these checks: {missing:?}"
         );
     }
 
@@ -595,45 +700,6 @@ mod documentation {
         assert!(
             broken.is_empty(),
             "README.md links to missing files: {broken:?}"
-        );
-    }
-
-    #[test]
-    fn every_page_in_the_docs_folder_is_carried_inside_the_program() {
-        // A page added to `docs/` and not registered is a page nobody using
-        // the window or `outlaw docs` will ever see -- and it will look like
-        // it is there, because it is, in the repository.
-        let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("..")
-            .join("docs");
-        let carried: Vec<&str> = ork_core::docs::contents()
-            .into_iter()
-            .map(|(id, _, _)| id)
-            .collect();
-
-        let mut missing = Vec::new();
-        for entry in std::fs::read_dir(&folder)
-            .expect("docs/ is there")
-            .flatten()
-        {
-            let name = entry.file_name().to_string_lossy().into_owned();
-            let Some(id) = name.strip_suffix(".md") else {
-                continue;
-            };
-            // `docs/README.md` is the folder's own index, which the window
-            // replaces with its contents list.
-            if id == "README" {
-                continue;
-            }
-            if !carried.contains(&id) {
-                missing.push(id.to_string());
-            }
-        }
-
-        assert!(
-            missing.is_empty(),
-            "these pages are in docs/ but not registered in ork-core/src/docs.rs: {missing:?}"
         );
     }
 }

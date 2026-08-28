@@ -117,7 +117,8 @@ The Quick tier runs these checks:
 | Failed services | Services set to start automatically that are stopped *and* exited with an error -- the qualifier that keeps a healthy machine from reporting half a dozen it stopped on purpose |
 | Application launch check | Installed command-line programs that no longer start, or that hang on startup |
 | Recent system log errors | Crashes, driver faults, and hardware errors, with repeats grouped together |
-| Disk health *(full scan)* | A drive that says it is failing. Reported as the drive's own verdict, never as an interpretation of raw SMART attributes |
+| Disk health *(full scan)* | A drive that says it is failing. Reported as the drive's own verdict, never as an interpretation of raw SMART attributes. On Linux this is Disk health (SMART), which asks the drive directly and so needs `smartmontools` and root -- without them it reports that it could not check, rather than nothing |
+| Start-up entries *(full scan)* | Everything that has arranged to start with the machine -- and, among those, entries pointing at a program that is not there, running out of a temporary folder, or carrying a command written so it cannot be read |
 | Application launch test *(full scan)* | Launchers and graphical applications that will not start -- started for real and watched, which is why it is not part of a quick scan |
 | System file integrity *(deep scan)* | Operating system files that no longer match what installed them -- a half-finished update, a file the disk corrupted, or something that replaced a system binary. It reads and hashes most of what is installed, which is why it is the only thing in the deep tier |
 

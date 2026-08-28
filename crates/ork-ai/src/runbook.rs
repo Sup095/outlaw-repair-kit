@@ -357,6 +357,60 @@ mod tests {
         );
     }
 
+    #[test]
+    fn the_manual_lists_every_finding_and_counts_the_entries_right() {
+        // docs/runbooks.md carries a table of finding ids and a count of the
+        // entries that ship. Both were written by hand, and both had drifted:
+        // the count said eighteen when thirty shipped, and the table was
+        // missing ten ids, including every one the start-up check reports.
+        //
+        // The page is compiled into the binary, so it can simply be read back
+        // and checked. A manual that is confidently wrong is worse than a
+        // thinner one, and this page is carried precisely for the machine that
+        // cannot go and look it up somewhere more current.
+        let page = ork_core::docs::find("runbooks").expect("the runbooks page");
+        let library = RunbookLibrary::built_in().unwrap();
+
+        let claimed = page
+            .body
+            .split_whitespace()
+            .zip(page.body.split_whitespace().skip(1))
+            .find(|(_, next)| *next == "entries")
+            .and_then(|(count, _)| count.parse::<usize>().ok())
+            .expect("the page should say how many entries ship");
+        assert_eq!(
+            claimed,
+            library.len(),
+            "docs/runbooks.md claims {claimed} entries and {} ship",
+            library.len()
+        );
+
+        // Every id the table names must be one a probe can actually report,
+        // and every id a probe can report must be in the table.
+        let listed: std::collections::BTreeSet<&str> = page
+            .body
+            .lines()
+            .filter(|line| line.starts_with("| `"))
+            .filter_map(|line| line.split('`').nth(1))
+            .filter(|id| id.contains('.'))
+            .collect();
+        let emitted: std::collections::BTreeSet<&str> = ork_core::probes::all_meta()
+            .iter()
+            .flat_map(|meta| meta.emits.iter().copied())
+            .collect();
+
+        let unlisted: Vec<&&str> = emitted.difference(&listed).collect();
+        assert!(
+            unlisted.is_empty(),
+            "the manual does not list: {unlisted:?}"
+        );
+        let invented: Vec<&&str> = listed.difference(&emitted).collect();
+        assert!(
+            invented.is_empty(),
+            "the manual lists findings nothing reports: {invented:?}"
+        );
+    }
+
     /// Findings with no canned answer, on purpose.
     ///
     /// Kept beside the test that skips them so that adding an id here is a

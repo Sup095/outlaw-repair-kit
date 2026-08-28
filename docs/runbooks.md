@@ -5,8 +5,10 @@ A runbook is a known problem and its ranked fixes. The tool consults runbooks
 should not be re-derived every time it happens -- the runbook answer is
 instant, free, identical every time, and works with no model at all.
 
-Eighteen entries ship with the tool. You can add your own, and they take
-precedence.
+30 entries ship with the tool. You can add your own, and they take precedence.
+
+The number and the table below are both checked against the code by a test, so
+this page cannot quietly fall behind what the tool actually ships.
 
 ## Where yours go
 
@@ -164,6 +166,7 @@ keywords is a good fallback for anything the specific ones miss.
 | `device.driver-missing` | A device has no driver |
 | `device.not-working` | A device is present but will not start |
 | `device.reboot-required` | An update is installed but not yet in use |
+| `service.stopped` | A service that should be running is not |
 | `app.launch-failed` | An installed application exits with an error |
 | `app.launch-hung` | An installed application hangs on startup |
 | `logs.unexpected-shutdown` | The machine stopped without shutting down cleanly |
@@ -175,6 +178,16 @@ keywords is a good fallback for anything the specific ones miss.
 | `logs.oom-kill` | The kernel killed a process to free memory |
 | `logs.storage-error` | A drive reported read or write errors |
 | `logs.repeated-error` | An unrecognised error is repeating |
+| `storage.drive-failing` | A drive says its own firmware has given up on it |
+| `storage.drive-warning` | A drive reports a problem short of failing |
+| `startup.encoded-command` | Something starts with the machine running a command written so it cannot be read |
+| `startup.temporary-location` | Something starts with the machine from a temporary or downloads folder |
+| `startup.points-at-nothing` | A start-up entry names a program that is not on the disk |
+| `startup.library-preload` | Every program on the machine is told to load an extra library first |
+| `startup.crowded` | A great many things start with the machine |
+| `system.files-altered` | Operating-system files no longer match what installed them |
+| `system.config-altered` | Configuration files differ from their packaged versions |
+| `system.files-unverified` | The integrity check could not run, so nothing is known either way |
 
 Three of these deliberately have **no** built-in entry:
 `process.memory-hog`, `process.sustained-high-cpu`, and `logs.repeated-error`.

@@ -69,10 +69,10 @@ outlaw boot
 | Screen | What it is for |
 | --- | --- |
 | **Scan** | Pick how thorough to be, watch checks report as they finish, read the findings, and ask for an explanation |
-| **Checks** | Every check this build knows how to run, grouped by tier, and whether each one can run on this machine |
+| **Checks** | Every check this build knows how to run, grouped by tier, what each one can report, and whether it can run on this machine |
 | **Watching** | Look on an interval and hear only about what changed |
 | **Stress** | Work the machine hard on purpose, and see whether it gets anything wrong |
-| **Queue** | Problems waiting to be worked through, worst first — and the buttons that work them |
+| **Queue** | Problems waiting to be worked through, worst first, each saying when it was last actually seen — and the buttons that work them |
 | **Models** | Which model would handle this run, and exactly why the others were passed over |
 | **Machines** | Pair with another computer so one can lend the other a model, and see what is wrong over there |
 | **Settings** | Everything you would otherwise hand-edit a file for: routing, endpoints, API keys |
