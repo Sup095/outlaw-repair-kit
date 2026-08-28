@@ -90,7 +90,10 @@ pub fn report(report: &ScanReport) {
     if findings.is_empty() {
         println!("No problems found.");
     } else {
-        println!("{}", bold(&format!("{} finding(s)", findings.len())));
+        println!(
+            "{}",
+            bold(&ork_core::util::counted(findings.len(), "finding"))
+        );
         println!();
         for found in &findings {
             finding(found);
@@ -115,7 +118,10 @@ pub fn report(report: &ScanReport) {
     if !skipped.is_empty() {
         println!(
             "{}",
-            bold(&format!("{} check(s) did not run", skipped.len()))
+            bold(&format!(
+                "{} did not run",
+                ork_core::util::counted(skipped.len(), "check")
+            ))
         );
         for outcome in skipped {
             if let ProbeStatus::Skipped(reason) = &outcome.status {
@@ -129,7 +135,10 @@ pub fn report(report: &ScanReport) {
     if !failed.is_empty() {
         println!(
             "{}",
-            bold(&format!("{} check(s) failed to run", failed.len()))
+            bold(&format!(
+                "{} failed to run",
+                ork_core::util::counted(failed.len(), "check")
+            ))
         );
         for outcome in failed {
             if let ProbeStatus::Failed { error } = &outcome.status {
@@ -304,7 +313,10 @@ pub fn host(json: bool) -> Result<()> {
     );
     println!();
 
-    println!("{}", bold(&format!("{} volume(s)", volumes.len())));
+    println!(
+        "{}",
+        bold(&ork_core::util::counted(volumes.len(), "volume"))
+    );
     for volume in &volumes {
         let free_percent = volume.free_fraction().unwrap_or(0.0) * 100.0;
         println!(

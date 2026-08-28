@@ -84,8 +84,9 @@ pub fn show_queue(json: bool) -> Result<()> {
         println!(
             "            {}",
             dim(&format!(
-                "{state} -- {} attempt(s) so far -- {}",
-                item.attempts, item.occurrence_key
+                "{state} -- {} so far -- {}",
+                ork_core::util::counted(item.attempts, "attempt"),
+                item.occurrence_key
             ))
         );
         println!("            {}", dim(&item.seen));
@@ -277,7 +278,10 @@ pub async fn work_queue(apply: bool, json: bool) -> Result<()> {
                 ItemOutcome::Exhausted { tried } => {
                     println!(
                         "  {}",
-                        dim(&format!("tried {tried} candidate(s); none worked"))
+                        dim(&format!(
+                            "tried {}; none worked",
+                            ork_core::util::counted(*tried, "candidate")
+                        ))
                     );
                 }
                 ItemOutcome::Stopped => {

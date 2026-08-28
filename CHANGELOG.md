@@ -68,6 +68,17 @@ run, so a list that drifts out of date is caught rather than believed.
   reports a stalled program now says a saturated machine looks the same from
   the outside.
 
+- **Working with no model and no API key is now a tested guarantee**, not an
+  observation. It has always been the intended way to run -- the checks find
+  problems on their own and the runbook library explains them on their own --
+  but nothing stopped that quietly breaking. Five tests now run the whole
+  analysis with no model configured and no network reachable: a known problem
+  is explained from the runbooks, an unknown one is reported as unexplained
+  rather than invented, and a report holding both keeps both.
+
+- The remaining `(s)` counts are gone from the scan, the queue, the machine
+  list, and the model screen.
+
 - **The install scripts now refuse a download they cannot check.** A checksum
   that was *wrong* has always been refused. A release publishing no checksum at
   all, or none for the file being fetched, printed a warning and installed it

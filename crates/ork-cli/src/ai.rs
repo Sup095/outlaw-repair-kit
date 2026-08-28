@@ -330,9 +330,9 @@ pub async fn explain(report: &ScanReport, json: bool) -> Result<()> {
         println!(
             "{}",
             dim(&format!(
-                "{} finding(s) have no explanation. Configure a model with `outlaw models` \
+                "{} no explanation. Configure a model with `outlaw models` \
                  to have them reasoned about.",
-                analysis.unexplained()
+                ork_core::util::counted_as(analysis.unexplained(), "finding has", "findings have")
             ))
         );
     }

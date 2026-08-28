@@ -41,7 +41,11 @@ pub async fn host(port: u16, model_url: Option<String>, discoverable: bool) -> R
     println!("  {:<14}{upstream}", "model");
     println!("  {:<14}port {port}", "listening on");
     if existing > 0 {
-        println!("  {:<14}{existing} machine(s) already linked", "known");
+        println!(
+            "  {:<14}{} already linked",
+            "known",
+            ork_core::util::counted(existing, "machine")
+        );
     }
     println!();
 
@@ -89,7 +93,8 @@ pub async fn host(port: u16, model_url: Option<String>, discoverable: bool) -> R
                     println!(
                         "  {}",
                         dim(&format!(
-                            "wrong pairing code -- {attempts_left} attempt(s) left"
+                            "wrong pairing code -- {} left",
+                            ork_core::util::counted(attempts_left, "attempt")
                         ))
                     );
                 }
@@ -404,7 +409,13 @@ pub async fn view(name: Option<String>, json: bool) -> Result<()> {
         return Ok(());
     }
 
-    println!("{}", bold(&format!("{} problem(s) waiting", waiting.len())));
+    println!(
+        "{}",
+        bold(&format!(
+            "{} waiting",
+            ork_core::util::counted(waiting.len(), "problem")
+        ))
+    );
     for item in &waiting {
         println!(
             "  {:<10}{:<40}{}",
