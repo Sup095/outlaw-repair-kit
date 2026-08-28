@@ -217,8 +217,20 @@ pub fn clear(state_dir: &Path) -> std::io::Result<()> {
 pub fn catch_crashes(state_dir: PathBuf) {
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
-        let mut incident =
-            Incident::new(IncidentKind::Panic, "outlaw", panic_message(info.payload()));
+        let said = panic_message(info.payload());
+
+        // Somebody piped the output into `head`, or opened it in a pager and
+        // pressed q. The reader going away first is how those are *supposed*
+        // to end, and the writer's job is to stop writing -- not to crash, and
+        // certainly not to tell the person they have found a bug worth
+        // reporting. This was caught in the wild: a real "crash" sitting in
+        // the report screen, produced by nothing worse than `outlaw docs
+        // changelog | head`.
+        if is_broken_pipe(&said) {
+            std::process::exit(0);
+        }
+
+        let mut incident = Incident::new(IncidentKind::Panic, "outlaw", said);
         incident.location = info.location().map(|at| at.to_string());
 
         // Only when the user asked for backtraces. Capturing one regardless
@@ -231,6 +243,21 @@ pub fn catch_crashes(state_dir: PathBuf) {
         record(&state_dir, &incident);
         previous(info);
     }));
+}
+
+/// Whether a panic is the standard library giving up on a closed output.
+///
+/// Matched on the message because that is all there is: the panic comes from
+/// inside `println!`, which turns the write error into a panic and keeps the
+/// `io::Error` to itself. The wording is the standard library's own and is the
+/// same on every platform -- only the operating system's half differs, which
+/// is why the second half of this looks for two spellings of the same event.
+fn is_broken_pipe(said: &str) -> bool {
+    let printing = said.starts_with("failed printing to std");
+    // "Broken pipe" on Unix; "The pipe is being closed" or "The pipe has been
+    // ended" on Windows, depending on which end noticed first.
+    let closed = said.contains("Broken pipe") || said.contains("pipe");
+    printing && closed
 }
 
 /// What a panic said, whichever way it said it.
@@ -358,6 +385,40 @@ impl tracing::field::Visit for Message {
 
 #[cfg(test)]
 mod tests {
+    use super::is_broken_pipe;
+
+    #[test]
+    fn a_reader_that_went_away_is_not_a_crash() {
+        // Both operating systems' wording, taken from the real messages. The
+        // Windows one is the message that turned up in the report screen.
+        assert!(is_broken_pipe(
+            "failed printing to stdout: The pipe is being closed. (os error 232)"
+        ));
+        assert!(is_broken_pipe(
+            "failed printing to stdout: Broken pipe (os error 32)"
+        ));
+        assert!(is_broken_pipe(
+            "failed printing to stderr: The pipe has been ended. (os error 109)"
+        ));
+    }
+
+    #[test]
+    fn a_real_crash_is_still_a_crash() {
+        // The exit in the hook is silent and unconditional, so this test is
+        // the only thing standing between a genuine panic and being swallowed.
+        assert!(!is_broken_pipe("attempt to divide by zero"));
+        assert!(!is_broken_pipe(
+            "called `Option::unwrap()` on a `None` value"
+        ));
+        // Close to the real thing, and not it: the disk filling up while
+        // writing a report is a fault worth recording.
+        assert!(!is_broken_pipe(
+            "failed printing to stdout: No space left on device (os error 28)"
+        ));
+        // The word on its own, from somewhere that is not a failed write.
+        assert!(!is_broken_pipe("the pipe fitting test failed"));
+    }
+
     use super::*;
 
     fn scratch(name: &str) -> PathBuf {

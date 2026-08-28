@@ -68,6 +68,15 @@ run, so a list that drifts out of date is caught rather than believed.
   reports a stalled program now says a saturated machine looks the same from
   the outside.
 
+- **Piping the output into `head` crashed the tool.** `outlaw docs changelog |
+  head` was enough: the reader closes the pipe, the next write fails, and the
+  program fell over -- then recorded it as a crash and told you it was worth
+  reporting. A reader that goes away first is how a pipe is supposed to end.
+  The tool now stops writing and exits quietly with status 0. Found by reading
+  the Report a Problem screen and noticing the crash sitting on it was one of
+  our own making. A genuine failure to write, such as the disk filling up, is
+  still recorded exactly as before.
+
 - **The audit log stopped burying real changes under repeated advice.** Every
   run of `outlaw fix` wrote each piece of advice it offered into the permanent
   log, in full, as an `attempt` -- for something that attempted nothing. Since

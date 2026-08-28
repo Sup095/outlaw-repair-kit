@@ -100,7 +100,7 @@ warning there, which is the only notice you get if the tool fell over in the
 window, where there is no terminal to have printed anything.
 
 ```text
-[warn] recorded problems  1 crash(es) recorded -- `outlaw report` turns one into a bug report
+[warn] recorded problems  1 crash recorded -- `outlaw report` turns one into a bug report
 ```
 
 It is a warning and nothing more — start-up continues normally. Handled errors
@@ -118,6 +118,13 @@ Two things:
 - **Crashes** — caught by a panic hook, which also still prints the crash to the
   terminal. Somebody watching a crash happen should not have to go looking in a
   file to see what it said.
+
+And a reader that goes away is not a crash either. Piping output into `head`,
+or opening it in a pager and pressing `q`, closes the far end of the pipe while
+the tool is still writing — which is how those are *supposed* to end. The tool
+stops writing and exits quietly with status 0. It used to fall over instead,
+and then tell you that you had found a bug worth reporting: `outlaw docs
+changelog | head` was enough to do it.
 
 And one thing that is deliberately **not** recorded: a refusal. "There is no
 page called that", "say which machine with `--at`", "`--json` cannot ask before
