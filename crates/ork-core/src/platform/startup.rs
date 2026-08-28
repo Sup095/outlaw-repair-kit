@@ -145,6 +145,7 @@ pub fn library_preload() -> Option<String> {
 }
 
 /// One entry as PowerShell hands it over.
+#[cfg(any(windows, test))]
 #[derive(Debug, Deserialize)]
 struct Raw {
     name: Option<String>,
@@ -158,9 +159,9 @@ struct Raw {
 
 /// Read what PowerShell sent back.
 ///
-/// Its own function, and not behind a `cfg`, because the two things most
-/// likely to go wrong here can both be checked without a Windows machine and
-/// neither was being checked at all:
+/// Its own function, and compiled for the tests as well as for Windows,
+/// because the two things most likely to go wrong here can both be checked
+/// without a Windows machine and neither was being checked at all:
 ///
 /// * **One result comes back as an object, not a list.** `ConvertTo-Json`
 ///   does that whenever the collection has a single element, and it is the
@@ -168,6 +169,7 @@ struct Raw {
 ///   with exactly one start-up entry.
 /// * **Nothing at all comes back** when every source was unavailable, and an
 ///   empty answer must be an empty list rather than an error.
+#[cfg(any(windows, test))]
 fn read_entries(text: &str) -> Vec<StartupEntry> {
     let text = text.trim();
     if text.is_empty() {
@@ -340,7 +342,7 @@ pub fn walk(
     for (directory, for_all_users) in autostart {
         let for_all_users = *for_all_users;
         let Some(directory) = directory else { continue };
-        let Ok(listing) = std::fs::read_dir(&directory) else {
+        let Ok(listing) = std::fs::read_dir(directory) else {
             continue;
         };
         for item in listing.flatten() {

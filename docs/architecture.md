@@ -216,3 +216,33 @@ through a separate elevation step, so a background watcher and a network-facing
 interface never hold system rights. `ProbeContext::is_elevated` reports what
 rights the current scan actually has, and probes that need more are skipped
 with a visible reason rather than failing obscurely.
+
+## Checking a change before it is pushed
+
+The build is denied warnings on both Windows and Linux, and a good deal of the
+platform layer is behind `#[cfg]`. That combination has a trap in it: code
+reachable only from `#[cfg(windows)]` and `#[cfg(test)]` compiles cleanly on a
+Windows machine and is *dead code* in the Linux library build, so a clean local
+run says nothing about the other half of the matrix.
+
+Running clippy the way the workflow runs it is therefore not enough on its own:
+
+```
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features
+cargo test --workspace --all-features
+```
+
+`ork-core` holds nearly all of the conditional code, and it cross-checks
+without a C toolchain, so the fourth command closes the gap:
+
+```
+rustup target add x86_64-unknown-linux-gnu
+cargo clippy --target x86_64-unknown-linux-gnu -p ork-core --all-targets --all-features
+```
+
+The other crates pull in C dependencies -- SQLite, dbus, aws-lc -- whose build
+scripts need a cross-compiler, so those are left to the workflow. Anything
+compiled only on one platform and in tests wants an explicit
+`#[cfg(any(windows, test))]` (or the `target_os = "linux"` equivalent) rather
+than being left to fall out of whatever the local machine happens to be.
