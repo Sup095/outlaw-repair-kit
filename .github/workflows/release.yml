@@ -30,7 +30,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
             binary: outlaw
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -84,7 +84,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
             binary: outlaw-setup
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
@@ -125,10 +125,10 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-22.04]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
       # The webview the desktop app draws into is a system library on Linux,
