@@ -91,9 +91,15 @@ impl Protection {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Restraint {
-    /// Running as SYSTEM or root. Reaching it needs rights this does not have
+    /// It belongs to another account -- SYSTEM, root, a service account, or
+    /// another person logged in. Reaching it needs rights this does not have
     /// by default, and things running there are usually there for a reason.
-    RunsWithSystemRights,
+    ///
+    /// Also the answer when the owner could not be read at all, which on
+    /// Windows is what an unprivileged process gets when it asks about a
+    /// service. Not knowing whose something is is not the same as knowing it
+    /// is yours.
+    RunsAsAnotherAccount,
     /// It has a window in front of you right now.
     InFrontOfYou,
     /// Started in the last few minutes, so you probably started it.
@@ -121,7 +127,7 @@ pub enum Restraint {
 impl Restraint {
     pub fn describe(self) -> &'static str {
         match self {
-            Restraint::RunsWithSystemRights => "runs with system rights",
+            Restraint::RunsAsAnotherAccount => "not yours -- it runs as another account",
             Restraint::InFrontOfYou => "in front of you right now",
             Restraint::JustStarted => "started just now",
             Restraint::MayHoldUnsavedWork => "may have unsaved work in it",
@@ -141,10 +147,6 @@ pub struct Circumstances {
     pub pinned: Vec<String>,
     /// The process that has a window in front of the user, if known.
     pub foreground_pid: Option<u32>,
-    /// Whether the process is running with system rights, where that is known.
-    /// `None` means it could not be established, which is not the same as
-    /// `false` and is treated as the more careful of the two.
-    pub system_rights: Option<bool>,
     /// This process and every process it is running inside: the shell, the
     /// terminal, and whatever launched that.
     ///
@@ -260,11 +262,16 @@ pub fn classify(process: &ProcessInfo, platform: PlatformKind, about: &Circumsta
             because: Restraint::HowYouWouldRecover,
         };
     }
+    // Read from the process rather than from the circumstances, because whose
+    // a process is is a fact about that process. It was on the circumstances
+    // once, which meant one answer for the whole machine: either every service
+    // was held back or none was, and neither is a list anybody could trust.
+    //
     // `None` means the question could not be answered, and an unanswered
-    // question about privilege is treated as the careful answer.
-    if about.system_rights.unwrap_or(true) {
+    // question about who owns something is treated as the careful answer.
+    if process.runs_as_you != Some(true) {
         return Standing::HeldBack {
-            because: Restraint::RunsWithSystemRights,
+            because: Restraint::RunsAsAnotherAccount,
         };
     }
     if about.foreground_pid == Some(process.pid) {
@@ -719,6 +726,7 @@ mod tests {
             cpu_percent: 0.0,
             // Old enough not to trip the just-started rule.
             run_time_secs: 60 * 60,
+            runs_as_you: Some(true),
             state: ProcessState::Running,
         }
     }
@@ -729,7 +737,6 @@ mod tests {
         Circumstances {
             pinned: Vec::new(),
             foreground_pid: None,
-            system_rights: Some(false),
             own_lineage: vec![999_999],
             own_family: Vec::new(),
         }
@@ -953,22 +960,54 @@ mod tests {
     }
 
     #[test]
-    fn not_knowing_whether_something_runs_with_system_rights_is_the_careful_answer() {
-        // `None` is not `false`. Treating an unanswered question as "no" is
-        // how a tool ends up stopping something it had no business touching.
-        let unknown = Circumstances {
-            system_rights: None,
-            ..ordinary()
-        };
+    fn not_knowing_who_owns_something_is_the_careful_answer() {
+        // `None` is not `false`. Treating an unanswered question as "yes, it
+        // is yours" is how a tool ends up stopping something it had no
+        // business touching -- and on Windows, `None` is the ordinary answer
+        // for every service, which is exactly the set that matters.
+        let mut unknown = process("SomeUpdater.exe", 42);
+        unknown.runs_as_you = None;
         assert_eq!(
-            classify(
-                &process("SomeUpdater.exe", 42),
-                PlatformKind::Windows,
-                &unknown
-            ),
+            classify(&unknown, PlatformKind::Windows, &ordinary()),
             Standing::HeldBack {
-                because: Restraint::RunsWithSystemRights
+                because: Restraint::RunsAsAnotherAccount
             }
+        );
+    }
+
+    #[test]
+    fn something_belonging_to_another_account_is_not_swept_up() {
+        let mut theirs = process("SomeUpdater.exe", 42);
+        theirs.runs_as_you = Some(false);
+        assert_eq!(
+            classify(&theirs, PlatformKind::Windows, &ordinary()),
+            Standing::HeldBack {
+                because: Restraint::RunsAsAnotherAccount
+            }
+        );
+    }
+
+    #[test]
+    fn who_owns_a_process_is_read_from_that_process_and_not_from_the_machine() {
+        // This was once a single field on the circumstances, which meant one
+        // answer for every process on the machine: either every service was
+        // held back or none was. Neither is a list anybody could act on, and
+        // the bug was invisible because both halves looked reasonable on
+        // their own.
+        let mut yours = process("SomeUpdater.exe", 42);
+        yours.runs_as_you = Some(true);
+        let mut theirs = process("SomeUpdater.exe", 43);
+        theirs.runs_as_you = Some(false);
+
+        assert_eq!(
+            classify(&yours, PlatformKind::Windows, &ordinary()),
+            Standing::Candidate
+        );
+        assert_ne!(
+            classify(&theirs, PlatformKind::Windows, &ordinary()),
+            Standing::Candidate,
+            "two processes with the same name and different owners must not \
+             get the same answer"
         );
     }
 
@@ -1028,10 +1067,10 @@ mod tests {
         // that means "there is no flag for this".
         let mut it = process("MsMpEng.exe", 42);
         it.run_time_secs = 1;
+        it.runs_as_you = Some(false);
         let everything = Circumstances {
             pinned: vec!["msmpeng.exe".to_string()],
             foreground_pid: Some(42),
-            system_rights: Some(true),
             own_lineage: vec![1],
             own_family: Vec::new(),
         };
@@ -1207,11 +1246,14 @@ mod tests {
             assert!(!reason.describe().is_empty(), "{reason:?} has no words");
         }
         for reason in [
-            Restraint::RunsWithSystemRights,
+            Restraint::RunsAsAnotherAccount,
             Restraint::InFrontOfYou,
             Restraint::JustStarted,
             Restraint::MayHoldUnsavedWork,
             Restraint::CannotBeRestarted,
+            Restraint::MayBeSyncingFiles,
+            Restraint::BelongsToAnotherProgram,
+            Restraint::HowYouWouldRecover,
             Restraint::Pinned,
         ] {
             assert!(!reason.describe().is_empty(), "{reason:?} has no words");

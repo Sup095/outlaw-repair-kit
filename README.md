@@ -109,6 +109,7 @@ outlaw boot             # self-test and update check
 outlaw report           # turn a crash or an error into a bug report
 outlaw watch            # keep looking, and speak up only when something changes
 outlaw stress           # work the machine hard on purpose, and see what it gets wrong
+outlaw processes        # what is running, and what a sweep would leave alone
 ```
 
 There is a desktop app too, with the same abilities and a **Machines** screen

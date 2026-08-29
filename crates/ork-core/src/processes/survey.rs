@@ -1,0 +1,322 @@
+//! Looking at everything running, and saying what would happen to each.
+//!
+//! Still stops nothing. This is stage two of the plan in
+//! `docs/proposals/process-control.md`: the list, so that it can be looked at
+//! on real machines before anything is able to act on it. A list that has been
+//! read by people is the only thing that makes the button afterwards
+//! defensible.
+//!
+//! Two things here are deliberately awkward, and both are honesty rather than
+//! caution.
+//!
+//! **Memory is described as held, never as freed.** A process's working set is
+//! not the same as memory that comes back to the machine when it stops: shared
+//! pages are counted against every process sharing them, and some of what a
+//! process holds is already on disk. Adding those numbers up gives a figure
+//! that is always too big. So this reports what is *held*, which is a
+//! measurement, and leaves "freed" for the stage that measures it afterwards.
+//!
+//! **What is left alone is counted and named, not hidden.** A tool's list of
+//! what it considers untouchable is worthless if nobody can read it.
+
+use crate::platform::{PlatformKind, ProcessInfo};
+use crate::processes::standing::{
+    Circumstances, Protection, Restraint, Standing, classify, family_of, lineage_of,
+};
+
+/// One running process, and what would happen to it.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Row {
+    pub pid: u32,
+    pub name: String,
+    /// What the process holds right now. See the note above about why this is
+    /// never called "what would be freed".
+    pub memory_bytes: u64,
+    pub run_time_secs: u64,
+    pub standing: Standing,
+}
+
+/// Everything running, judged.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Survey {
+    pub rows: Vec<Row>,
+    /// The platform the judgement was made for, which is not necessarily the
+    /// one it was made on -- a scan can be read from a paired machine.
+    pub platform: PlatformKind,
+}
+
+impl Survey {
+    /// Judge a list of processes.
+    ///
+    /// Takes the processes rather than fetching them so that this can be run
+    /// against a machine that is not this one, and tested without one.
+    pub fn of(processes: &[ProcessInfo], platform: PlatformKind, about: &Circumstances) -> Survey {
+        let mut rows: Vec<Row> = processes
+            .iter()
+            .map(|process| Row {
+                pid: process.pid,
+                name: process.name.clone(),
+                memory_bytes: process.memory_bytes,
+                run_time_secs: process.run_time_secs,
+                standing: classify(process, platform, about),
+            })
+            .collect();
+
+        // Heaviest first, because the only question anybody brings to this
+        // list is what is holding the machine's memory.
+        rows.sort_by_key(|row| std::cmp::Reverse(row.memory_bytes));
+        Survey { rows, platform }
+    }
+
+    /// Judge what is running on this machine, right now.
+    pub fn of_this_machine(pinned: &[String]) -> anyhow::Result<Survey> {
+        let platform = crate::platform::detect()?;
+        let processes = platform.processes()?;
+        let about = Circumstances::here(&processes, pinned);
+        Ok(Survey::of(&processes, platform.kind(), &about))
+    }
+
+    pub fn candidates(&self) -> impl Iterator<Item = &Row> {
+        self.rows
+            .iter()
+            .filter(|row| row.standing.stopped_by_default())
+    }
+
+    pub fn held_back(&self) -> impl Iterator<Item = &Row> {
+        self.rows
+            .iter()
+            .filter(|row| matches!(row.standing, Standing::HeldBack { .. }))
+    }
+
+    pub fn protected(&self) -> impl Iterator<Item = &Row> {
+        self.rows
+            .iter()
+            .filter(|row| !row.standing.can_ever_be_stopped())
+    }
+
+    /// What the candidates are holding between them.
+    ///
+    /// Named for what it measures. This is not what stopping them would free,
+    /// it is always more than that, and the difference is the whole reason
+    /// this tool exists rather than another one that says 6 GB and delivers
+    /// 900 MB.
+    pub fn memory_held_by_candidates(&self) -> u64 {
+        self.candidates().map(|row| row.memory_bytes).sum()
+    }
+
+    /// How many are protected, grouped by why, most first.
+    pub fn why_protected(&self) -> Vec<(Protection, usize)> {
+        let mut counts: Vec<(Protection, usize)> = Vec::new();
+        for row in self.protected() {
+            let Standing::Protected { because } = row.standing else {
+                continue;
+            };
+            match counts.iter_mut().find(|(reason, _)| *reason == because) {
+                Some((_, count)) => *count += 1,
+                None => counts.push((because, 1)),
+            }
+        }
+        counts.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
+        counts
+    }
+
+    /// How many are held back, grouped by why, most first.
+    pub fn why_held_back(&self) -> Vec<(Restraint, usize)> {
+        let mut counts: Vec<(Restraint, usize)> = Vec::new();
+        for row in self.held_back() {
+            let Standing::HeldBack { because } = row.standing else {
+                continue;
+            };
+            match counts.iter_mut().find(|(reason, _)| *reason == because) {
+                Some((_, count)) => *count += 1,
+                None => counts.push((because, 1)),
+            }
+        }
+        counts.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
+        counts
+    }
+}
+
+impl Circumstances {
+    /// What can be established about this machine, right now.
+    ///
+    /// Deliberately modest. Where something cannot be established it is left
+    /// unknown rather than guessed, and the classifier treats unknown as the
+    /// careful answer -- so a gap here costs a few megabytes that could have
+    /// been freed, never somebody's audio or their unsaved work.
+    pub fn here(processes: &[ProcessInfo], pinned: &[String]) -> Circumstances {
+        let own_lineage = lineage_of(std::process::id(), processes);
+        let own_family = family_of(&own_lineage, processes);
+        Circumstances {
+            pinned: pinned
+                .iter()
+                .map(|name| name.to_ascii_lowercase())
+                .collect(),
+            // Nothing reads the foreground window yet. Left unknown rather
+            // than filled with something plausible: a wrong answer here means
+            // the tool offering to close what somebody is looking at.
+            foreground_pid: None,
+            own_lineage,
+            own_family,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::platform::ProcessState;
+
+    fn process(name: &str, pid: u32, memory_mb: u64) -> ProcessInfo {
+        ProcessInfo {
+            pid,
+            parent_pid: None,
+            name: name.to_string(),
+            executable: None,
+            memory_bytes: memory_mb * 1024 * 1024,
+            cpu_percent: 0.0,
+            run_time_secs: 60 * 60,
+            runs_as_you: Some(true),
+            state: ProcessState::Running,
+        }
+    }
+
+    fn nothing_special() -> Circumstances {
+        Circumstances {
+            own_lineage: vec![999_999],
+            ..Default::default()
+        }
+    }
+
+    fn survey(processes: &[ProcessInfo]) -> Survey {
+        Survey::of(processes, PlatformKind::Windows, &nothing_special())
+    }
+
+    #[test]
+    fn everything_running_appears_exactly_once() {
+        // The list is the whole product at this stage. A process that is
+        // quietly dropped is one nobody can decide about, and the drop is
+        // invisible -- there is nothing on screen where it should have been.
+        let processes = [
+            process("MsMpEng.exe", 1, 200),
+            process("SomeUpdater.exe", 2, 50),
+            process("firefox.exe", 3, 900),
+        ];
+        let survey = survey(&processes);
+        assert_eq!(survey.rows.len(), processes.len());
+
+        let counted =
+            survey.protected().count() + survey.held_back().count() + survey.candidates().count();
+        assert_eq!(
+            counted,
+            processes.len(),
+            "every process must fall into exactly one of the three groups"
+        );
+    }
+
+    #[test]
+    fn the_heaviest_is_first() {
+        let survey = survey(&[
+            process("small.exe", 1, 10),
+            process("huge.exe", 2, 4000),
+            process("middling.exe", 3, 300),
+        ]);
+        let order: Vec<&str> = survey.rows.iter().map(|row| row.name.as_str()).collect();
+        assert_eq!(order, ["huge.exe", "middling.exe", "small.exe"]);
+    }
+
+    #[test]
+    fn memory_is_counted_only_for_what_would_actually_be_stopped() {
+        // The number on screen has to describe the rows on screen. Counting
+        // the protected ones in would inflate it by most of the machine.
+        let survey = survey(&[
+            process("MsMpEng.exe", 1, 500),    // protected: security
+            process("firefox.exe", 2, 900),    // held back: unsaved work
+            process("SomeUpdater.exe", 3, 40), // candidate
+        ]);
+        assert_eq!(
+            survey.memory_held_by_candidates(),
+            40 * 1024 * 1024,
+            "only the candidate's memory belongs in the total"
+        );
+    }
+
+    #[test]
+    fn nothing_is_counted_when_nothing_would_be_stopped() {
+        let survey = survey(&[process("MsMpEng.exe", 1, 500)]);
+        assert_eq!(survey.memory_held_by_candidates(), 0);
+        assert_eq!(survey.candidates().count(), 0);
+    }
+
+    #[test]
+    fn what_is_left_alone_is_grouped_by_the_reason_it_was_left_alone() {
+        // A count with no reasons attached is a tool asking to be trusted. The
+        // reasons are the argument.
+        let survey = survey(&[
+            process("MsMpEng.exe", 1, 100),
+            process("Windows Defender.exe", 2, 100),
+            process("nvcontainer.exe", 3, 100),
+            process("SomeUpdater.exe", 4, 10),
+        ]);
+        let why = survey.why_protected();
+        assert!(
+            !why.is_empty(),
+            "nothing was protected on a list with security software in it"
+        );
+        let total: usize = why.iter().map(|(_, count)| count).sum();
+        assert_eq!(total, survey.protected().count());
+
+        // Most common first, so the biggest group is the one somebody reads.
+        for pair in why.windows(2) {
+            assert!(pair[0].1 >= pair[1].1, "reasons are not in order: {why:?}");
+        }
+    }
+
+    #[test]
+    fn the_reasons_for_holding_something_back_are_counted_the_same_way() {
+        let survey = survey(&[
+            process("firefox.exe", 1, 900),
+            process("chrome.exe", 2, 800),
+            process("SomeUpdater.exe", 3, 10),
+        ]);
+        let why = survey.why_held_back();
+        let total: usize = why.iter().map(|(_, count)| count).sum();
+        assert_eq!(total, survey.held_back().count());
+    }
+
+    #[test]
+    fn an_empty_machine_is_an_empty_list_and_not_an_error() {
+        let survey = survey(&[]);
+        assert!(survey.rows.is_empty());
+        assert_eq!(survey.memory_held_by_candidates(), 0);
+        assert!(survey.why_protected().is_empty());
+    }
+
+    #[test]
+    fn pinning_something_is_matched_however_it_was_typed() {
+        // Somebody typing a program's name into a settings box will not match
+        // the case the operating system reports, and being ignored silently
+        // is the worst possible outcome for a control whose entire job is
+        // "leave this one alone".
+        let processes = [process("SomeUpdater.exe", 1, 10)];
+        let about = Circumstances::here(&processes, &["SOMEUPDATER.EXE".to_string()]);
+        let survey = Survey::of(&processes, PlatformKind::Windows, &about);
+        assert!(
+            !survey.rows[0].standing.stopped_by_default(),
+            "a pinned program was offered anyway: {:?}",
+            survey.rows[0].standing
+        );
+    }
+
+    #[test]
+    fn this_tool_is_never_in_the_list_of_what_would_be_stopped() {
+        // Read from the real machine, because the point is that the gathering
+        // half and the judging half agree about which process is us.
+        let survey = Survey::of_this_machine(&[]).expect("this machine has processes");
+        let me = std::process::id();
+        assert!(
+            !survey.candidates().any(|row| row.pid == me),
+            "the tool offered to stop itself"
+        );
+    }
+}

@@ -251,6 +251,7 @@ mod tests {
             memory_bytes: memory,
             cpu_percent: cpu,
             run_time_secs: run_time,
+            runs_as_you: Some(true),
             state: ProcessState::Running,
         }
     }

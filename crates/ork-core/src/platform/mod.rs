@@ -145,6 +145,14 @@ pub struct ProcessInfo {
     /// Seconds since the process started.
     pub run_time_secs: u64,
     pub state: ProcessState,
+    /// Whether this process belongs to the account the tool is running as.
+    ///
+    /// `None` means it could not be established, which is not the same as
+    /// `false` and must not be rounded to it. On Windows an unprivileged
+    /// process cannot read the owner of a service running as SYSTEM, so
+    /// "could not tell" is the ordinary answer for exactly the processes it
+    /// matters most not to touch.
+    pub runs_as_you: Option<bool>,
 }
 
 /// Memory pressure at a moment in time.

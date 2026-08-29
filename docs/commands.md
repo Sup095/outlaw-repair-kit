@@ -89,6 +89,55 @@ automatically.
 
 ---
 
+## `outlaw processes`
+
+Show what is running, and what would happen to each.
+
+```bash
+outlaw processes
+outlaw processes --all
+outlaw processes --json
+```
+
+| Option | Meaning |
+| --- | --- |
+| `--all` | Every row, rather than the heaviest few |
+
+**It stops nothing and changes nothing.** It is the list that a later
+"stop everything non-essential" button would act on, published on its own first
+so that it can be read on real machines before anything is able to act on it.
+
+Three groups, and the second two are the interesting ones:
+
+- **Could be stopped** -- ordinary programs belonging to you, heaviest first,
+  with what each is holding.
+- **Held back, and why** -- not offered by default, with the reason: it belongs
+  to another account, it may have unsaved work in it, it may be part-way
+  through syncing files, it belongs to another program, it is what you would
+  reach for to undo this, it started a moment ago, or you pinned it.
+- **Never touched** -- the operating system, security software, drivers and
+  their control panels, the display, input and audio stack, networking, disk
+  encryption, accessibility software, and this tool. There is no flag that
+  changes this.
+
+### About the memory figure
+
+It says what the candidates are **holding**, never what stopping them would
+free. Those are different numbers and the second is always smaller: memory
+shared between programs is counted against every one of them, so adding working
+sets up always overstates the total. The honest version of "would free" can
+only be produced by measuring afterwards, which is what a later stage will do.
+
+### Pinning
+
+Programs listed under `[processes] pinned` in the configuration file are always
+held back, matched without regard to capitalisation.
+
+```toml
+[processes]
+pinned = ["Steam.exe", "obs64.exe"]
+```
+
 ## `outlaw probes`
 
 List every check this build knows how to run, what it needs, which platforms

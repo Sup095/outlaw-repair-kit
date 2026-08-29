@@ -127,6 +127,15 @@ pub fn processes() -> Result<Vec<ProcessInfo>> {
     std::thread::sleep(sysinfo::MINIMUM_CPU_UPDATE_INTERVAL);
     system.refresh_all();
 
+    // Who we are, so every process can be compared against it. Read once
+    // rather than per process, and allowed to be unknown -- in which case
+    // nothing below claims to know whose anything is.
+    let ours = sysinfo::get_current_pid()
+        .ok()
+        .and_then(|pid| system.process(pid))
+        .and_then(|process| process.user_id())
+        .cloned();
+
     let mut processes: Vec<ProcessInfo> = system
         .processes()
         .iter()
@@ -138,6 +147,14 @@ pub fn processes() -> Result<Vec<ProcessInfo>> {
             memory_bytes: process.memory(),
             cpu_percent: process.cpu_usage(),
             run_time_secs: process.run_time(),
+            // Three answers, not two. An owner that cannot be read is
+            // reported as unknown rather than as somebody else's, because
+            // the two are different facts and the code that acts on this
+            // must be able to tell them apart.
+            runs_as_you: match (&ours, process.user_id()) {
+                (Some(ours), Some(theirs)) => Some(ours == theirs),
+                _ => None,
+            },
             state: match process.status() {
                 ProcessStatus::Run => ProcessState::Running,
                 ProcessStatus::Sleep | ProcessStatus::Idle => ProcessState::Sleeping,

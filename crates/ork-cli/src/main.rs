@@ -8,6 +8,7 @@ mod ai;
 mod boot;
 mod fix;
 mod link;
+mod processes;
 mod refusal;
 mod render;
 mod report;
@@ -193,6 +194,17 @@ enum Command {
     Boot,
     /// List the checks this build knows how to run.
     Probes,
+
+    /// Show what is running, and what would happen to each.
+    ///
+    /// Read-only. It stops nothing and changes nothing -- it shows which
+    /// programs a sweep would offer to stop, which it would hold back and
+    /// why, and which it will never touch on any account.
+    Processes {
+        /// Show every row rather than the heaviest few.
+        #[arg(long)]
+        all: bool,
+    },
     /// Show what this tool detected about the machine it is running on.
     Host,
     /// Read the manual, which is carried inside this program.
@@ -391,6 +403,7 @@ async fn dispatch(mut cli: Cli) -> Result<()> {
         }
         Command::Docs { page } => render::docs(page, cli.json),
         Command::Probes => render::probes(cli.json),
+        Command::Processes { all } => processes::show(all, cli.json),
         Command::Host => render::host(cli.json),
         Command::Models => ai::show_models(cli.json).await,
         Command::Queue => fix::show_queue(cli.json),

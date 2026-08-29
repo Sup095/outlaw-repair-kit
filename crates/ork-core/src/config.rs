@@ -200,11 +200,26 @@ impl Default for AiConfig {
     }
 }
 
+/// Settings for looking at what is running.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct ProcessConfig {
+    /// Programs to leave alone, by name, whatever else the tool decides.
+    ///
+    /// Matched without regard to case, because somebody typing a program's
+    /// name in will not match the capitalisation the operating system reports,
+    /// and being silently ignored is the worst possible outcome for a setting
+    /// whose entire meaning is "leave this one alone".
+    #[serde(default)]
+    pub pinned: Vec<String>,
+}
+
 /// The whole configuration file.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub ai: AiConfig,
+    #[serde(default)]
+    pub processes: ProcessConfig,
 }
 
 impl Config {

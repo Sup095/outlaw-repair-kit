@@ -332,6 +332,20 @@ pub fn host(json: bool) -> Result<()> {
 }
 
 /// Wrap text to `width` columns on word boundaries.
+/// Shorten a name to fit a column, saying that it was shortened.
+///
+/// Counted in characters rather than bytes, because a name with anything
+/// outside ASCII in it would otherwise be cut mid-character and printed as
+/// rubbish -- and process names come from whatever the machine has installed
+/// on it, not from this project.
+pub fn ellipsise(text: &str, width: usize) -> String {
+    if text.chars().count() <= width {
+        return text.to_string();
+    }
+    let kept: String = text.chars().take(width.saturating_sub(1)).collect();
+    format!("{kept}~")
+}
+
 pub fn wrap(text: &str, width: usize) -> Vec<String> {
     let mut lines = Vec::new();
     let mut current = String::new();
@@ -352,6 +366,29 @@ pub fn wrap(text: &str, width: usize) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_name_that_fits_is_left_exactly_as_it_is() {
+        assert_eq!(super::ellipsise("outlaw.exe", 20), "outlaw.exe");
+        assert_eq!(super::ellipsise("exactly-ten", 11), "exactly-ten");
+    }
+
+    #[test]
+    fn a_name_that_does_not_fit_is_shortened_and_says_so() {
+        let short = super::ellipsise("a-very-long-program-name.exe", 10);
+        assert_eq!(short.chars().count(), 10);
+        assert!(short.ends_with('~'), "{short}");
+    }
+
+    #[test]
+    fn shortening_never_cuts_a_character_in_half() {
+        // Process names come from whatever is installed on the machine, not
+        // from this project, so they contain whatever they contain. Cutting
+        // by bytes would print rubbish -- or panic.
+        let short = super::ellipsise("プログラム.exe", 4);
+        assert_eq!(short.chars().count(), 4);
+        assert!(short.is_char_boundary(short.len()));
+    }
+
     use super::*;
 
     #[test]

@@ -10,6 +10,37 @@ not that the work has stopped.
 
 ---
 
+## Unreleased
+
+**`outlaw processes` -- what is running, and what a sweep would leave alone.**
+
+Stage two of the process-control plan, and it still stops nothing. It shows
+three groups: what could be stopped, heaviest first, with what each is holding;
+what is held back and why; and what is never touched, counted by reason. The
+list exists on its own, before anything can act on it, so that it can be read
+on real machines first -- which is the only thing that makes the button
+afterwards defensible.
+
+The memory figure says what those programs are **holding**, never what stopping
+them would free. Those are different numbers and the second is always smaller,
+because memory shared between programs is counted against every one of them.
+The honest version can only be produced by measuring afterwards.
+
+### Also
+
+- **Who owns a process is read from that process.** It was one setting for the
+  whole machine, which meant one answer for all of it: either every service was
+  held back or none was, and neither is a list anybody could act on. On this
+  machine the difference is 44 candidates that included Windows services
+  against 30 that are all genuinely yours. Where the owner cannot be read at
+  all -- the ordinary answer for a service, asked by a program without
+  administrator rights -- it is treated as not yours, because not knowing whose
+  something is is not the same as knowing it is yours.
+- **Programs can be pinned** in the configuration file under `[processes]`,
+  matched without regard to capitalisation, and are then never offered.
+
+---
+
 ## v0.10.0
 
 **You can open it now.**
