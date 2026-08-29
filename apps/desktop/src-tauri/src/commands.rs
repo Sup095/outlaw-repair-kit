@@ -10,6 +10,7 @@ use ork_ai::analysis::Analyst;
 use ork_ai::router::{ModelRouter, ModelTier, advise_for_vram};
 use ork_ai::runbook::RunbookLibrary;
 use ork_ai::secrets::{self, SecretKind};
+use ork_core::processes::Survey;
 use ork_core::scan::{ScanEvent, ScanReport};
 use ork_core::{Config, ScanTier, Scanner};
 use ork_fix::store::FixStore;
@@ -285,4 +286,38 @@ pub fn audit_list(limit: usize) -> CmdResult<Vec<ork_fix::store::AuditLine>> {
     // The clamp lives in the store now, so both front-ends get the same
     // answer to the same question without either of them knowing the number.
     store.audit_log(limit).map_err(fail)
+}
+
+/// What is running, and what a sweep would do to each.
+///
+/// The same [`Survey`] the terminal prints, handed over whole rather than
+/// summarised here. Both front-ends showing the same judgement is the point;
+/// a second place that decided what "held back" meant would eventually decide
+/// it differently, and the difference would be found by somebody trusting the
+/// wrong one.
+///
+/// Nothing here stops anything. See `docs/proposals/process-control.md`.
+#[tauri::command]
+pub fn process_survey() -> CmdResult<serde_json::Value> {
+    let config = load_config().map_err(fail)?;
+    let survey = Survey::of_this_machine(&config.processes.pinned).map_err(fail)?;
+    Ok(serde_json::json!({
+        "platform": survey.platform.as_str(),
+        "running": survey.rows.len(),
+        // Named for what it measures, here as much as on the terminal. A
+        // front-end must not be handed a number it could honestly label
+        // "will free", because it is not one.
+        "memory_held_by_candidates": survey.memory_held_by_candidates(),
+        "why_protected": survey.why_protected().iter().map(|(reason, count)| {
+            serde_json::json!({ "reason": reason.describe(), "count": count })
+        }).collect::<Vec<_>>(),
+        "why_held_back": survey.why_held_back().iter().map(|(reason, count)| {
+            serde_json::json!({ "reason": reason.describe(), "count": count })
+        }).collect::<Vec<_>>(),
+        // Null when the rule ran. The screen has to be able to tell "nothing
+        // was in front of you" from "we could not look", because only one of
+        // those is a complete list.
+        "in_front_unchecked": survey.in_front.unanswered(),
+        "rows": survey.rows,
+    }))
 }

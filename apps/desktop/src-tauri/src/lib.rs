@@ -68,6 +68,7 @@ pub fn run() {
             commands::routing_status,
             commands::queue_list,
             commands::audit_list,
+            commands::process_survey,
             watching::watch_status,
             watching::watch_start,
             watching::watch_stop,

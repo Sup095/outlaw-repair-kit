@@ -36,6 +36,13 @@ Wayland does not let one program ask what another has in front of you, and
 deliberately so -- the list carries **One rule did not run** and says why,
 rather than reading like a list that had every rule applied to it.
 
+**The window has a Processes screen.** `outlaw processes` existed only in the
+terminal, which made it the one thing the window could not show. Same three
+groups, same judgement -- it calls the same `Survey` rather than deciding
+again, so the two cannot come to different conclusions about what "held back"
+means. It says on the screen that it stops nothing, rather than leaving
+somebody to hunt for the button.
+
 ### Also
 
 - **The setup program looks for the window after installing it**, instead of

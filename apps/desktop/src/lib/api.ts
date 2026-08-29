@@ -39,6 +39,37 @@ export interface BootReport {
 
 export type Severity = "critical" | "high" | "medium" | "low" | "info";
 
+/** What would happen to one running process. Mirrors `ork_core::processes::Standing`. */
+export type Standing =
+  | { standing: "protected"; because: string }
+  | { standing: "held-back"; because: string }
+  | { standing: "candidate" };
+
+export interface ProcessRow {
+  pid: number;
+  name: string;
+  /** What it holds now -- never what stopping it would give back. */
+  memory_bytes: number;
+  run_time_secs: number;
+  standing: Standing;
+}
+
+export interface ProcessSurvey {
+  platform: string;
+  running: number;
+  memory_held_by_candidates: number;
+  why_protected: { reason: string; count: number }[];
+  why_held_back: { reason: string; count: number }[];
+  /**
+   * Why the "what is in front of you" rule could not be applied, or null if it
+   * was. Null and a string mean genuinely different things and the screen has
+   * to show the difference: everywhere else an unanswered question makes the
+   * tool more careful, and here it makes it less.
+   */
+  in_front_unchecked: string | null;
+  rows: ProcessRow[];
+}
+
 export interface Finding {
   id: string;
   probe: string;
@@ -130,6 +161,9 @@ export const api = {
   reportSave: (body: string) => invoke<string>("report_save", { body }),
   reportClear: () => invoke<void>("report_clear"),
   audit: (limit: number) => invoke<{ at: string; readable: string; kind: string; message: string }[]>("audit_list", { limit }),
+  // What is running and what a sweep would do to each. Read-only: there is no
+  // command that stops anything, in either front-end, by design.
+  processSurvey: () => invoke<ProcessSurvey>("process_survey"),
   // The manual is compiled into the program, not fetched. A machine that has
   // gone wrong is often a machine that cannot reach the internet, and the
   // pages most likely to be needed are the ones least likely to be reachable

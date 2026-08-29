@@ -281,5 +281,16 @@ by which point the list has been looked at on real machines.
   so**, because unlike every other unknown here, not knowing holds nothing
   back -- it means the rail did not run, and a rail that did not run must not
   look like one that did.
+- **A row is a process, and a person reads it as a program.** Found by
+  looking at the finished screen on a real machine: thirteen rows called
+  `claude.exe` and seven called `steamwebhelper.exe`, which reads as twenty
+  programs and is two. It is honest -- they are twenty processes -- and it is
+  still misleading, and the confirmation dialog inherits the problem in its
+  worst form: *"Stop 23 programs?"* would be wrong about the number and the
+  word. Grouping by application would fix the reading and lose the detail, so
+  the likely answer is one row per application that opens into its processes,
+  with the count and the total on the row. Decide before stage 3, because the
+  confirmation is where being wrong about this costs something.
+
 - **`outlaw quiet run <program>`** — quiet until that program exits, then
   everything back. Attractive for launching a game. Decide separately.

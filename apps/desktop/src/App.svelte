@@ -9,6 +9,7 @@
   import ChecksView from "./lib/ChecksView.svelte";
   import WatchView from "./lib/WatchView.svelte";
   import StressView from "./lib/StressView.svelte";
+  import ProcessesView from "./lib/ProcessesView.svelte";
   import ReportView from "./lib/ReportView.svelte";
   import InfoView from "./lib/InfoView.svelte";
   import type { BootReport } from "./lib/api";
@@ -19,6 +20,7 @@
     | "checks"
     | "watch"
     | "stress"
+    | "processes"
     | "queue"
     | "models"
     | "machines"
@@ -40,6 +42,10 @@
     // looking, and then -- when neither has explained it -- make the machine
     // misbehave on purpose.
     { id: "stress", label: "Stress" },
+    // After Stress, because it answers the question the memory findings raise
+    // and stress testing does not: what is actually holding it. It stops
+    // nothing, and the screen says so.
+    { id: "processes", label: "Processes" },
     { id: "queue", label: "Queue" },
     { id: "models", label: "Models" },
     { id: "machines", label: "Machines" },
@@ -100,6 +106,8 @@
         <WatchView />
       {:else if view === "stress"}
         <StressView />
+      {:else if view === "processes"}
+        <ProcessesView />
       {:else if view === "queue"}
         <QueueView />
       {:else if view === "models"}

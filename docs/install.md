@@ -174,6 +174,14 @@ sudo apt install libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchel
 cd apps/desktop && npm install && npm run tauri build
 ```
 
+> **Build the window with `tauri build`, not with `cargo build`.** Plain
+> `cargo build --release -p ork-desktop` produces a binary that expects the
+> development server to be running and shows *"can't reach this page"* when it
+> is not -- the front-end is only compiled into the program by the Tauri build.
+> The binary looks fine and the window opens; only the contents are missing.
+> `npx tauri build --no-bundle` builds the same program without also making the
+> installers, which is quicker when you only want to run it.
+
 ## About the optional local model
 
 **The tool does not need a model.** Every deterministic check runs without one,
