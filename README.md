@@ -380,8 +380,9 @@ cargo test --workspace -- --ignored
     assembled out of somebody else's argument parser. It is a breaking change
     to how commands are typed, it will happen before 1.0, and the old syntax
     will spend one version telling you the new way of asking rather than
-    failing. `--json` output is not affected. See
-    [the proposal](docs/proposals/critterscript.md).
+    failing. `--json` output is not affected. The language already exists and
+    has been read; the plan is written against it rather than against a
+    description of it. See [the proposal](docs/proposals/critterscript.md).
 
 These are written down before they exist, because the argument is the hard part
 and it is worth losing one about a document rather than about somebody's

@@ -31,8 +31,9 @@ about to write scheduled tasks against the current syntax.
   contract and is not part of this change.
 - It will appear here, in a release of its own, before it takes effect.
 
-The plan, and the questions it cannot answer yet, are in
-[the proposal](docs/proposals/critterscript.md).
+The plan is in [the proposal](docs/proposals/critterscript.md), which has now
+been written against the language itself rather than against a description of
+it, and says plainly what has been decided and what has not.
 
 ### Changed
 
@@ -82,6 +83,16 @@ like embedders" is not the same claim as "you have no models", and only the
 server can make the second one.
 
 ### Also
+
+- **The line between the argument parser and the tool is checked now.** Nothing
+  behind that line knows how a command was typed -- everything past it matches
+  on a plain value -- which is the whole reason replacing the way commands are
+  typed is a contained change rather than a rewrite. It was true only by
+  habit. One error type borrowed from the parser in the middle of a command
+  would compile, pass every other check, look unremarkable, and cost nothing
+  measurable until the day somebody tried to move the parser. Four tests now
+  read the terminal's own source and require the parser to be named exactly
+  once, where the commands are declared, and nowhere else that is not a test.
 
 - **The setup program looks for the window after installing it**, instead of
   reporting success because the installer it ran exited without complaining.

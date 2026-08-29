@@ -1057,3 +1057,225 @@ outlaw = \"not a command\"
         assert!(Cli::try_parse_from(["outlaw", "audit", "--limitt", "10"]).is_err());
     }
 }
+
+/// The seam between "how a command was typed" and "what the command does".
+///
+/// The plan in `docs/proposals/critterscript.md` is to replace the way this
+/// terminal is spoken to -- a parser of our own instead of `clap`. That is
+/// only a small piece of work while it stays true that `clap` is used *to
+/// declare the commands and for nothing else*: everything downstream matches
+/// on a plain enum and has no idea how the value was produced, so a second
+/// parser is a second producer of an existing type rather than a rewrite.
+///
+/// It stays true by accident today. One `clap::Error` in the middle of a
+/// command's implementation, one `ArgMatches` threaded through a function
+/// because it was convenient, and the swap stops being a swap. None of that
+/// would fail to compile, none of it would look wrong in review, and the cost
+/// would not be discovered until somebody tried to move the parser.
+///
+/// So the seam is checked rather than remembered. Tests may use `clap` freely
+/// -- they are checking the declaration, which is exactly where it belongs.
+#[cfg(test)]
+mod the_seam {
+    use std::path::{Path, PathBuf};
+
+    /// The one line of `clap` the program is allowed to contain.
+    const THE_DECLARATION: &str = "use clap::{Parser, Subcommand};";
+
+    fn sources() -> Vec<(String, String)> {
+        let directory = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let mut found = Vec::new();
+        let entries = std::fs::read_dir(&directory)
+            .unwrap_or_else(|error| panic!("could not read {}: {error}", directory.display()));
+        for entry in entries.flatten() {
+            let path: PathBuf = entry.path();
+            if path.extension().is_none_or(|kind| kind != "rs") {
+                continue;
+            }
+            let name = path
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let text = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("could not read {}: {error}", path.display()));
+            found.push((name, text));
+        }
+        found.sort();
+        found
+    }
+
+    /// The source with every `#[cfg(test)]` item removed.
+    ///
+    /// Every one in this crate is written at the left margin and closed by a
+    /// `}` at the left margin, which is what makes this readable rather than a
+    /// brace counter that a `format!` string could confuse. If that ever stops
+    /// being true, the assertions below stop matching and this says so.
+    fn without_tests(text: &str) -> String {
+        let mut kept = Vec::new();
+        let mut skipping = false;
+        for line in text.lines() {
+            if !skipping && line == "#[cfg(test)]" {
+                skipping = true;
+                continue;
+            }
+            if skipping {
+                if line == "}" {
+                    skipping = false;
+                }
+                continue;
+            }
+            kept.push(line);
+        }
+        assert!(
+            !skipping,
+            "a #[cfg(test)] item was never closed at the margin"
+        );
+        kept.join("\n")
+    }
+
+    /// Lines that would still be there after the compiler had its way: no
+    /// comments, since a comment naming `clap` is prose and harms nothing.
+    fn code_lines(text: &str) -> Vec<&str> {
+        text.lines()
+            .filter(|line| {
+                let trimmed = line.trim_start();
+                !trimmed.starts_with("//") && !trimmed.is_empty()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_program_names_clap_exactly_once_and_only_to_declare_the_commands() {
+        let mut mentions: Vec<String> = Vec::new();
+        let mut declarations = 0;
+        for (file, text) in sources() {
+            for line in code_lines(&without_tests(&text)) {
+                if !line.contains("clap") {
+                    continue;
+                }
+                if line.trim() == THE_DECLARATION && file == "main.rs" {
+                    declarations += 1;
+                    continue;
+                }
+                mentions.push(format!("{file}: {}", line.trim()));
+            }
+        }
+
+        assert_eq!(
+            declarations, 1,
+            "`{THE_DECLARATION}` should appear once, at the top of main.rs, and it \
+             appeared {declarations} times. If the import moved or changed shape, \
+             this check is no longer looking at the seam it was written for."
+        );
+        assert!(
+            mentions.is_empty(),
+            "these name `clap` outside the command declaration:\n  {}\n\nEverything \
+             behind the parser matches on a plain `Command` value and must keep \
+             doing so, or the parser cannot be replaced without touching it. A \
+             command that needs to reject something should return an error of its \
+             own rather than one of clap's.",
+            mentions.join("\n  ")
+        );
+    }
+
+    #[test]
+    fn the_thing_behind_the_parser_is_a_plain_value() {
+        // The seam only means anything if dispatch is still on the other side
+        // of it. A `dispatch` that took `ArgMatches`, or a `Command` enum that
+        // stopped being an enum, would leave the check above passing and the
+        // property it exists to protect gone.
+        let main = sources()
+            .into_iter()
+            .find(|(file, _)| file == "main.rs")
+            .map(|(_, text)| without_tests(&text))
+            .expect("ork-cli has a main.rs");
+
+        assert!(
+            main.contains("async fn dispatch(mut cli: Cli)"),
+            "`dispatch` no longer has the shape this check was written for"
+        );
+        assert!(
+            main.contains("enum Command {"),
+            "`Command` is no longer a plain enum, which is the type a second \
+             parser would have to produce"
+        );
+        // On the code rather than the whole file: this very module names
+        // `ArgMatches` in a comment to say why it must not appear, and a rule
+        // that its own explanation violates is a rule somebody deletes.
+        let named: Vec<&str> = code_lines(&main)
+            .into_iter()
+            .filter(|line| line.contains("ArgMatches"))
+            .collect();
+        assert!(
+            named.is_empty(),
+            "something behind the parser takes clap's `ArgMatches`, which ties \
+             the tool to the way it was typed:\n  {}",
+            named.join("\n  ")
+        );
+    }
+
+    #[test]
+    fn the_test_bodies_really_were_removed() {
+        // Without this, a stripper that removed everything would make both
+        // checks above pass by having nothing left to look at -- and this
+        // crate's tests use `clap` heavily and legitimately, so "nothing left"
+        // is exactly the failure mode.
+        let main = sources()
+            .into_iter()
+            .find(|(file, _)| file == "main.rs")
+            .map(|(_, text)| text)
+            .expect("ork-cli has a main.rs");
+        let trimmed = without_tests(&main);
+
+        assert!(
+            main.contains("use clap::CommandFactory;"),
+            "main.rs's tests should use clap; if they stopped, this check is \
+             proving nothing"
+        );
+        assert!(
+            !trimmed.contains("use clap::CommandFactory;"),
+            "the test modules were not removed, so the check above is reading \
+             test code as if it were the program"
+        );
+        assert!(
+            trimmed.len() > main.len() / 6,
+            "stripping the tests removed almost everything, which means it \
+             removed more than the tests"
+        );
+    }
+
+    #[test]
+    fn the_check_would_notice_clap_behind_the_parser() {
+        // Proves the rule can fail, without breaking the real files to find
+        // out. These are the two shapes that actually creep in: an error type
+        // used inside a command, and a parser reached for mid-function.
+        //
+        // Written as a list of lines rather than as one block of text on
+        // purpose: a block would put `#[cfg(test)]` and a closing brace at
+        // the left margin of *this* file, and the check reads this file.
+        let pretend = [
+            "use clap::{Parser, Subcommand};",
+            "",
+            "fn apply(name: &str) -> Result<(), clap::Error> {",
+            "    Ok(())",
+            "}",
+            "",
+            "#[cfg(test)]",
+            "mod tests {",
+            "    use clap::CommandFactory;",
+            "}",
+        ]
+        .join("\n");
+        let program = without_tests(&pretend);
+        let offending: Vec<&str> = code_lines(&program)
+            .into_iter()
+            .filter(|line| line.contains("clap") && line.trim() != THE_DECLARATION)
+            .collect();
+        assert_eq!(
+            offending,
+            vec!["fn apply(name: &str) -> Result<(), clap::Error> {"],
+            "the check must catch clap behind the parser, and must catch neither \
+             the declaration nor the tests"
+        );
+    }
+}

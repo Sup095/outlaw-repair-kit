@@ -52,6 +52,13 @@ replacement. Reaching for `clap` inside a command's implementation would quietly
 weld the parser to the tool, so it is worth not doing even while `clap` is what
 is there.
 
+That is now checked rather than remembered. Four tests read the crate's own
+source and require that the program names `clap` exactly once -- the import that
+declares the commands -- and nowhere else outside test code, which may use it
+freely. A `clap::Error` returned from the middle of a command would compile,
+pass clippy, look unremarkable in review, and cost nothing until somebody tried
+to move the parser; this fails the build the day it is written.
+
 The same shape holds across the join to the window: a Tauri command is a thin
 wrapper that calls into the crates and returns what they returned. Two tests
 read the Rust source and compare it against the TypeScript, because a command is
