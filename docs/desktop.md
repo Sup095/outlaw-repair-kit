@@ -4,6 +4,19 @@ The same tool as the command line, with a window. Anything the app can do,
 `outlaw` can do — that is a rule the project is built on, not a coincidence, so
 nothing you set up in the app traps you in it.
 
+## Opening it
+
+| | |
+| --- | --- |
+| **Windows** | Start menu -> **Outlaw Repair Kit** |
+| **Linux** | applications list -> **Outlaw Repair Kit**, or type `outlaw-repair-kit` |
+
+The window is a separate download from the command-line program -- see
+[Installing](install.md). Its own installer adds the Start menu entry on
+Windows and the `.deb` adds the applications entry on Linux; if you installed
+the AppImage with the install script, that adds one too, because an AppImage
+has no installer of its own to do it.
+
 ## Starting up
 
 Both front-ends run the same start-up sequence before anything else:

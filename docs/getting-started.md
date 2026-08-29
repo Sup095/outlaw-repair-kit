@@ -1,41 +1,78 @@
 # Getting started
 
-## Install
+## Install it
 
-Download the build for your system from the
+Pick whichever of these you would rather do. They all end up with the same
+program. [Installing](install.md) covers each in full, including building from
+source.
+
+**A window, if you would rather not open a terminal.** Download `outlaw-setup`
+for your system from the
 [latest release](https://github.com/Sup095/outlaw-repair-kit/releases/latest)
-and unpack it. There is no installer and nothing to set up first -- it is a
-single file.
+and run it. It shows you what it is about to do before it does any of it, and
+writes down what it did afterwards.
 
-**Windows**
+**One line, if you would.**
 
 ```powershell
-.\outlaw.exe scan
+irm https://raw.githubusercontent.com/Sup095/outlaw-repair-kit/main/install/install.ps1 | iex
 ```
 
-**Linux**
+```sh
+curl -fsSL https://raw.githubusercontent.com/Sup095/outlaw-repair-kit/main/install/install.sh | sh
+```
+
+Add `-Desktop` on Windows or `--desktop` on Linux to get the window as well.
+
+**By hand.** Download the build for your system, unpack it, and put `outlaw`
+somewhere on your `PATH` -- `~/.local/bin` on Linux, any folder you have added
+on Windows. It is a single file and needs nothing set up.
+
+Nothing above needs administrator rights, and every download is refused unless
+its checksum matches the one published with the release.
+
+## Open it
+
+Whichever way you installed it, there are two ways in and both are on this
+page because nothing else tells you.
+
+### The window
+
+| | |
+| --- | --- |
+| **Windows** | Start menu -> **Outlaw Repair Kit** |
+| **Linux** | your applications list -> **Outlaw Repair Kit**, or type `outlaw-repair-kit` |
+
+The window is a separate download from the command-line program. If it is not
+in your Start menu or applications list, it is not installed yet -- see
+[Installing](install.md).
+
+### The terminal
+
+Open a terminal and type:
 
 ```bash
-tar xzf outlaw-*-x86_64-unknown-linux-gnu.tar.gz
-cd outlaw-*-x86_64-unknown-linux-gnu
-./outlaw scan
+outlaw
 ```
 
-To run it from anywhere, put the binary somewhere on your `PATH` -- for example
-`~/.local/bin` on Linux.
+That on its own is not an error. It tells you what the tool is and the handful
+of commands worth knowing. Everything else is `outlaw --help`.
 
-### Building from source
+The installers also add **Outlaw Repair Kit (terminal)** to your Start menu or
+applications list, which opens a terminal with the tool ready and *stays open*
+so you can read what it says and type the next thing. It runs a small script
+called `outlaw-terminal` that sits beside the program; you can read it, and
+deleting it removes nothing but the convenience.
 
-You need a stable Rust toolchain. On Windows you also need the Microsoft C++
-build tools; on Linux, a working C compiler.
+> **`outlaw: command not found`?** A terminal that was already open when you
+> installed does not have the new `PATH`. Close it and open a new one. If it
+> still cannot find it, run the program by its full path once and use
+> `outlaw config` to see where things are.
 
-```bash
-git clone https://github.com/Sup095/outlaw-repair-kit
-cd outlaw-repair-kit
-cargo build --release
-```
-
-The binary appears at `target/release/outlaw`.
+> **Clicked something and nothing happened?** Do not click `outlaw` or
+> `outlaw.exe` directly -- it is a command-line program, so it opens a console,
+> prints, and closes it again faster than you can read. Use the shortcut, or a
+> terminal.
 
 ## Your first scan
 
@@ -46,6 +83,8 @@ outlaw scan
 A quick scan takes a few seconds and checks disk space, memory pressure,
 running processes, device and driver health, whether installed applications
 still start, and the system log for crashes and hardware errors.
+
+In the window it is the **Scan** screen, and it is the screen it opens on.
 
 You will get one of two results.
 
@@ -69,11 +108,23 @@ passed over:
 A scan that quietly covered less than you think is worse than one that tells
 you, so the tool always tells you.
 
+## You do not need a model
+
+Every check runs without one, and the built-in runbook library explains the
+problems people have already written down. A model is for the problems nobody
+has written down yet, and the tool says plainly when it has one and when it
+does not.
+
+```bash
+outlaw models    # what would be used, and why the rest were passed over
+```
+
 ## Seeing what it can do
 
 ```bash
 outlaw probes   # every check, what it looks for, what it needs
 outlaw host     # what the tool detected about this machine
+outlaw docs     # this manual, carried inside the program
 ```
 
 ## Next steps

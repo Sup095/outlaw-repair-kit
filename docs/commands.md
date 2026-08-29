@@ -13,6 +13,25 @@ output on standard out stays clean for piping.
 
 ---
 
+## `outlaw`
+
+Typed on its own, with nothing after it.
+
+```bash
+outlaw
+```
+
+Says what the tool is, the handful of commands worth knowing, and where the
+window is if one can be found. It is not an error and it changes nothing.
+
+It exists because the people most likely to type it are the ones who have just
+been told to run a repair tool and do not yet know what to type, and answering
+`error: a subcommand is required` at them is no help at all.
+
+`outlaw --help` is still the full list.
+
+---
+
 ## `outlaw scan`
 
 Look for problems.

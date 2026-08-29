@@ -14,6 +14,66 @@ Logs go to standard error, so they will not corrupt `--json` output.
 
 ---
 
+## `outlaw: command not found`
+
+A terminal that was already open when you installed does not know about the
+new `PATH`. Close it and open a new one.
+
+If a new terminal still cannot find it:
+
+```bash
+outlaw config     # from the folder it was installed into
+```
+
+On Linux the program lives in `~/.local/share/outlaw-repair-kit` and is
+reachable as `~/.local/bin/outlaw`. If that second file is missing, the
+install did not finish -- run the installer again. Check that `~/.local/bin`
+is on your `PATH`:
+
+```sh
+echo $PATH | tr ':' '\n' | grep local
+```
+
+On Windows the folder is `%LOCALAPPDATA%\Programs\OutlawRepairKit` unless you
+chose another with `-Dir`.
+
+## I clicked it and nothing happened
+
+If you clicked `outlaw` or `outlaw.exe` directly, that is expected and not a
+fault. It is a command-line program: it opens a console, prints, and closes it
+again faster than anybody can read.
+
+Use one of these instead:
+
+- **Outlaw Repair Kit (terminal)** in your Start menu or applications list.
+  It opens the tool at a prompt and stays open.
+- **Outlaw Repair Kit** -- the window, which is a separate download.
+- A terminal you opened yourself, then type `outlaw`.
+
+If the shortcut itself does nothing, check that `outlaw-terminal` (or
+`outlaw-terminal.cmd` on Windows) is still beside the program. It is the small
+script the shortcut runs, and it is safe to delete -- but the shortcut stops
+working when it is gone. Reinstalling puts it back.
+
+## The window is not in my Start menu or applications list
+
+The window and the command-line program are separate downloads, and installing
+one does not install the other. `outlaw`, typed on its own, says whether it can
+find a window on this machine.
+
+To add it:
+
+```powershell
+.\install.ps1 -Desktop
+```
+
+```sh
+./install.sh --desktop
+```
+
+Or download the installer for the window from the
+[releases page](https://github.com/Sup095/outlaw-repair-kit/releases) directly.
+
 ## The scan says checks did not run
 
 That is the tool being honest rather than a fault. Each skipped check names its

@@ -10,6 +10,56 @@ not that the work has stopped.
 
 ---
 
+## Unreleased
+
+**You can open it now.**
+
+Three separate things all pointed the same way: somebody who installed this
+tool had no way of opening it that worked.
+
+`outlaw`, typed on its own, answered `error: a subcommand is required` and
+exited with a failure. That is a reasonable default for a program whose users
+are all already at a prompt, and this one's are not -- somebody has been told
+to run a repair tool because their computer is misbehaving, and the first thing
+it did was tell them they were wrong. It now says what it is, six things worth
+typing, and where the window is.
+
+The shortcut the installer made pointed at the command-line program. On Windows
+that opens a console, prints, and closes it faster than anybody can read; on
+Linux, in an entry marked `Terminal=false`, it did nothing visible at all. Both
+look exactly like a broken program. A shortcut now knows whether it opens a
+window or a terminal, and the terminal one goes through a small script that
+stays open afterwards -- a file that sits beside the program, can be read, and
+can be deleted. The install scripts add one too, which they never did.
+
+And on Linux the installer put the program in `~/.local/share` while adding
+`~/.local/bin` to your `PATH`, so `outlaw` answered "command not found" on a
+machine where it had just installed correctly. It is linked into the directory
+that goes on `PATH` now.
+
+The documentation said there was no installer, which stopped being true three
+releases ago, and never said how to open anything. Getting started, installing,
+the command reference, troubleshooting and the front page all now say how to
+open both halves of the tool, and what to do when a shortcut does nothing.
+
+### Also
+
+- **The Windows build has an icon and says who made it.** It was a generic
+  console executable: no icon in a folder, none on a shortcut, and nothing in
+  its Properties saying what it was. Embedding one cannot fail the build -- a
+  machine without a resource compiler still gets a working program with a
+  plain icon.
+- **What may be stopped, and what may never be.** The first piece of process
+  control: a classifier that stops nothing and answers one question about a
+  running process. Protected means never, with a stated reason -- the operating
+  system, security software, drivers and their control panels, the display,
+  input and audio stack, networking, disk encryption, accessibility, and the
+  tool itself. Held back means not by default, and says which restraint
+  applied. Candidate means it is offered, with what it is holding, so the
+  decision stays with a person. Nothing can stop a process yet.
+
+---
+
 ## v0.9.0
 
 **Eight kinds of problem the tool could find but had nothing to say about.**

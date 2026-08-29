@@ -22,6 +22,11 @@ to your computer. Afterwards it shows you what it did, and writes the same list
 to `install-receipt.json` beside the installed files, so removing this later is
 reading a list rather than guessing.
 
+It puts `outlaw` on your PATH, adds **Outlaw Repair Kit (terminal)** to your
+Start menu or applications list, and — on Linux, where an AppImage has no
+installer of its own — adds **Outlaw Repair Kit** for the window too. All of
+that is listed on the page before it starts and in the receipt afterwards.
+
 It **refuses** — not warns — to install any file whose checksum does not match
 the one published with the release, or any file the release published no
 checksum for. It never asks for administrator rights. It offers to set up a
@@ -61,6 +66,8 @@ The installer:
 - puts `outlaw` somewhere on your PATH that needs no administrator rights
   (`%LOCALAPPDATA%\Programs\OutlawRepairKit` on Windows, `~/.local/bin` on
   Linux),
+- adds **Outlaw Repair Kit (terminal)** to your Start menu or applications
+  list, unless you say not to,
 - asks whether you also want a model running on this machine, and
 - tells you exactly what it is about to run before running anything that is not
   its own business.
@@ -78,6 +85,7 @@ rights unless you ask it for the desktop app.
 | `-LocalModel` | `--local-model` | Set up a local model without asking |
 | `-NoLocalModel` | `--no-local-model` | Skip the local-model question |
 | `-Yes` | `--yes` | Do not ask anything; take the safe default each time |
+| `-NoShortcut` | `--no-shortcut` | Do not add anything to the Start menu or applications list |
 | `-AllowUnverified` | `--allow-unverified` | Install even when the download cannot be checked against a published checksum. Refused without this. Nothing turns off the refusal of a checksum that is *wrong* |
 
 To pass options to the one-line install, download the script first and run it:
@@ -103,6 +111,27 @@ The installer can fetch it for you with `-Desktop` on Windows or `--desktop` on
 Linux. On Linux that installs the AppImage into the same user-owned directory
 as the program, so it still needs no root — run it with `outlaw-repair-kit`. An
 AppImage needs FUSE; the installer says so if it cannot find it.
+
+## Opening it once it is installed
+
+| | The window | A terminal |
+| --- | --- | --- |
+| **Windows** | Start menu → **Outlaw Repair Kit** | Start menu → **Outlaw Repair Kit (terminal)**, or type `outlaw` |
+| **Linux** | applications list → **Outlaw Repair Kit**, or `outlaw-repair-kit` | applications list → **Outlaw Repair Kit (terminal)**, or type `outlaw` |
+
+Typing `outlaw` on its own is not an error. It says what the tool is and the
+handful of commands worth knowing.
+
+**Do not click `outlaw.exe` itself.** It is a command-line program: clicking it
+opens a console, prints, and closes it again faster than anybody can read,
+which looks exactly like something crashing. That is why there is a shortcut
+rather than a link straight to the program. The shortcut runs a small script,
+`outlaw-terminal`, that sits beside the program, opens it at a prompt, and
+stays there. You can read that file, and deleting it removes nothing but the
+convenience.
+
+On Windows the desktop app's own installer adds its Start menu entry, so this
+installer does not add a second one pointing at the same thing.
 
 ## From source
 
@@ -153,7 +182,14 @@ Delete the program, and if you want, the folder it kept its settings in:
 | | Program | Settings, queue, and audit log |
 | --- | --- | --- |
 | Windows | `%LOCALAPPDATA%\Programs\OutlawRepairKit` | `%APPDATA%\outlaw-repair-kit` |
-| Linux | `~/.local/bin/outlaw` | `~/.config/outlaw-repair-kit` |
+| Linux | `~/.local/share/outlaw-repair-kit` and `~/.local/bin/outlaw` | `~/.config/outlaw-repair-kit` |
+
+And the shortcuts, if any were made:
+
+| | |
+| --- | --- |
+| Windows | `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Outlaw Repair Kit (terminal).lnk` |
+| Linux | `~/.local/share/applications/systems.outlaw.repairkit*.desktop` |
 
 Stored keys live in the operating system's credential store; remove them with
 `outlaw set-key cloud --remove` before deleting the program, or from the

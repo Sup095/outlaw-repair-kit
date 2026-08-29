@@ -77,6 +77,18 @@ no runtime to install first. There is a desktop app there too.
 See [Installing](docs/install.md) for every option, including building from
 source.
 
+### Opening it
+
+| | The window | A terminal |
+| --- | --- | --- |
+| **Windows** | Start menu -> **Outlaw Repair Kit** | Start menu -> **Outlaw Repair Kit (terminal)**, or type `outlaw` |
+| **Linux** | applications list -> **Outlaw Repair Kit** | applications list -> **Outlaw Repair Kit (terminal)**, or type `outlaw` |
+
+`outlaw` on its own is not an error -- it says what the tool is and the handful
+of commands worth knowing. Do not click `outlaw.exe` itself: it is a
+command-line program, so clicking it opens a console, prints, and closes it
+again faster than anybody can read. That is what the shortcut is for.
+
 On Linux, install `systemd`'s `journalctl` (present on most distributions) for
 the log check to see beyond the current boot. Anything missing is reported as a
 skipped check with the reason, never as a silent gap.
