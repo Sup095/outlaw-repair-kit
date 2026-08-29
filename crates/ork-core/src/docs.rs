@@ -252,6 +252,101 @@ mod tests {
         assert!(broken.is_empty(), "links to nothing: {broken:?}");
     }
 
+    /// A heading, as the anchor that jumps to it.
+    ///
+    /// GitHub's rule, which is what these links are written for and what
+    /// renders them: lower-case, punctuation dropped, spaces to hyphens.
+    /// Backticks go the same way as everything else, so `` ## `outlaw
+    /// processes` `` becomes `outlaw-processes`.
+    fn anchor_for(heading: &str) -> String {
+        heading
+            .trim_start_matches('#')
+            .trim()
+            .to_lowercase()
+            .chars()
+            .filter(|c| c.is_alphanumeric() || *c == ' ' || *c == '-' || *c == '_')
+            .map(|c| if c == ' ' { '-' } else { c })
+            .collect()
+    }
+
+    /// Every anchor a file offers, from its headings.
+    fn anchors_in(text: &str) -> Vec<String> {
+        text.lines()
+            .filter(|line| line.starts_with('#'))
+            .map(anchor_for)
+            .collect()
+    }
+
+    #[test]
+    fn no_page_links_to_a_heading_that_is_not_there() {
+        // The file check above strips the `#part` and looks only at the file,
+        // so a link to a heading that has since been reworded still passes:
+        // the file is there, and following the link silently lands somebody at
+        // the top of a long page instead of at the paragraph they were sent
+        // to. That is worse than a broken link, which at least announces
+        // itself. Headings get reworded often -- three were reworded in the
+        // release this test was written for.
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let docs = root.join("docs");
+        let mut broken = Vec::new();
+        let mut checked = 0;
+
+        for page in PAGES {
+            let from = if page.id == "changelog" { &root } else { &docs };
+            for target in links(page.body) {
+                if target.starts_with("http") || !target.contains('#') {
+                    continue;
+                }
+                let (file, anchor) = target.split_once('#').unwrap_or((&target, ""));
+                if anchor.is_empty() {
+                    continue;
+                }
+                // No file part means the link points within this same page.
+                let text = if file.is_empty() {
+                    page.body.to_string()
+                } else {
+                    match std::fs::read_to_string(from.join(file)) {
+                        Ok(text) => text,
+                        // A missing file is the other test's complaint, not
+                        // this one's. Reporting it twice helps nobody.
+                        Err(_) => continue,
+                    }
+                };
+                checked += 1;
+                if !anchors_in(&text).iter().any(|found| found == anchor) {
+                    broken.push(format!("{} -> {target}", page.id));
+                }
+            }
+        }
+
+        assert!(
+            checked > 0,
+            "no anchor links were examined; this check has stopped checking"
+        );
+        assert!(
+            broken.is_empty(),
+            "these links point at headings that do not exist, and would quietly              land somebody at the top of the page: {broken:?}"
+        );
+    }
+
+    #[test]
+    fn the_anchor_rule_matches_the_headings_it_is_given() {
+        // The slug rule itself, on the shapes that actually appear in these
+        // pages. If this were wrong in the lenient direction the test above
+        // would pass while the links were broken.
+        assert_eq!(anchor_for("## Fixing, from the app"), "fixing-from-the-app");
+        assert_eq!(anchor_for("### What can be tested"), "what-can-be-tested");
+        assert_eq!(anchor_for("## `outlaw processes`"), "outlaw-processes");
+        assert_eq!(
+            anchor_for("## The other machine cannot be reached"),
+            "the-other-machine-cannot-be-reached"
+        );
+        assert_eq!(
+            anchor_for("# Built *in collaboration* with AI"),
+            "built-in-collaboration-with-ai"
+        );
+    }
+
     /// Every markdown link target in a page.
     fn links(body: &str) -> Vec<String> {
         let mut found = Vec::new();

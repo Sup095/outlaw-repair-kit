@@ -80,6 +80,20 @@ server can make the second one.
   language; both are now checked against one shared table, so whichever one
   moves is the one whose test fails.
 
+- **The rule that keys never touch a settings file is checked, not
+  remembered.** It is the kind of rule that holds until one reasonable-looking
+  line breaks it: a field added because it was convenient, or a command that
+  returns the key so the settings box can show it filled in. Both of those are
+  now failures rather than commits. The settings file holds the *name* of a
+  credential and never the credential.
+
+- **A link to a heading that has been reworded is a failure now.** The check
+  that followed links between manual pages stripped the `#part` and looked only
+  at the file, so a renamed heading still passed and quietly landed somebody at
+  the top of a long page instead of at the paragraph they were sent to -- worse
+  than a broken link, which at least announces itself. Three headings were
+  reworded in v0.12.0.
+
 ---
 
 ## v0.12.0
