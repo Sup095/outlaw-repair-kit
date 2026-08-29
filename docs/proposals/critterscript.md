@@ -340,14 +340,22 @@ whether preparation is real or speculative.
 4. ~~**The manual's fenced commands should be checkable.**~~ Done — every fenced
    `outlaw` line in `docs/` is now parsed by the program itself. On the day the
    syntax changes, all of them are wrong at once, and this says so line by line.
-5. **Decide where the parser lives.** `ork-cli` is the obvious answer and
-   probably the wrong one: if CritterScript ever describes runbooks, `ork-ai`
-   needs it too. An `ork-critter` crate that depends on nothing else in the
-   workspace keeps that open and keeps the language testable on its own.
+5. ~~**Decide where the parser lives.**~~ **Decided: a new `ork-critter`
+   crate that depends on nothing else in the workspace.** `ork-cli` was the
+   obvious answer and the wrong one for two reasons. If CritterScript ever
+   describes runbooks then `ork-ai` needs it too, and a language living inside
+   the terminal front-end would have to be lifted out at exactly the moment
+   there was pressure not to. And a parser that can reach the tool is a parser
+   whose tests can reach the tool: the conformance suite ported from FieldKit
+   has to be able to run against nothing but text, or a failure in it means
+   either the language is wrong or the machine is.
+
+   It depends on `serde` and nothing of ours. `ork-core` may depend on it
+   later; it never depends on `ork-core`.
 
 ## Order of work
 
-1. The rest of the preparation above.
+1. The rest of the preparation above -- which is now item 3 alone.
 2. Decide the changing-commands question. Nothing else is safe to build first.
 3. `ork-critter`: the grammar, a parser, an interpreter, and its refusals. No
    tool behaviour at all — it turns text into a value or into a complaint, and
