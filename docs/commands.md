@@ -111,14 +111,31 @@ Three groups, and the second two are the interesting ones:
 
 - **Could be stopped** -- ordinary programs belonging to you, heaviest first,
   with what each is holding.
-- **Held back, and why** -- not offered by default, with the reason: it belongs
-  to another account, it may have unsaved work in it, it may be part-way
-  through syncing files, it belongs to another program, it is what you would
-  reach for to undo this, it started a moment ago, or you pinned it.
+- **Held back, and why** -- not offered by default, with the reason: you are
+  looking at it, it belongs to another account, it may have unsaved work in it,
+  it may be part-way through syncing files, it belongs to another program, it
+  is what you would reach for to undo this, it started a moment ago, or you
+  pinned it.
 - **Never touched** -- the operating system, security software, drivers and
   their control panels, the display, input and audio stack, networking, disk
   encryption, accessibility software, and this tool. There is no flag that
   changes this.
+
+### What you are looking at
+
+Whatever has the window in front of you is never offered, and neither is what
+started it or the rest of its own processes. A game and the launcher it is
+running inside go together, because stopping the launcher takes the game with
+it; a browser is forty processes sharing one name, and stopping thirty-nine of
+them is stopping the one you are reading.
+
+This is the one rule here that cannot always be applied. Windows will say which
+window has the focus. On Linux it depends on the display server, and Wayland
+deliberately does not let one program ask what another has in front of you.
+Where the question cannot be asked, the list says so under **One rule did not
+run**, and `--json` carries the same thing as `in_front_unchecked`. It is called
+out rather than left quiet because not knowing does not hold anything back
+here: it means the list may include what you are looking at.
 
 ### About the memory figure
 

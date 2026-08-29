@@ -19,6 +19,7 @@
 //! find malware -- which is why this one does not claim to.
 
 use crate::platform::{PlatformKind, ProcessInfo};
+use crate::processes::in_front::InFront;
 
 /// What may be done with a process.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -145,8 +146,27 @@ impl Restraint {
 pub struct Circumstances {
     /// Names the person has asked to be left alone, lower-case.
     pub pinned: Vec<String>,
-    /// The process that has a window in front of the user, if known.
-    pub foreground_pid: Option<u32>,
+    /// What has the window in front of the user, or why that could not be
+    /// established. See [`crate::processes::in_front`] -- and note that not
+    /// knowing is not the careful answer here: it means this rail protects
+    /// nothing, which anything showing a sweep is expected to say out loud.
+    pub in_front: InFront,
+    /// The process in front of you and everything it is running inside.
+    ///
+    /// Ancestors as well as the process itself, because stopping what
+    /// launched the thing you are looking at takes the thing you are looking
+    /// at with it. A game started from Steam is the ordinary case: Steam is
+    /// idle, holds several hundred megabytes, and looks like an excellent
+    /// candidate right up until stopping it takes the game down.
+    pub in_front_lineage: Vec<u32>,
+    /// Names of the programs in front of you, lower-case.
+    ///
+    /// The same reasoning as [`Circumstances::own_family`], for the same
+    /// reason: a modern application is not one process. A browser is forty
+    /// processes sharing a name, and stopping thirty-nine of them while
+    /// somebody looks at the fortieth is stopping the one they are looking
+    /// at.
+    pub in_front_family: Vec<String>,
     /// This process and every process it is running inside: the shell, the
     /// terminal, and whatever launched that.
     ///
@@ -269,14 +289,20 @@ pub fn classify(process: &ProcessInfo, platform: PlatformKind, about: &Circumsta
     //
     // `None` means the question could not be answered, and an unanswered
     // question about who owns something is treated as the careful answer.
+    // Before the ownership question, because when both are true this is the
+    // reason worth showing: "you are looking at it" is something somebody can
+    // check for themselves in a second, and "it runs as another account" is
+    // not.
+    if about.in_front_lineage.contains(&process.pid)
+        || about.in_front_family.iter().any(|member| member == &name)
+    {
+        return Standing::HeldBack {
+            because: Restraint::InFrontOfYou,
+        };
+    }
     if process.runs_as_you != Some(true) {
         return Standing::HeldBack {
             because: Restraint::RunsAsAnotherAccount,
-        };
-    }
-    if about.foreground_pid == Some(process.pid) {
-        return Standing::HeldBack {
-            because: Restraint::InFrontOfYou,
         };
     }
     if process.run_time_secs < JUST_STARTED_SECS {
@@ -736,7 +762,9 @@ mod tests {
     fn ordinary() -> Circumstances {
         Circumstances {
             pinned: Vec::new(),
-            foreground_pid: None,
+            in_front: InFront::Nothing,
+            in_front_lineage: Vec::new(),
+            in_front_family: Vec::new(),
             own_lineage: vec![999_999],
             own_family: Vec::new(),
         }
@@ -1014,7 +1042,8 @@ mod tests {
     #[test]
     fn what_you_are_looking_at_is_not_swept_away_underneath_you() {
         let looking = Circumstances {
-            foreground_pid: Some(42),
+            in_front: InFront::Process(42),
+            in_front_lineage: vec![42],
             ..ordinary()
         };
         assert_eq!(
@@ -1026,6 +1055,101 @@ mod tests {
             Standing::HeldBack {
                 because: Restraint::InFrontOfYou
             }
+        );
+    }
+
+    #[test]
+    fn what_started_what_you_are_looking_at_goes_with_it() {
+        // The ordinary case, and the one this was built for: a game started
+        // from Steam. Steam itself is idle, holds several hundred megabytes,
+        // and is an excellent candidate right up until stopping it takes the
+        // game down with it.
+        let looking = Circumstances {
+            in_front: InFront::Process(42),
+            in_front_lineage: vec![42, 7],
+            // Left empty on purpose. `family_of` would fill it from the
+            // lineage in real use, so with it filled this test passed with
+            // the ancestor check deleted -- which is not a test of the
+            // ancestor check.
+            in_front_family: Vec::new(),
+            ..ordinary()
+        };
+        assert_eq!(
+            classify(&process("steam.exe", 7), PlatformKind::Windows, &looking),
+            Standing::HeldBack {
+                because: Restraint::InFrontOfYou
+            },
+            "the launcher the focused game is running inside must not be a              candidate"
+        );
+    }
+
+    #[test]
+    fn the_other_processes_of_what_you_are_looking_at_go_with_it() {
+        // A modern application is not one process. A browser is forty of them
+        // sharing a name, and only one owns the window; stopping the other
+        // thirty-nine is stopping the one being looked at. Same lesson as
+        // `own_family`, learned the same way.
+        let looking = Circumstances {
+            in_front: InFront::Process(42),
+            in_front_lineage: vec![42],
+            in_front_family: vec!["somegame.exe".to_string()],
+            ..ordinary()
+        };
+        assert_eq!(
+            classify(
+                &process("SomeGame.exe", 5_000),
+                PlatformKind::Windows,
+                &looking
+            ),
+            Standing::HeldBack {
+                because: Restraint::InFrontOfYou
+            }
+        );
+    }
+
+    #[test]
+    fn being_looked_at_is_the_reason_shown_when_several_apply() {
+        // Both true: in front of you and running as somebody else. The reason
+        // worth printing is the one somebody can check for themselves in a
+        // second by looking at their own screen.
+        let mut it = process("SomeGame.exe", 42);
+        it.runs_as_you = Some(false);
+        let looking = Circumstances {
+            in_front: InFront::Process(42),
+            in_front_lineage: vec![42],
+            ..ordinary()
+        };
+        assert_eq!(
+            classify(&it, PlatformKind::Windows, &looking),
+            Standing::HeldBack {
+                because: Restraint::InFrontOfYou
+            }
+        );
+    }
+
+    #[test]
+    fn not_being_able_to_tell_holds_nothing_back() {
+        // Stated as a test because it is the uncomfortable half of this rail
+        // and must not be quietly changed. Unknown cannot mean "hold
+        // everything back" -- that would make a sweep useless -- so it means
+        // this rail protects nothing, and the answer is carried so that
+        // whatever shows the sweep can say so.
+        let cannot_tell = Circumstances {
+            in_front: InFront::Unknown("no desktop session".to_string()),
+            ..ordinary()
+        };
+        assert_eq!(
+            classify(
+                &process("SomeUpdater.exe", 42),
+                PlatformKind::Windows,
+                &cannot_tell
+            ),
+            Standing::Candidate
+        );
+        assert_eq!(
+            cannot_tell.in_front.unanswered(),
+            Some("no desktop session"),
+            "the reason must survive on the circumstances, or nothing can              report that the rail did not run"
         );
     }
 
@@ -1070,7 +1194,9 @@ mod tests {
         it.runs_as_you = Some(false);
         let everything = Circumstances {
             pinned: vec!["msmpeng.exe".to_string()],
-            foreground_pid: Some(42),
+            in_front: InFront::Process(42),
+            in_front_lineage: vec![42],
+            in_front_family: vec!["msmpeng.exe".to_string()],
             own_lineage: vec![1],
             own_family: Vec::new(),
         };

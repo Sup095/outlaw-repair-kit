@@ -10,6 +10,45 @@ not that the work has stopped.
 
 ---
 
+## Unreleased
+
+**The sweep list no longer offers you the thing you are looking at.**
+
+`outlaw processes` is the list a later "stop everything non-essential" button
+will act on, and one of the rules it was supposed to follow was never built:
+nothing asked which window was in front of you. Pointed at a real machine
+mid-game, it offered the running game. Harmless while nothing can act on the
+list, and not something to leave standing before something can.
+
+Windows is now asked directly, and the answer is widened rather than taken
+literally. The focused process is held back, and so is everything it is running
+inside and everything sharing a name with those. A game started from Steam
+protects Steam -- Steam sits there idle holding several hundred megabytes and
+looks like an excellent candidate right up until stopping it takes the game
+down. A browser is forty processes sharing one name and only one of them owns
+the window; stopping the other thirty-nine is stopping the one being read.
+
+**And where it cannot be asked, the list says so.** This is the one rule here
+that not knowing does not make safer. Everywhere else an unanswered question
+costs a few megabytes that could have been freed; here it means the rule
+protected nothing at all. So on a machine where the question cannot be put --
+Wayland does not let one program ask what another has in front of you, and
+deliberately so -- the list carries **One rule did not run** and says why,
+rather than reading like a list that had every rule applied to it.
+
+### Also
+
+- **The setup program looks for the window after installing it**, instead of
+  reporting success because the installer it ran exited without complaining.
+  Whether there is a window on the machine afterwards is a question with an
+  answer, and it is the same question `outlaw` asks when it tells you where to
+  find one. It is also the check that would have caught the fault fixed in
+  v0.12.0, where the bundle was downloaded, checked, put in the folder,
+  announced, and never run. It now says where the window went, which is not
+  the folder the rest of it went into.
+
+---
+
 ## v0.12.0
 
 **Four things you actually see, all of them wrong.**

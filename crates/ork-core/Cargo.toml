@@ -22,3 +22,12 @@ sysinfo.workspace = true
 toml.workspace = true
 dirs.workspace = true
 time.workspace = true
+
+# Two calls, to ask which window is in front of you. Already in the tree
+# several times over as a transitive dependency; this only makes one of those
+# versions a direct one. Link-only: no code ships in it.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_UI_WindowsAndMessaging",
+] }

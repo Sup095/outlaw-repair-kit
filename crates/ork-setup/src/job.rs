@@ -22,6 +22,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 
 use anyhow::{Context, Result, bail};
+use ork_core::ways_in;
 
 use crate::install::{self, Receipt, Step};
 use crate::model;
@@ -298,7 +299,29 @@ fn carry_out(choices: &Choices, report: &Sender<Progress>) -> Result<Receipt> {
                                     if path == &placed.display().to_string())
                             });
                         }
-                        let _ = report.send(Progress::Note("the window is installed".into()));
+                        // Look for it rather than announce it. The installer
+                        // exiting zero is the installer's opinion; whether
+                        // there is now a window on this machine is a question
+                        // with an answer, and the same question `outlaw` asks
+                        // when it tells somebody where to find it.
+                        //
+                        // This is also the check that would have caught the
+                        // original fault, where the bundle was downloaded,
+                        // placed, announced, and never run.
+                        match ways_in::find_window() {
+                            Some(window) => {
+                                let _ = report.send(Progress::Note(format!(
+                                    "the window is installed, at {}",
+                                    window.display()
+                                )));
+                            }
+                            None => {
+                                let _ = report.send(Progress::Warning(
+                                    "the window's installer finished without complaint, but no                                      window was found afterwards in any of the places it should                                      be. Everything else is installed."
+                                        .into(),
+                                ));
+                            }
+                        }
                     }
                     Err(error) => {
                         // Not fatal. The command-line tool is installed and

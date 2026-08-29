@@ -271,14 +271,15 @@ by which point the list has been looked at on real machines.
   reach rather than quietly covering less.
 - **How long is "you never use this"?** Fourteen days is a guess. A setting with
   a stated default, not a constant buried in the code.
-- **Nothing reads the foreground window yet.** "Anything with a window in
-  front of you right now" is in the list of things not stopped by default, and
-  nothing implements it: the classifier accepts the answer and is never given
-  one. Pointed at a real machine mid-game, the enumeration offered the running
-  game as a candidate, which is exactly the case that rule exists for. It is
-  harmless while nothing can act on the list, and it is a prerequisite for
-  stage 3 rather than a nicety. Windows can answer it; Linux depends on the
-  display server and may not be able to, in which case it says so rather than
-  guessing.
+- ~~**Nothing reads the foreground window yet.**~~ **Built.** Windows is
+  asked directly, and the answer is widened to the focused process, everything
+  it is running inside, and everything sharing a name with those -- so a game
+  started from Steam protects Steam, and a browser's fortieth process protects
+  the other thirty-nine. On Linux it is not answered: Wayland deliberately
+  does not permit the question, and X11 would need a display connection this
+  tool does not otherwise make. **Where it cannot be answered the list says
+  so**, because unlike every other unknown here, not knowing holds nothing
+  back -- it means the rail did not run, and a rail that did not run must not
+  look like one that did.
 - **`outlaw quiet run <program>`** — quiet until that program exits, then
   everything back. Attractive for launching a game. Decide separately.

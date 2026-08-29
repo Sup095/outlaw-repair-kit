@@ -13,6 +13,10 @@
 //! * **Hide what it left alone.** The interesting half of this list is what
 //!   the tool refuses to touch and why, and a summary that omitted it would be
 //!   asking to be trusted rather than showing its reasoning.
+//! * **Let a rail that did not run look like one that did.** "Anything with a
+//!   window in front of you" is not a rule the tool can always apply -- on
+//!   Wayland nothing can. Where it could not, the list says so, in the same
+//!   place and the same voice as a scan reporting a check that did not run.
 
 use anyhow::Result;
 use ork_core::processes::{Row, Survey};
@@ -110,6 +114,10 @@ pub fn show(all: bool, json: bool) -> Result<()> {
                 "why_held_back": survey.why_held_back().iter().map(|(reason, count)| {
                     serde_json::json!({ "reason": reason.describe(), "count": count })
                 }).collect::<Vec<_>>(),
+                // Null when it ran. Something reading this must be able to
+                // tell "nothing was in front of you" from "we could not
+                // look", because only one of those is a complete list.
+                "in_front_unchecked": survey.in_front.unanswered(),
                 "rows": survey.rows,
             }))?
         );
@@ -149,6 +157,19 @@ pub fn show(all: bool, json: bool) -> Result<()> {
         }
     }
     println!();
+
+    if let Some(why) = survey.in_front.unanswered() {
+        println!("{}", bold("One rule did not run"));
+        for line in crate::render::wrap(
+            &format!(
+                "Nothing with a window in front of you is offered for stopping, and on                  this machine that could not be checked: {why}. Everything else below                  still applies. It means the list may include what you are looking at.",
+            ),
+            72,
+        ) {
+            println!("  {}", dim(&line));
+        }
+        println!();
+    }
 
     println!("{}", bold("Held back, and why"));
     if held.is_empty() {

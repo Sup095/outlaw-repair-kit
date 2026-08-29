@@ -20,6 +20,8 @@
 //! what it considers untouchable is worthless if nobody can read it.
 
 use crate::platform::{PlatformKind, ProcessInfo};
+use crate::processes::in_front;
+use crate::processes::in_front::InFront;
 use crate::processes::standing::{
     Circumstances, Protection, Restraint, Standing, classify, family_of, lineage_of,
 };
@@ -43,6 +45,14 @@ pub struct Survey {
     /// The platform the judgement was made for, which is not necessarily the
     /// one it was made on -- a scan can be read from a paired machine.
     pub platform: PlatformKind,
+    /// What had the window in front of the person, when this was taken.
+    ///
+    /// Carried on the survey rather than left on the circumstances that
+    /// produced it, because the one thing anything showing this list must be
+    /// able to do is say when the rail could not run. A survey that cannot be
+    /// asked that question reads as though every rail was applied.
+    #[serde(default)]
+    pub in_front: InFront,
 }
 
 impl Survey {
@@ -65,7 +75,11 @@ impl Survey {
         // Heaviest first, because the only question anybody brings to this
         // list is what is holding the machine's memory.
         rows.sort_by_key(|row| std::cmp::Reverse(row.memory_bytes));
-        Survey { rows, platform }
+        Survey {
+            rows,
+            platform,
+            in_front: about.in_front.clone(),
+        }
     }
 
     /// Judge what is running on this machine, right now.
@@ -147,15 +161,23 @@ impl Circumstances {
     pub fn here(processes: &[ProcessInfo], pinned: &[String]) -> Circumstances {
         let own_lineage = lineage_of(std::process::id(), processes);
         let own_family = family_of(&own_lineage, processes);
+        let in_front = in_front::ask();
+        // Only widen an answer we actually got. `Unknown` and `Nothing` both
+        // leave these empty, which holds nothing back -- correct, and the
+        // reason the answer itself is kept so a caller can say so.
+        let in_front_lineage = match in_front.pid() {
+            Some(pid) => lineage_of(pid, processes),
+            None => Vec::new(),
+        };
+        let in_front_family = family_of(&in_front_lineage, processes);
         Circumstances {
             pinned: pinned
                 .iter()
                 .map(|name| name.to_ascii_lowercase())
                 .collect(),
-            // Nothing reads the foreground window yet. Left unknown rather
-            // than filled with something plausible: a wrong answer here means
-            // the tool offering to close what somebody is looking at.
-            foreground_pid: None,
+            in_front,
+            in_front_lineage,
+            in_front_family,
             own_lineage,
             own_family,
         }
