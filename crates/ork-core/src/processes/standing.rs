@@ -286,11 +286,21 @@ pub fn classify(process: &ProcessInfo, platform: PlatformKind, about: &Circumsta
 /// Taken from the executable path where there is one, because that is harder to
 /// disguise than the reported name, and falling back to the name when there is
 /// not.
+///
+/// Both separators, always, rather than `Path::file_name`. That asks the
+/// machine this code is *running* on what a separator is, and the path being
+/// examined does not necessarily come from that machine: a Windows path read on
+/// Linux has no separators at all as far as `Path` is concerned, so
+/// `C:\Windows\System32\svchost.exe` comes back whole and matches nothing in
+/// any list. The tool can already look at a scan from a paired machine, so the
+/// platform being classified and the platform doing the classifying are two
+/// different questions -- and the one that decides this is the platform
+/// argument, not the build.
 fn leaf_name(process: &ProcessInfo) -> String {
     let from_path = process.executable.as_deref().and_then(|path| {
-        std::path::Path::new(path)
-            .file_name()
-            .and_then(|leaf| leaf.to_str())
+        path.rsplit(['/', '\\'])
+            .next()
+            .filter(|leaf| !leaf.is_empty())
             .map(str::to_ascii_lowercase)
     });
     from_path.unwrap_or_else(|| process.name.to_ascii_lowercase())
@@ -891,6 +901,40 @@ mod tests {
         let mut it = process("something-harmless.exe", 7);
         it.executable = Some("C:\\Windows\\System32\\lsass.exe".to_string());
         assert!(!classify(&it, PlatformKind::Windows, &ordinary()).can_ever_be_stopped());
+    }
+
+    #[test]
+    fn a_path_is_split_the_way_the_machine_it_came_from_writes_them() {
+        // Asking `Path` for the last part of a path asks the machine running
+        // this code what a separator is, and the answer is wrong whenever the
+        // path came from somewhere else -- which it can, because this tool
+        // already reads a scan from a paired machine. A Windows path examined
+        // on Linux has no separators at all as far as `Path` is concerned, so
+        // the whole string is treated as the name and matches nothing.
+        //
+        // Both directions are checked, and only one of them can fail on any
+        // given machine. That is the point of running the tests on both.
+        let mut windows_path = process("disguised", 7);
+        windows_path.executable = Some(r"C:\Windows\System32\lsass.exe".to_string());
+        assert_eq!(leaf_name(&windows_path), "lsass.exe");
+
+        let mut linux_path = process("disguised", 7);
+        linux_path.executable = Some("/usr/lib/systemd/systemd-journald".to_string());
+        assert_eq!(leaf_name(&linux_path), "systemd-journald");
+
+        // A path that is nothing but a name, and one that ends in a separator,
+        // both of which appear in real process listings.
+        let mut bare = process("fallback-name", 7);
+        bare.executable = Some("sshd".to_string());
+        assert_eq!(leaf_name(&bare), "sshd");
+
+        let mut trailing = process("fallback-name", 7);
+        trailing.executable = Some("/usr/bin/".to_string());
+        assert_eq!(
+            leaf_name(&trailing),
+            "fallback-name",
+            "a path with nothing after the separator should fall back to the name"
+        );
     }
 
     #[test]
