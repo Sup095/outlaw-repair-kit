@@ -13,6 +13,7 @@
    */
   import { api, type ProcessSurvey } from "./api";
   import { formatBytes } from "./bytes";
+  import { compactDuration } from "./time";
 
   let survey = $state<ProcessSurvey | null>(null);
   let error = $state<string | null>(null);
@@ -39,16 +40,6 @@
     } finally {
       loading = false;
     }
-  }
-
-  /** How long it has been running, in the words somebody would use. */
-  function howLong(seconds: number): string {
-    const days = Math.floor(seconds / 86400);
-    const hours = Math.floor((seconds % 86400) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    if (days > 0) return `${days}d ${hours}h`;
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    return `${minutes}m`;
   }
 
   load();
@@ -112,7 +103,7 @@
           <div class="row">
             <span class="name" title={row.name}>{row.name}</span>
             <span class="mem">{formatBytes(row.memory_bytes)}</span>
-            <span class="dim when">running {howLong(row.run_time_secs)}</span>
+            <span class="dim when">running {compactDuration(row.run_time_secs)}</span>
           </div>
         {/each}
         {#if candidates.length > shown.length}

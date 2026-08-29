@@ -409,11 +409,47 @@ impl ModelRouter {
     }
 }
 
+/// Fragments that mark a model as one that turns text into vectors rather than
+/// into sentences.
+///
+/// A hand-maintained list matching on names, which is a guess and not an
+/// identification -- the same caveat as every other name list in this project.
+/// The difference is what being wrong costs. Wrongly skipping a model that
+/// could have answered means picking a different one, and it only ever happens
+/// when there is a different one to pick. Wrongly *choosing* one of these
+/// means the tool has no explanations at all, and says so with a server error
+/// about chat not being supported, which reads as the tool being broken.
+///
+/// Rerankers are here for the same reason: they score pairs of texts and
+/// cannot hold a conversation either.
+const NOT_FOR_ANSWERING: &[&str] = &[
+    "embed",
+    "embedding",
+    "all-minilm",
+    "bge-",
+    "gte-",
+    "e5-",
+    "rerank",
+];
+
+/// Whether this name looks like something that cannot answer a question.
+fn cannot_answer_questions(model: &str) -> bool {
+    let name = model.to_ascii_lowercase();
+    NOT_FOR_ANSWERING.iter().any(|mark| name.contains(mark))
+}
+
 /// Pick which model to ask for from what a server actually offers.
 ///
-/// A configured name wins if the server has it. If the configured name is
-/// absent, using it anyway would fail at request time with a confusing error,
-/// so fall through to what is actually there.
+/// A configured name wins if the server has it -- always, even if it looks
+/// like an embedding model, because an explicit choice is a decision and this
+/// is not the place to overrule one.
+///
+/// Otherwise the first one that could plausibly answer a question. Found by
+/// running the live test on a real machine: Ollama lists alphabetically, the
+/// machine had `nomic-embed-text` alongside three perfectly good chat models,
+/// and taking the first meant every explanation came back as
+/// *"nomic-embed-text does not support chat"*. The tool degraded honestly,
+/// which is right, and it degraded when it did not have to, which is not.
 fn choose_model(configured: &str, available: &[String]) -> Option<String> {
     let configured = configured.trim();
     if !configured.is_empty() && available.iter().any(|model| model == configured) {
@@ -424,7 +460,16 @@ fn choose_model(configured: &str, available: &[String]) -> Option<String> {
         // configured name is better than refusing to try.
         return Some(configured.to_string());
     }
-    available.first().cloned()
+    available
+        .iter()
+        .find(|model| !cannot_answer_questions(model))
+        // If every name looks like an embedding model, ask the first one
+        // anyway. A name is a guess; refusing to try on the strength of a
+        // guess would turn "we think none of these can answer" into "you have
+        // no models", which is a claim about the machine that the tool cannot
+        // make from a list of names.
+        .or_else(|| available.first())
+        .cloned()
 }
 
 impl ModelRouter {
@@ -647,6 +692,89 @@ mod tests {
         // Not every server implements the model list endpoint.
         assert_eq!(choose_model("my-model", &[]).as_deref(), Some("my-model"));
         assert_eq!(choose_model("", &[]), None);
+    }
+
+    #[test]
+    fn an_embedding_model_is_not_picked_over_one_that_can_answer() {
+        // The real case, from a real machine. Ollama lists alphabetically, so
+        // `nomic-embed-text` came first and every explanation came back as
+        // "nomic-embed-text does not support chat". Three usable models were
+        // sitting right there.
+        let available = vec![
+            "nomic-embed-text:latest".to_string(),
+            "gemma4:e2b".to_string(),
+            "gemma4:e4b".to_string(),
+            "qwen3-coder:30b".to_string(),
+        ];
+        assert_eq!(
+            choose_model("", &available).as_deref(),
+            Some("gemma4:e2b"),
+            "the first model that can hold a conversation, not the first model"
+        );
+    }
+
+    #[test]
+    fn an_explicit_choice_is_never_overruled() {
+        // Somebody who names an embedding model has made a decision, possibly
+        // for a reason this code does not know. It is not this function's job
+        // to argue, and a tool that quietly used a different model than the
+        // one it was told to would be worse than one that fails.
+        let available = vec!["nomic-embed-text".to_string(), "gemma4:e2b".to_string()];
+        assert_eq!(
+            choose_model("nomic-embed-text", &available).as_deref(),
+            Some("nomic-embed-text")
+        );
+    }
+
+    #[test]
+    fn a_server_with_only_embedding_models_is_still_asked() {
+        // A name is a guess, not an identification. Refusing to try would turn
+        // "these names look like embedders" into "you have no models", which
+        // is a claim about somebody's machine that a list of names cannot
+        // support. Ask, and let the server be the one to say no.
+        let available = vec!["nomic-embed-text".to_string(), "bge-m3".to_string()];
+        assert_eq!(
+            choose_model("", &available).as_deref(),
+            Some("nomic-embed-text")
+        );
+    }
+
+    #[test]
+    fn the_names_that_are_skipped_are_the_ones_meant_to_be_skipped() {
+        for embedder in [
+            "nomic-embed-text:latest",
+            "mxbai-embed-large",
+            "all-minilm:l6-v2",
+            "bge-m3",
+            "gte-large",
+            "e5-mistral-7b-instruct",
+            "bge-reranker-v2-m3",
+            "NOMIC-EMBED-TEXT",
+        ] {
+            assert!(
+                cannot_answer_questions(embedder),
+                "{embedder} should not be chosen to answer a question"
+            );
+        }
+        // And nothing that can answer is caught by accident. `gemma`,
+        // `qwen`, `llama` and friends must all survive -- a list that swept
+        // up real chat models would leave somebody with no explanations for
+        // the opposite reason.
+        for chatty in [
+            "gemma4:e2b",
+            "qwen3-coder:30b",
+            "llama3.3:70b",
+            "mistral-small",
+            "phi4",
+            "deepseek-r1:14b",
+            "gpt-4o-mini",
+            "claude-opus-5",
+        ] {
+            assert!(
+                !cannot_answer_questions(chatty),
+                "{chatty} can answer questions and must not be skipped"
+            );
+        }
     }
 
     #[test]

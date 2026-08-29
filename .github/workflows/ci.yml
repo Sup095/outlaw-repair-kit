@@ -74,3 +74,11 @@ jobs:
         run: |
           npm ci
           npm run check
+      # The window is a third of the product and had nothing checking its
+      # behaviour until these existed -- only its types. Two of them read the
+      # Rust source and compare it against the TypeScript, which is the one
+      # join in this codebase no compiler can see across: a command name is a
+      # string on one side and a function on the other.
+      - name: Test the window
+        working-directory: apps/desktop
+        run: npm test

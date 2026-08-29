@@ -43,6 +43,20 @@ again, so the two cannot come to different conclusions about what "held back"
 means. It says on the screen that it stops nothing, rather than leaving
 somebody to hunt for the button.
 
+**The model that gets asked is one that can answer.** Found by running the
+live model test against a real machine rather than a fixture. Ollama lists what
+it has alphabetically, the machine had `nomic-embed-text` installed alongside
+three perfectly good chat models, and the tool took the first one -- so every
+explanation came back as *"nomic-embed-text does not support chat"*. It
+degraded honestly, which is right, and it degraded when it did not have to,
+which is not. Models whose names mark them as turning text into vectors rather
+than sentences are passed over. A name is a guess and not an identification,
+so being wrong is kept cheap: it only ever skips one when there is another to
+pick, an explicit choice in the settings is never overruled, and a server with
+nothing but embedding models on it is still asked -- because "these names look
+like embedders" is not the same claim as "you have no models", and only the
+server can make the second one.
+
 ### Also
 
 - **The setup program looks for the window after installing it**, instead of
@@ -53,6 +67,18 @@ somebody to hunt for the button.
   v0.12.0, where the bundle was downloaded, checked, put in the folder,
   announced, and never run. It now says where the window went, which is not
   the folder the rest of it went into.
+
+- **The window's own code is tested now, not only type-checked.** It is a
+  third of the product and nothing checked what it did. Two of the new tests
+  read the Rust source and compare it against the TypeScript, because that
+  join is the one place in this codebase no compiler can see across: a command
+  is a string on one side and a function on the other, and a typo in either
+  produces a screen that loads and then fails the moment somebody uses it.
+  Another pair check that every tab actually renders its own screen -- a tab
+  with no branch does not error, it quietly shows a different screen, which is
+  worse. And how long a process has been running is formatted twice, once per
+  language; both are now checked against one shared table, so whichever one
+  moves is the one whose test fails.
 
 ---
 

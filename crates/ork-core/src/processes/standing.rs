@@ -73,6 +73,37 @@ pub enum Protection {
 }
 
 impl Protection {
+    /// Every protection, so that something can iterate them.
+    ///
+    /// The published list of what this tool will never touch. The proposal is
+    /// explicit that such a list is worthless if nobody can read it, and a
+    /// screen can only show what it can enumerate.
+    pub const ALL: &'static [Protection] = &[
+        Protection::OperatingSystem,
+        Protection::Security,
+        Protection::DriverOrControlPanel,
+        Protection::DisplayInputAudio,
+        Protection::Networking,
+        Protection::DiskEncryption,
+        Protection::Accessibility,
+        Protection::TheToolItself,
+    ];
+
+    /// Where this sits in [`Protection::ALL`]. See [`Restraint::position`].
+    #[cfg(test)]
+    fn position(self) -> usize {
+        match self {
+            Protection::OperatingSystem => 0,
+            Protection::Security => 1,
+            Protection::DriverOrControlPanel => 2,
+            Protection::DisplayInputAudio => 3,
+            Protection::Networking => 4,
+            Protection::DiskEncryption => 5,
+            Protection::Accessibility => 6,
+            Protection::TheToolItself => 7,
+        }
+    }
+
     /// Said to a person, in a list of what was left alone.
     pub fn describe(self) -> &'static str {
         match self {
@@ -126,6 +157,45 @@ pub enum Restraint {
 }
 
 impl Restraint {
+    /// Every reason, so that something can iterate them.
+    ///
+    /// Kept honest by `describe`, which matches exhaustively: a new variant
+    /// stops the crate compiling until somebody comes here, and the test
+    /// `every_restraint_is_listed_in_all` fails if they add the arm and
+    /// forget the list. A list of reasons that silently lost one is how a
+    /// screen ends up quietly not showing a category.
+    pub const ALL: &'static [Restraint] = &[
+        Restraint::RunsAsAnotherAccount,
+        Restraint::InFrontOfYou,
+        Restraint::JustStarted,
+        Restraint::MayHoldUnsavedWork,
+        Restraint::CannotBeRestarted,
+        Restraint::MayBeSyncingFiles,
+        Restraint::BelongsToAnotherProgram,
+        Restraint::HowYouWouldRecover,
+        Restraint::Pinned,
+    ];
+
+    /// Where this sits in [`Restraint::ALL`].
+    ///
+    /// Exists only so that the list above cannot silently lose an entry: the
+    /// match is exhaustive, so adding a variant is a compile error here, and
+    /// the test then checks every index appears exactly once.
+    #[cfg(test)]
+    fn position(self) -> usize {
+        match self {
+            Restraint::RunsAsAnotherAccount => 0,
+            Restraint::InFrontOfYou => 1,
+            Restraint::JustStarted => 2,
+            Restraint::MayHoldUnsavedWork => 3,
+            Restraint::CannotBeRestarted => 4,
+            Restraint::MayBeSyncingFiles => 5,
+            Restraint::BelongsToAnotherProgram => 6,
+            Restraint::HowYouWouldRecover => 7,
+            Restraint::Pinned => 8,
+        }
+    }
+
     pub fn describe(self) -> &'static str {
         match self {
             Restraint::RunsAsAnotherAccount => "not yours -- it runs as another account",
@@ -1426,6 +1496,173 @@ mod tests {
                     "`{name}` appears twice in the {label} list"
                 );
             }
+        }
+    }
+
+    // --- The reasons themselves, rather than the rules that produce them ---
+
+    #[test]
+    fn every_restraint_is_listed_in_all() {
+        // `position` matches exhaustively, so adding a variant is a compile
+        // error there. This is the other half: that whoever added the arm also
+        // added the entry. Between them the list cannot silently lose one, and
+        // a list of reasons that lost one is a screen quietly not showing a
+        // category of thing it declined to touch.
+        let mut seen = vec![false; Restraint::ALL.len()];
+        for restraint in Restraint::ALL {
+            let at = restraint.position();
+            assert!(
+                at < seen.len(),
+                "{restraint:?} sits past the end of Restraint::ALL"
+            );
+            assert!(!seen[at], "{restraint:?} appears twice in Restraint::ALL");
+            seen[at] = true;
+        }
+        let missing: Vec<usize> = seen
+            .iter()
+            .enumerate()
+            .filter(|(_, found)| !**found)
+            .map(|(at, _)| at)
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "Restraint::ALL is missing the variant(s) at position {missing:?}"
+        );
+    }
+
+    #[test]
+    fn every_protection_is_listed_in_all() {
+        let mut seen = vec![false; Protection::ALL.len()];
+        for protection in Protection::ALL {
+            let at = protection.position();
+            assert!(at < seen.len(), "{protection:?} sits past the end");
+            assert!(!seen[at], "{protection:?} appears twice");
+            seen[at] = true;
+        }
+        assert!(
+            seen.iter().all(|found| *found),
+            "Protection::ALL is missing a variant"
+        );
+    }
+
+    #[test]
+    fn every_reason_reads_as_a_sentence_and_none_of_them_are_the_same() {
+        // These strings are the whole of what somebody is told about why the
+        // tool declined to touch something. Two the same would make two
+        // different decisions indistinguishable on screen; an empty one would
+        // be a row of numbers with a blank where the reason should be.
+        let mut seen = std::collections::BTreeSet::new();
+        for restraint in Restraint::ALL {
+            let said = restraint.describe();
+            assert!(!said.is_empty(), "{restraint:?} says nothing");
+            assert!(
+                said.chars()
+                    .next()
+                    .is_some_and(|first| first.is_lowercase()),
+                "{restraint:?} says {said:?}, which does not read after \"held                  back because\""
+            );
+            assert!(seen.insert(said), "two reasons both say {said:?}");
+        }
+        for protection in Protection::ALL {
+            let said = protection.describe();
+            assert!(!said.is_empty(), "{protection:?} says nothing");
+            assert!(seen.insert(said), "two reasons both say {said:?}");
+        }
+    }
+
+    /// Which reasons a rule in `classify` can actually produce today.
+    ///
+    /// Exhaustive on purpose: adding a variant is a compile error here, which
+    /// forces a decision about whether anything decides it rather than letting
+    /// a reason exist that nothing can ever give.
+    fn a_rule_can_produce(restraint: Restraint) -> bool {
+        match restraint {
+            // Stage three. The tool has no notion yet of what it could start
+            // again, so nothing can decide this, and the variant is a
+            // placeholder rather than an oversight. Written down here so that
+            // it stays a decision -- see docs/proposals/process-control.md.
+            Restraint::CannotBeRestarted => false,
+            Restraint::RunsAsAnotherAccount
+            | Restraint::InFrontOfYou
+            | Restraint::JustStarted
+            | Restraint::MayHoldUnsavedWork
+            | Restraint::MayBeSyncingFiles
+            | Restraint::BelongsToAnotherProgram
+            | Restraint::HowYouWouldRecover
+            | Restraint::Pinned => true,
+        }
+    }
+
+    #[test]
+    fn every_reason_a_rule_claims_to_produce_can_be_produced() {
+        // A reason nothing can give is dead, and worse, it reads as live: it
+        // is documented, it is in the list, and it will never appear. Each
+        // case below is the smallest input that reaches one rule.
+        // A `Vec` rather than a set: `Restraint` is deliberately not ordered,
+        // because there is no natural order to "why we left it alone" and
+        // inventing one would invite something to rely on it.
+        let mut reached: Vec<Restraint> = Vec::new();
+
+        let mut check = |process: &ProcessInfo, about: &Circumstances| {
+            if let Standing::HeldBack { because } = classify(process, PlatformKind::Windows, about)
+                && !reached.contains(&because)
+            {
+                reached.push(because);
+            }
+        };
+
+        // Runs as somebody else.
+        let mut theirs = process("SomeService.exe", 10);
+        theirs.runs_as_you = Some(false);
+        check(&theirs, &ordinary());
+
+        // In front of you.
+        check(
+            &process("SomeGame.exe", 42),
+            &Circumstances {
+                in_front: InFront::Process(42),
+                in_front_lineage: vec![42],
+                ..ordinary()
+            },
+        );
+
+        // Started a moment ago.
+        let mut fresh = process("SomeUpdater.exe", 11);
+        fresh.run_time_secs = 1;
+        check(&fresh, &ordinary());
+
+        // Pinned.
+        check(
+            &process("SomeUpdater.exe", 12),
+            &Circumstances {
+                pinned: vec!["someupdater.exe".to_string()],
+                ..ordinary()
+            },
+        );
+
+        // The three name-list rules, each given a member of its own list.
+        for name in [
+            HOLDS_WORK.first(),
+            SYNCS_FILES.first(),
+            PART_OF_SOMETHING_ELSE.first(),
+            RECOVERY_TOOLS.first(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            check(&process(name, 13), &ordinary());
+        }
+
+        for restraint in Restraint::ALL {
+            let expected = a_rule_can_produce(*restraint);
+            let happened = reached.contains(restraint);
+            assert_eq!(
+                happened,
+                expected,
+                "{restraint:?}: a rule {} produce it, but the classifier {} --                  either a rule is missing or the note in `a_rule_can_produce`                  is out of date",
+                if expected { "should" } else { "should not" },
+                if happened { "did" } else { "did not" },
+            );
         }
     }
 }

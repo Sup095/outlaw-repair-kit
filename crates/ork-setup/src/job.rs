@@ -583,6 +583,70 @@ mod tests {
     /// fetch files from the internet and check them needs one test that
     /// actually does that. It installs into a temporary directory and touches
     /// neither PATH nor the Start Menu.
+    /// Everything the window install does, short of running the installer.
+    ///
+    /// The last step -- handing the bundle to the system to install -- changes
+    /// the machine, so it cannot be a test. Every step before it can be, and
+    /// those are the ones that went wrong: the fault this replaced was the
+    /// bundle being downloaded, checked, placed, announced, and never run.
+    /// What this proves is that on this platform there *is* a bundle to run,
+    /// it is named the way the code looks for it, and it is the file the
+    /// release says it is.
+    #[test]
+    #[ignore = "needs the network; run with --ignored"]
+    fn the_window_this_platform_needs_is_published_and_verifiable() {
+        let releases = release::list().expect("GitHub answered");
+        let newest = releases
+            .iter()
+            .find(|release| !release.prerelease)
+            .expect("a published release");
+
+        let asset = newest
+            .asset_ending(desktop_asset_suffix())
+            .unwrap_or_else(|| {
+                panic!(
+                    "release {} publishes no asset ending {:?}. The setup program                      would warn and install only the command-line tool, which is                      honest and is not what somebody ticking the box asked for.                      Published: {:?}",
+                    newest.tag,
+                    desktop_asset_suffix(),
+                    newest
+                        .assets
+                        .iter()
+                        .map(|a| a.name.as_str())
+                        .collect::<Vec<_>>()
+                )
+            });
+        println!("found {} ({} bytes)", asset.name, asset.size);
+
+        // Not empty, and not a GitHub error page wearing the right name.
+        assert!(
+            asset.size > 1_000_000,
+            "{} is only {} bytes, which is not an installer",
+            asset.name,
+            asset.size
+        );
+
+        let sums_asset = newest
+            .asset("SHA256SUMS")
+            .expect("the release publishes its checksums");
+        let sums = release::parse_sums(
+            &release::fetch_text(&sums_asset.url).expect("the checksums downloaded"),
+        );
+        assert!(
+            sums.iter().any(|(name, _)| name == &asset.name),
+            "{} has no published checksum, so the setup program would refuse it",
+            asset.name
+        );
+
+        let bytes = release::download(asset, |_, _| {}).expect("the bundle downloaded");
+        assert_eq!(
+            release::verify(&asset.name, &bytes, &sums),
+            Verdict::Matches,
+            "{} does not match its published checksum",
+            asset.name
+        );
+        println!("{}: checksum matches", asset.name);
+    }
+
     #[test]
     #[ignore = "needs the network; run with --ignored"]
     fn it_installs_the_published_release_for_real() {

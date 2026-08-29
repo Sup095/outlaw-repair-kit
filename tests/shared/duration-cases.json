@@ -1,0 +1,18 @@
+{
+  "_why": "One table, read by both test suites. How long a process has been running is formatted twice -- once in Rust for the terminal (ork-cli::processes::how_long) and once in TypeScript for the window (apps/desktop/src/lib/time.ts::compactDuration) -- because a round trip to the back end for every row of a two-hundred-row list is not worth paying to avoid a second copy of six lines. Two copies of six lines drift. Two copies checked against the same table cannot: the drift becomes a failing test in whichever language moved.",
+  "_format": "seconds -> the string both implementations must produce",
+  "cases": [
+    { "seconds": 0, "expect": "0m" },
+    { "seconds": 59, "expect": "0m" },
+    { "seconds": 60, "expect": "1m" },
+    { "seconds": 90, "expect": "1m" },
+    { "seconds": 3599, "expect": "59m" },
+    { "seconds": 3600, "expect": "1h 0m" },
+    { "seconds": 5100, "expect": "1h 25m" },
+    { "seconds": 12300, "expect": "3h 25m" },
+    { "seconds": 86399, "expect": "23h 59m" },
+    { "seconds": 86400, "expect": "1d 0h" },
+    { "seconds": 180000, "expect": "2d 2h" },
+    { "seconds": 2592000, "expect": "30d 0h" }
+  ]
+}

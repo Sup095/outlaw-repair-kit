@@ -202,6 +202,35 @@ pub fn show(all: bool, json: bool) -> Result<()> {
 mod tests {
     use super::*;
 
+    /// Every case in `tests/shared/duration-cases.json`, which the window's
+    /// own test suite reads as well.
+    ///
+    /// The window formats this in TypeScript rather than asking the back end,
+    /// because a round trip for every row of a two-hundred-row list is not
+    /// worth paying to avoid six duplicated lines. Six duplicated lines drift.
+    /// Both being checked against one table means whichever moves is the one
+    /// whose test fails, rather than the two quietly describing the same
+    /// running process two different ways on two screens.
+    #[test]
+    fn the_window_and_the_terminal_agree_on_every_shared_case() {
+        let table = include_str!("../../../tests/shared/duration-cases.json");
+        let parsed: serde_json::Value =
+            serde_json::from_str(table).expect("the shared table is readable");
+        let cases = parsed["cases"].as_array().expect("the table has cases");
+        // A path that stopped resolving, or a table emptied by accident, would
+        // otherwise make this pass by checking nothing.
+        assert!(cases.len() > 8, "only {} cases loaded", cases.len());
+        for case in cases {
+            let seconds = case["seconds"].as_u64().expect("seconds");
+            let wanted = case["expect"].as_str().expect("expected string");
+            assert_eq!(
+                how_long(seconds),
+                wanted,
+                "{seconds} seconds: the terminal and the window have drifted"
+            );
+        }
+    }
+
     #[test]
     fn a_length_of_time_reads_as_words_rather_than_seconds() {
         assert_eq!(how_long(0), "0m");
