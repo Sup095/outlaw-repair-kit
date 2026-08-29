@@ -91,10 +91,11 @@ impl Outcome {
 pub struct Attempt {
     pub pid: u32,
     pub name: String,
-    /// Where it was running from, so that starting it again is something a
-    /// person can actually do. Never the command line -- see the note at the
-    /// top of this file.
-    pub executable: Option<String>,
+    // Deliberately no path. It would be the one thing that makes starting
+    // something again easy, and the survey this is judged from does not carry
+    // one -- widening it to would put the person's home directory into every
+    // `--json` survey and into anything a paired machine is shown. The name is
+    // enough to find a program again, and it is not a location.
     /// What it was holding when it was last looked at. Held, not freed: see
     /// the note in `survey.rs` about why those are different numbers.
     pub memory_held_bytes: u64,
@@ -221,7 +222,6 @@ fn judge(target: &Target, survey: &Survey) -> std::result::Result<Attempt, Attem
         return Err(Attempt {
             pid: target.pid,
             name: target.name.clone(),
-            executable: None,
             memory_held_bytes: 0,
             outcome: Outcome::AlreadyGone,
         });
@@ -230,7 +230,6 @@ fn judge(target: &Target, survey: &Survey) -> std::result::Result<Attempt, Attem
     let seen = Attempt {
         pid: row.pid,
         name: row.name.clone(),
-        executable: None,
         memory_held_bytes: row.memory_bytes,
         outcome: Outcome::Stopped,
     };
@@ -468,14 +467,12 @@ mod tests {
                 Attempt {
                     pid: 1,
                     name: "a.exe".to_string(),
-                    executable: None,
                     memory_held_bytes: 100,
                     outcome: Outcome::Stopped,
                 },
                 Attempt {
                     pid: 2,
                     name: "b.exe".to_string(),
-                    executable: None,
                     memory_held_bytes: 900,
                     outcome: Outcome::NoLongerOffered {
                         because: "in front of you right now".to_string(),
@@ -484,7 +481,6 @@ mod tests {
                 Attempt {
                     pid: 3,
                     name: "c.exe".to_string(),
-                    executable: None,
                     memory_held_bytes: 50,
                     outcome: Outcome::AlreadyGone,
                 },

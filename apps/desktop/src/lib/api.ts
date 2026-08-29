@@ -130,7 +130,6 @@ export interface StopTarget {
 export interface StopAttempt {
   pid: number;
   name: string;
-  executable: string | null;
   /** What it was holding when last seen. Not what came back to the machine. */
   memory_held_bytes: number;
   outcome: { outcome: string; because?: string; running?: string };
