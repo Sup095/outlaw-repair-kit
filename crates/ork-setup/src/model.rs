@@ -378,7 +378,13 @@ mod tests {
         };
         let summary = hardware.summary();
         assert!(summary.contains("3090"), "{summary}");
-        assert!(summary.contains("24 GB"), "{summary}");
+        // GiB, matching the division, and matching what `outlaw models` says
+        // about the same card. The two used to disagree a line apart.
+        assert!(summary.contains("24 GiB"), "{summary}");
+        assert!(
+            !summary.replace("GiB", "").contains("GB"),
+            "the card is described in two units at once: {summary}"
+        );
         assert_eq!(hardware.pick.tag, "qwen3:32b");
     }
 
@@ -391,7 +397,7 @@ mod tests {
             pick: model_for_vram(None),
         };
         let summary = hardware.summary();
-        assert!(!summary.contains("0 GB"), "{summary}");
+        assert!(!summary.contains("0 GiB"), "{summary}");
         assert!(summary.contains("processor"), "{summary}");
     }
 
