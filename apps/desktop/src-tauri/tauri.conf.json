@@ -1,6 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Outlaw Repair Kit",
+  "mainBinaryName": "outlaw-repair-kit",
   "version": "0.10.0",
   "identifier": "systems.outlaw.repairkit",
   "build": {
@@ -30,6 +31,7 @@
     "active": true,
     "targets": "all",
     "icon": ["icons/icon.png", "icons/icon.ico"],
+    "category": "Utility",
     "publisher": "Outlaw Systems",
     "copyright": "Copyright (c) 2026 Outlaw Systems",
     "shortDescription": "Scan a computer for problems, in plain language.",

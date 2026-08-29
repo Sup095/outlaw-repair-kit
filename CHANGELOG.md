@@ -36,6 +36,17 @@ The honest version can only be produced by measuring afterwards.
   all -- the ordinary answer for a service, asked by a program without
   administrator rights -- it is treated as not yours, because not knowing whose
   something is is not the same as knowing it is yours.
+- **The window is called the same thing everywhere.** The published `.deb`
+  installed `/usr/bin/ork-desktop` and its menu entry ran `ork-desktop`, while
+  the documentation said to type `outlaw-repair-kit` and everything looking for
+  the window looked for that -- so on a machine that had it installed, the
+  documented command did not exist and nothing could find it. The name is now
+  chosen explicitly rather than left to default differently on each platform,
+  and a test reads it out of the window's own build configuration, so renaming
+  it in one place and not the other fails the build.
+- **The Linux menu entry has categories.** It shipped with `Categories=` empty,
+  which is how an application ends up filed under nothing in an applications
+  menu.
 - **Programs can be pinned** in the configuration file under `[processes]`,
   matched without regard to capitalisation, and are then never offered.
 

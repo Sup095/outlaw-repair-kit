@@ -17,6 +17,15 @@ authors.workspace = true
 name = "ork_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# Named to match `mainBinaryName` in tauri.conf.json rather than defaulting to
+# the package name. The published .deb had `Exec=ork-desktop` in its desktop
+# entry and installed `/usr/bin/ork-desktop`, so the documented way to start
+# the window -- `outlaw-repair-kit` -- was not a command that existed, and
+# nothing looking for the window by name could find it.
+[[bin]]
+name = "outlaw-repair-kit"
+path = "src/main.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

@@ -24,14 +24,16 @@ pub const WINDOW_LABEL: &str = "Outlaw Repair Kit";
 /// What the terminal program is called when it is being typed.
 pub const PROGRAM: &str = "outlaw";
 
-/// The window's file name, as each platform's bundle produces it.
+/// The window's file name, on every platform.
 ///
-/// Windows names the executable after the product; the Linux packages use the
-/// kebab-case name, and the install script gives the AppImage the same name so
-/// that one string finds either.
+/// One name, chosen rather than defaulted. It is `mainBinaryName` in
+/// `tauri.conf.json` and the `[[bin]]` name in the window's own manifest, and
+/// a test below reads the first of those and checks it still says this -- so
+/// renaming the window in one place and not the other fails the build rather
+/// than shipping a shortcut that points at nothing.
 pub const fn window_file_name() -> &'static str {
     if cfg!(windows) {
-        "Outlaw Repair Kit.exe"
+        "outlaw-repair-kit.exe"
     } else {
         "outlaw-repair-kit"
     }
@@ -187,6 +189,35 @@ mod tests {
         if let Some(found) = find_window() {
             assert!(found.is_file(), "{} is not a file", found.display());
         }
+    }
+
+    #[test]
+    fn the_name_looked_for_is_the_name_the_window_is_actually_built_under() {
+        // Read from the window's own configuration rather than written down
+        // twice. This is the exact failure this module exists to prevent: the
+        // published .deb installed `/usr/bin/ork-desktop` while everything
+        // here looked for `outlaw-repair-kit`, so the window could not be
+        // found on a machine that had it installed.
+        let config = include_str!("../../../apps/desktop/src-tauri/tauri.conf.json");
+        let built_as = config
+            .lines()
+            .find_map(|line| {
+                let (key, value) = line.split_once(':')?;
+                key.contains("mainBinaryName").then(|| {
+                    value
+                        .trim()
+                        .trim_end_matches(',')
+                        .trim_matches('"')
+                        .to_string()
+                })
+            })
+            .expect("tauri.conf.json should name the binary explicitly");
+
+        let expected = window_file_name().trim_end_matches(".exe");
+        assert_eq!(
+            built_as, expected,
+            "the window is built as `{built_as}` and looked for as `{expected}`"
+        );
     }
 
     #[test]
