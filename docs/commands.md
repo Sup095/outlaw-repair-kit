@@ -138,13 +138,26 @@ outlaw processes --json
 
 | Option | Meaning |
 | --- | --- |
-| `--all` | Every row, rather than the heaviest few |
+| `--all` | Every row and every program, rather than the heaviest few |
 
 **It stops nothing and changes nothing.** It is the list that a later
 "stop everything non-essential" button would act on, published on its own first
 so that it can be read on real machines before anything is able to act on it.
 
-Three groups, and the second two are the interesting ones:
+Four sections. The first groups the list the way you read it; of the other
+three, the last two are the interesting ones.
+
+- **By program** -- several processes sharing one name are one program to you.
+  Thirteen rows of `claude.exe` are one application, and the number that means
+  anything is the total. Each line says what the program holds between its
+  processes, how many there are, and how many of them a sweep would offer.
+
+  That last column is the point. **A program is often not all one thing**: some
+  of its processes would be offered and some would be held back, and stopping
+  the offered ones leaves it running with fewer processes rather than closing
+  it. Where that is true of anything on screen, the list says so underneath.
+  The per-process list below is still the honest one, and it is the one to
+  check when a number looks wrong.
 
 - **Could be stopped** -- ordinary programs belonging to you, heaviest first,
   with what each is holding.
@@ -181,6 +194,16 @@ free. Those are different numbers and the second is always smaller: memory
 shared between programs is counted against every one of them, so adding working
 sets up always overstates the total. The honest version of "would free" can
 only be produced by measuring afterwards, which is what a later stage will do.
+
+### What `--json` carries
+
+The same object the window is given, built in one place so that a script and a
+screen cannot be told different things about one machine. Alongside `rows` --
+one entry per process -- there is `programs`, the same rows grouped, each with
+`processes`, `memory_held`, `offered`, `held_back`, `protected`, and a `sweep`
+saying whether all of it, part of it, or none of it would be offered. `sweep`
+is structured, `sweep_says` is the sentence, and `sweep_briefly` is the short
+form the terminal prints in its own list.
 
 ### Pinning
 

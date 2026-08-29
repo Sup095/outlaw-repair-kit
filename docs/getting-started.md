@@ -137,7 +137,10 @@ outlaw docs        # this manual, carried inside the program
 `outlaw processes` is worth a look on your own machine. It stops nothing --
 there is no command here that stops anything -- but it shows what is holding
 the memory, what would be left alone and why, and what is never touched at all.
-In the window it is the **Processes** screen.
+It opens grouped **by program**, because a browser is one program however many
+processes it is, and each line says how much of that program a sweep would
+actually offer -- which is often not all of it. In the window it is the
+**Processes** screen.
 
 ## Next steps
 

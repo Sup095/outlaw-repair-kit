@@ -366,10 +366,13 @@ cargo test --workspace -- --ignored
     ever *act* harder kept deliberately separate. See
     [the proposal](docs/proposals/escalation-mode.md).
 14. **Process control and cleanup** -- looking, not yet acting. `outlaw
-    processes` and the **Processes** screen show what is running, what could be
-    stopped, what is held back and why, and what is never touched at all --
-    system processes, drivers, control panels, security software, and anything
-    with a window in front of you. **Nothing stops anything yet**, on purpose:
+    processes` and the **Processes** screen show what is running -- grouped by
+    program, because nobody thinks in processes -- what could be stopped, what
+    is held back and why, and what is never touched at all: system processes,
+    drivers, control panels, security software, and anything with a window in
+    front of you. Each program says how much of it a sweep would offer, because
+    a program is usually not all one thing and stopping part of it leaves it
+    running. **Nothing stops anything yet**, on purpose:
     the list exists on its own first so that it can be read on real machines
     before a button can act on it. The button, the confirmation, and putting it
     all back are the next stage. See

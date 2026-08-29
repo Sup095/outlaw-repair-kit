@@ -301,23 +301,8 @@ pub fn audit_list(limit: usize) -> CmdResult<Vec<ork_fix::store::AuditLine>> {
 pub fn process_survey() -> CmdResult<serde_json::Value> {
     let config = load_config().map_err(fail)?;
     let survey = Survey::of_this_machine(&config.processes.pinned).map_err(fail)?;
-    Ok(serde_json::json!({
-        "platform": survey.platform.as_str(),
-        "running": survey.rows.len(),
-        // Named for what it measures, here as much as on the terminal. A
-        // front-end must not be handed a number it could honestly label
-        // "will free", because it is not one.
-        "memory_held_by_candidates": survey.memory_held_by_candidates(),
-        "why_protected": survey.why_protected().iter().map(|(reason, count)| {
-            serde_json::json!({ "reason": reason.describe(), "count": count })
-        }).collect::<Vec<_>>(),
-        "why_held_back": survey.why_held_back().iter().map(|(reason, count)| {
-            serde_json::json!({ "reason": reason.describe(), "count": count })
-        }).collect::<Vec<_>>(),
-        // Null when the rule ran. The screen has to be able to tell "nothing
-        // was in front of you" from "we could not look", because only one of
-        // those is a complete list.
-        "in_front_unchecked": survey.in_front.unanswered(),
-        "rows": survey.rows,
-    }))
+    // Shaped in `ork-core`, not here. The terminal's `--json` publishes the
+    // same object from the same function, so the window and a script cannot be
+    // told different things about one machine.
+    Ok(survey.as_report())
 }

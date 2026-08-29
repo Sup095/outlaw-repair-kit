@@ -37,6 +37,41 @@ it, and says plainly what has been decided and what has not.
 
 ### Changed
 
+**What is running is now shown by program as well as by process.**
+
+Nobody thinks in processes. On a real machine the list opened with thirteen
+rows called `claude.exe` and eight called `steamwebhelper.exe`, which reads as
+twenty-one programs and is two. That is honest -- they are twenty-one
+processes -- and it is still misleading, and the confirmation a later "stop
+everything non-essential" button needs would have inherited it in the worst
+possible form: *"Stop 23 programs?"* is wrong about the number and wrong about
+the word.
+
+So both the window and the terminal now open with **By program**: one line per
+name, with what it holds between its processes, how many there are, and how
+many of them a sweep would offer. The per-process list stays underneath, and is
+still the honest one -- grouping alone would have fixed the reading and thrown
+away the detail somebody needs when a number looks wrong. Both are built from
+one survey, so they cannot disagree about the same machine.
+
+**Building it before anything can act turned up the reason to build it early: a
+program is usually not all one thing.** Some of its processes would be offered
+and some are held back, so stopping the offered ones leaves the program running
+with fewer processes rather than closing it. "This would close Chrome" would
+have been a lie of the kind that only shows itself after the button is pressed.
+So a sweep over a group is a separate answer from the group -- all of it, part
+of it, or none of it -- and where it is *part of it*, both screens say what
+would be left and that the program keeps running. Discovering that from inside
+a confirmation dialog, at the moment of highest consequence, would have been
+the worst place to find it.
+
+One more thing came out of it. The terminal's `--json` and the window's
+`process_survey` were two hand-written copies of the same object, and they had
+already drifted by three fields. They are now one function in `ork-core` that
+both call, with a test that fails if either starts assembling its own again --
+because a contract with two authors is two contracts, and something reading
+either of them is reading it about the same machine.
+
 **The sweep list no longer offers you the thing you are looking at.**
 
 `outlaw processes` is the list a later "stop everything non-essential" button
@@ -62,10 +97,9 @@ deliberately so -- the list carries **One rule did not run** and says why,
 rather than reading like a list that had every rule applied to it.
 
 **The window has a Processes screen.** `outlaw processes` existed only in the
-terminal, which made it the one thing the window could not show. Same three
-groups, same judgement -- it calls the same `Survey` rather than deciding
-again, so the two cannot come to different conclusions about what "held back"
-means. It says on the screen that it stops nothing, rather than leaving
+terminal, which made it the one thing the window could not show. Same sections,
+same judgement -- it calls the same `Survey` rather than deciding again, so the
+two cannot come to different conclusions about what "held back" means. It says on the screen that it stops nothing, rather than leaving
 somebody to hunt for the button.
 
 **The model that gets asked is one that can answer.** Found by running the

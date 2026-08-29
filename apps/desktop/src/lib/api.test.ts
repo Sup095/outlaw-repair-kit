@@ -137,3 +137,68 @@ screen instead: ${unrendered.join(", ")}`,
     }
   });
 });
+
+describe("the window and the back end agree on the process survey", () => {
+  /**
+   * The survey is not a Rust struct serialised whole -- it is built key by key
+   * in `Survey::as_report`, and the window reads it through a hand-written
+   * interface. Nothing checks the two against each other: a field renamed on
+   * one side type-checks perfectly on the other and arrives as `undefined`,
+   * which renders as a blank column rather than as an error. On a screen whose
+   * whole job is saying what would happen to somebody's running programs, a
+   * blank column is worse than a crash.
+   */
+  const surveySource = read("../../../../crates/ork-core/src/processes/survey.rs");
+
+  /** Every `"key":` inside the `as_report` body. */
+  function publishedKeys(): string[] {
+    const start = surveySource.indexOf("pub fn as_report(");
+    expect(start, "ork-core builds the report in `as_report`").toBeGreaterThan(-1);
+    const end = surveySource.indexOf("\n    }\n", start);
+    const body = surveySource.slice(start, end);
+    return [...new Set([...body.matchAll(/"([a-z_]+)":/g)].map((match) => match[1]))];
+  }
+
+  /** The field names of one `export interface` in api.ts. */
+  function fieldsOf(name: string): string[] {
+    const start = apiSource.indexOf(`export interface ${name} {`);
+    expect(start, `api.ts declares ${name}`).toBeGreaterThan(-1);
+    const end = apiSource.indexOf("\n}", start);
+    return [...apiSource.slice(start, end).matchAll(/^\s{2}(\w+)[?]?:/gm)].map(
+      (match) => match[1],
+    );
+  }
+
+  test("both sides were actually read", () => {
+    expect(publishedKeys().length).toBeGreaterThan(9);
+    expect(fieldsOf("ProcessSurvey").length).toBeGreaterThan(5);
+    expect(fieldsOf("ProcessProgram").length).toBeGreaterThan(8);
+  });
+
+  test("every field the window reads is one the back end publishes", () => {
+    const published = publishedKeys();
+    const wanted = [...fieldsOf("ProcessSurvey"), ...fieldsOf("ProcessProgram")];
+    const missing = wanted.filter((field) => !published.includes(field));
+    expect(
+      missing,
+      `these are declared on the window's side but never published by \
+Survey::as_report, so they arrive undefined: ${missing.join(", ")}`,
+    ).toEqual([]);
+  });
+
+  test("the checker notices a field that is not published", () => {
+    // The test above is only worth having if it can fail.
+    const published = publishedKeys();
+    expect(published).not.toContain("memory_that_would_be_freed");
+    expect(published).toContain("memory_held_by_candidates");
+  });
+
+  test("nothing in the survey is described as freed", () => {
+    // The one word this tool must not use about held memory, checked on the
+    // window's side as well because the front-end is where the temptation to
+    // put a friendlier label on a number actually lives.
+    for (const forbidden of ["freed", "willFree", "would_free"]) {
+      expect(publishedKeys().join(" ")).not.toContain(forbidden);
+    }
+  });
+});

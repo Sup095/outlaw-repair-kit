@@ -103,12 +103,27 @@ going to look something up, which is exactly when somebody would.
 It stops nothing. There is no button on it that changes anything, and it says
 so at the top rather than leaving somebody hunting for one.
 
-It shows three groups, and the second two are the interesting ones: what could
+It opens with **By program**, because nobody thinks in processes. Several
+processes sharing one name are one application to whoever is looking at them,
+and the number that means anything is the total. Each line says what a program
+holds between its processes, how many of them there are, and how many a sweep
+would offer — and that last column is the point, because **a program is often
+not all one thing.** Some of its processes would be offered and some held back,
+so stopping the offered ones leaves it running with fewer processes rather than
+closing it. Where that is true of anything on screen, the screen says so
+underneath, in amber, rather than letting somebody discover it by finding the
+window still open afterwards.
+
+Then three groups, of which the second two are the interesting ones: what could
 be stopped, heaviest first, with what each is holding; what is held back and
 why; and what is never touched at all, counted by reason. Nothing with a window
 in front of you is offered — nor what started it, nor its other processes,
 because a game and the launcher it is running inside go together and a browser
 is forty processes sharing one name.
+
+The per-process list is the honest one and stays. It is what to check when a
+number in the grouped view looks wrong, and the two are built from one survey
+so they cannot disagree.
 
 The memory figure says what those programs are **holding**, never what stopping
 them would give back. Those are different numbers, the second is always

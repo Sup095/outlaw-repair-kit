@@ -54,6 +54,39 @@ export interface ProcessRow {
   standing: Standing;
 }
 
+/**
+ * What a sweep would do to a whole program. Mirrors `ork_core::processes::Sweep`.
+ *
+ * `part-of-it` is the one that matters. A program with some processes offered
+ * and some held back keeps running after a sweep, with fewer processes than it
+ * had -- and somebody who was not told that reads the still-open window as the
+ * tool having failed.
+ */
+export type Sweep =
+  | { how: "all-of-it" }
+  | { how: "part-of-it"; offered: number; remaining: number }
+  | { how: "none-of-it" };
+
+/** Several processes of one name, which is one program to whoever is looking. */
+export interface ProcessProgram {
+  name: string;
+  pids: number[];
+  processes: number;
+  /** What they hold between them -- never what stopping them would give back. */
+  memory_held: number;
+  /** How long the longest-running of them has been up. */
+  run_time_secs: number;
+  offered: number;
+  held_back: number;
+  protected: number;
+  sweep: Sweep;
+  /** The same answer as a sentence, written once, in the back end. */
+  sweep_says: string;
+  /** And short enough for a column. Written once for the same reason: the
+   * terminal prints this exact string in its own list. */
+  sweep_briefly: string;
+}
+
 export interface ProcessSurvey {
   platform: string;
   running: number;
@@ -67,6 +100,10 @@ export interface ProcessSurvey {
    * tool more careful, and here it makes it less.
    */
   in_front_unchecked: string | null;
+  /** The same rows grouped by program. Both are published: they answer
+   * different questions, and the per-process list is the one to check when a
+   * number looks wrong. */
+  programs: ProcessProgram[];
   rows: ProcessRow[];
 }
 

@@ -134,6 +134,60 @@ impl Survey {
         counts
     }
 
+    /// The whole survey as machine-readable output.
+    ///
+    /// One shape, built here, because both front-ends publish it and they used
+    /// to build it separately -- the terminal's `--json` and the window's
+    /// `process_survey` were two hand-written copies of the same object, and
+    /// they had already drifted by three keys. Something reading either is
+    /// reading a contract, and a contract with two authors is two contracts.
+    ///
+    /// Presentation still belongs to the front-ends. This is not presentation:
+    /// it is the answer, and both of them answer the same question.
+    pub fn as_report(&self) -> serde_json::Value {
+        let programs = self.by_program();
+        serde_json::json!({
+            "platform": self.platform.as_str(),
+            "running": self.rows.len(),
+            "protected": self.protected().count(),
+            "held_back": self.held_back().count(),
+            "candidates": self.candidates().count(),
+            // Named as it is measured, in the machine-readable output as much
+            // as on screen. Nothing reading this may honestly print it as
+            // "will free".
+            "memory_held_by_candidates": self.memory_held_by_candidates(),
+            "why_protected": self.why_protected().iter().map(|(reason, count)| {
+                serde_json::json!({ "reason": reason.describe(), "count": count })
+            }).collect::<Vec<_>>(),
+            "why_held_back": self.why_held_back().iter().map(|(reason, count)| {
+                serde_json::json!({ "reason": reason.describe(), "count": count })
+            }).collect::<Vec<_>>(),
+            // Null when the rule ran. Anything reading this must be able to
+            // tell "nothing was in front of you" from "we could not look",
+            // because only one of those is a complete list.
+            "in_front_unchecked": self.in_front.unanswered(),
+            // The same rows grouped the way a person reads them. Both are
+            // published because they answer different questions, and the
+            // per-process list is the one to check when a number looks wrong.
+            "programs": programs.iter().map(|program| {
+                serde_json::json!({
+                    "name": program.name,
+                    "pids": program.pids,
+                    "processes": program.processes(),
+                    "memory_held": program.memory_bytes,
+                    "run_time_secs": program.run_time_secs,
+                    "offered": program.offered,
+                    "held_back": program.held_back_count(),
+                    "protected": program.protected_count(),
+                    "sweep": program.sweep(),
+                    "sweep_says": program.sweep().describe(),
+                    "sweep_briefly": program.sweep().briefly(),
+                })
+            }).collect::<Vec<_>>(),
+            "rows": self.rows,
+        })
+    }
+
     /// How many are held back, grouped by why, most first.
     pub fn why_held_back(&self) -> Vec<(Restraint, usize)> {
         let mut counts: Vec<(Restraint, usize)> = Vec::new();
@@ -339,6 +393,82 @@ mod tests {
         assert!(
             !survey.candidates().any(|row| row.pid == me),
             "the tool offered to stop itself"
+        );
+    }
+
+    #[test]
+    fn the_report_answers_everything_either_front_end_asks_for() {
+        // The keys are a contract. Something is reading this that neither the
+        // window nor the terminal knows about, and a key that quietly went
+        // away is a script that quietly started reading `null`.
+        let survey = Survey::of_this_machine(&[]).expect("this machine has processes");
+        let report = survey.as_report();
+        for key in [
+            "platform",
+            "running",
+            "protected",
+            "held_back",
+            "candidates",
+            "memory_held_by_candidates",
+            "why_protected",
+            "why_held_back",
+            "in_front_unchecked",
+            "programs",
+            "rows",
+        ] {
+            assert!(
+                report.get(key).is_some(),
+                "the report no longer has `{key}`, which something is reading"
+            );
+        }
+    }
+
+    #[test]
+    fn the_report_never_calls_held_memory_freed() {
+        // The one thing this tool must not say. Checked on the text of the
+        // whole object rather than on one field, because the failure would
+        // arrive as a helpfully-named new key rather than as a changed one.
+        let survey = Survey::of_this_machine(&[]).expect("this machine has processes");
+        let written = survey.as_report().to_string();
+        for forbidden in ["will_free", "would_free", "freed", "memory_freed"] {
+            assert!(
+                !written.contains(forbidden),
+                "the report contains `{forbidden}`. Adding up working sets always \
+                 overstates what stopping things returns to the machine, so the \
+                 word is `held` until something has measured it afterwards."
+            );
+        }
+    }
+
+    #[test]
+    fn the_grouped_and_ungrouped_halves_describe_the_same_machine() {
+        // Both are published, and somebody comparing them is the most likely
+        // reader of either. If the totals disagreed, the per-process list --
+        // the one people check when a number looks wrong -- would be the thing
+        // casting doubt on the tool rather than confirming it.
+        let survey = Survey::of_this_machine(&[]).expect("this machine has processes");
+        let programs = survey.by_program();
+        assert!(!programs.is_empty(), "nothing was running at all");
+
+        let in_groups: usize = programs.iter().map(|program| program.processes()).sum();
+        assert_eq!(
+            in_groups,
+            survey.rows.len(),
+            "a process was lost in grouping"
+        );
+
+        let offered: usize = programs.iter().map(|program| program.offered).sum();
+        assert_eq!(
+            offered,
+            survey.candidates().count(),
+            "the grouped view and the list disagree about what would be offered"
+        );
+
+        let held: u64 = programs.iter().map(|program| program.memory_bytes).sum();
+        assert_eq!(
+            held,
+            survey.rows.iter().map(|row| row.memory_bytes).sum::<u64>(),
+            "the grouped totals do not add up to the list's"
         );
     }
 }

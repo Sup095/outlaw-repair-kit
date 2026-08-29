@@ -19,6 +19,7 @@
   let error = $state<string | null>(null);
   let loading = $state(false);
   let showAll = $state(false);
+  let showAllPrograms = $state(false);
 
   const ENOUGH = 20;
 
@@ -29,6 +30,18 @@
     survey ? survey.rows.filter((row) => row.standing.standing === "held-back") : [],
   );
   const shown = $derived(showAll ? candidates : candidates.slice(0, ENOUGH));
+  const programs = $derived(survey ? survey.programs : []);
+  const programsShown = $derived(
+    showAllPrograms ? programs : programs.slice(0, ENOUGH),
+  );
+  /**
+   * Only said when it is true of something on screen. A caveat printed under a
+   * list it does not apply to is a caveat people learn to skip.
+   */
+  const anyPartly = $derived(
+    programsShown.some((program) => program.sweep.how === "part-of-it"),
+  );
+
 
   async function load() {
     loading = true;
@@ -87,6 +100,47 @@
       </p>
     </div>
   {/if}
+
+  <section>
+    <div class="section-head">
+      <h3>By program</h3>
+      <span class="dim">several processes of one name are one program to you</span>
+    </div>
+    {#if programs.length === 0}
+      <div class="panel dim">Nothing.</div>
+    {:else}
+      <div class="panel rows">
+        {#each programsShown as program (program.name)}
+          <div class="row">
+            <span class="name" title={program.name}>{program.name}</span>
+            <span class="mem">{formatBytes(program.memory_held)}</span>
+            <span class="dim when">
+              {program.processes}
+              {program.processes === 1 ? "process" : "processes"}
+            </span>
+            <span
+              class="dim offered"
+              class:partly={program.sweep.how === "part-of-it"}
+              title={program.sweep_says}
+            >
+              {program.sweep_briefly}
+            </span>
+          </div>
+        {/each}
+        {#if programs.length > programsShown.length}
+          <button class="more" onclick={() => (showAllPrograms = true)}>
+            Show the other {programs.length - programsShown.length}
+          </button>
+        {/if}
+      </div>
+      {#if anyPartly}
+        <p class="dim note">
+          Where fewer are offered than are running, stopping the offered ones
+          leaves the program running with fewer processes. It does not close it.
+        </p>
+      {/if}
+    {/if}
+  </section>
 
   <section>
     <div class="section-head">
@@ -203,6 +257,9 @@
   }
   .mem { flex: none; min-width: 5.5rem; text-align: right; color: var(--cyan); }
   .when { flex: none; min-width: 8rem; }
+  .offered { flex: none; min-width: 9rem; }
+  /* The one case worth a colour: the program is still there afterwards. */
+  .offered.partly { color: var(--amber); }
   .more { margin-top: 0.5rem; justify-self: start; font-size: 12px; padding: 0.3rem 0.7rem; }
 
   .reasons { display: grid; gap: 0.25rem; font-size: 12.5px; }

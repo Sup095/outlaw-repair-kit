@@ -299,16 +299,31 @@ have been considerably more expensive to discover with a button attached.
   so**, because unlike every other unknown here, not knowing holds nothing
   back -- it means the rail did not run, and a rail that did not run must not
   look like one that did.
-- **A row is a process, and a person reads it as a program.** Found by
-  looking at the finished screen on a real machine: thirteen rows called
-  `claude.exe` and seven called `steamwebhelper.exe`, which reads as twenty
-  programs and is two. It is honest -- they are twenty processes -- and it is
-  still misleading, and the confirmation dialog inherits the problem in its
-  worst form: *"Stop 23 programs?"* would be wrong about the number and the
-  word. Grouping by application would fix the reading and lose the detail, so
-  the likely answer is one row per application that opens into its processes,
-  with the count and the total on the row. Decide before stage 3, because the
-  confirmation is where being wrong about this costs something.
+- ~~**A row is a process, and a person reads it as a program.**~~ **Settled,
+  and built as a second view rather than a replacement.** The problem was found
+  by looking at the finished screen on a real machine: thirteen rows called
+  `claude.exe` and eight called `steamwebhelper.exe`, which reads as twenty-one
+  programs and is two. Honest -- they are twenty-one processes -- and still
+  misleading, and the confirmation dialog would have inherited it in its worst
+  form: *"Stop 23 programs?"* is wrong about the number and about the word.
+
+  Both front-ends now open with **By program**: one line per name, with what it
+  holds between its processes, how many there are, and how many a sweep would
+  offer. The per-process list stays underneath and is still the honest one --
+  grouping alone would have fixed the reading and lost the detail, and the
+  detail is what somebody checks when a number looks wrong.
+
+  Building it first, before anything can act, turned up the thing that made it
+  worth doing early: **a group is usually not all one thing.** A program has
+  processes a sweep would offer and processes it holds back, so stopping the
+  offered ones leaves the program running with fewer processes. Saying "this
+  would close Chrome" would have been a lie, and it is the kind that only
+  shows itself after the button is pressed. The outcome of a sweep over a
+  group is therefore a separate answer from the group -- `all of it`, `part of
+  it`, or `none of it` -- and the screens say which, in the same voice as
+  everything else here. Had this been left until the confirmation dialog, it
+  would have been discovered from inside a dialog, at the moment of highest
+  consequence.
 
 - **`outlaw quiet run <program>`** — quiet until that program exits, then
   everything back. Attractive for launching a game. Decide separately.

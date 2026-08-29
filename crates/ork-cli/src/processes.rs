@@ -19,7 +19,7 @@
 //!   place and the same voice as a scan reporting a check that did not run.
 
 use anyhow::Result;
-use ork_core::processes::{Row, Survey};
+use ork_core::processes::{Program, Row, Survey, Sweep};
 use ork_core::util::{counted_as, format_bytes};
 
 use crate::style::{bold, dim};
@@ -52,6 +52,24 @@ fn reason_line(reason: &str, count: usize) -> String {
     format!(
         "  {reason:<42} {}",
         dim(&counted_as(count, "process", "processes"))
+    )
+}
+
+/// One program, its total, and how much of it a sweep would offer.
+///
+/// The last column is the whole reason this section exists. A program with
+/// fewer offered than running is a program that would still be on screen
+/// afterwards, and somebody who was not told that reads the leftover window as
+/// the tool having failed.
+fn program_line(program: &Program) -> String {
+    format!(
+        "  {:<30}{:>10}   {:<14} {}",
+        crate::render::ellipsise(&program.name, 29),
+        format_bytes(program.memory_bytes),
+        counted_as(program.processes(), "process", "processes"),
+        // Worded in `ork-core`, so the window's column cannot say something
+        // else about the same program.
+        dim(&program.sweep().briefly())
     )
 }
 
@@ -94,33 +112,13 @@ pub fn show(all: bool, json: bool) -> Result<()> {
 
     let candidates: Vec<&Row> = survey.candidates().collect();
     let held = survey.held_back().collect::<Vec<_>>();
+    let programs = survey.by_program();
 
     if json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&serde_json::json!({
-                "platform": survey.platform.as_str(),
-                "running": survey.rows.len(),
-                "protected": survey.protected().count(),
-                "held_back": held.len(),
-                "candidates": candidates.len(),
-                // Named as it is measured, in the machine-readable output as
-                // much as on screen. Something reading this must not be able
-                // to print it as "will free".
-                "memory_held_by_candidates": survey.memory_held_by_candidates(),
-                "why_protected": survey.why_protected().iter().map(|(reason, count)| {
-                    serde_json::json!({ "reason": reason.describe(), "count": count })
-                }).collect::<Vec<_>>(),
-                "why_held_back": survey.why_held_back().iter().map(|(reason, count)| {
-                    serde_json::json!({ "reason": reason.describe(), "count": count })
-                }).collect::<Vec<_>>(),
-                // Null when it ran. Something reading this must be able to
-                // tell "nothing was in front of you" from "we could not
-                // look", because only one of those is a complete list.
-                "in_front_unchecked": survey.in_front.unanswered(),
-                "rows": survey.rows,
-            }))?
-        );
+        // Built in `ork-core`, not here. The window publishes the same object
+        // from the same function, so there is one answer rather than two
+        // hand-written copies of it.
+        println!("{}", serde_json::to_string_pretty(&survey.as_report())?);
         return Ok(());
     }
 
@@ -133,6 +131,49 @@ pub fn show(all: bool, json: bool) -> Result<()> {
         held.len(),
         candidates.len()
     );
+    println!();
+
+    println!(
+        "{}  {}",
+        bold("By program"),
+        dim("several processes of one name are one program to you")
+    );
+    if programs.is_empty() {
+        println!("  {}", dim("nothing"));
+    } else {
+        let shown = if all {
+            programs.len()
+        } else {
+            programs.len().min(ENOUGH)
+        };
+        for program in programs.iter().take(shown) {
+            println!("{}", program_line(program));
+        }
+        if shown < programs.len() {
+            println!(
+                "  {}",
+                dim(&format!(
+                    "and {} more -- `outlaw processes --all` for the rest",
+                    programs.len() - shown
+                ))
+            );
+        }
+        // Only said when it is true of something on the screen. A caveat
+        // printed under a list it does not apply to teaches people to skip
+        // the caveats.
+        if programs
+            .iter()
+            .take(shown)
+            .any(|program| matches!(program.sweep(), Sweep::PartOfIt { .. }))
+        {
+            for line in crate::render::wrap(
+                "Where fewer are offered than are running, stopping the offered ones                  leaves the program running with fewer processes. It does not close it.",
+                72,
+            ) {
+                println!("  {}", dim(&line));
+            }
+        }
+    }
     println!();
 
     println!(
