@@ -12,6 +12,30 @@ not that the work has stopped.
 
 ## Unreleased
 
+### Coming, and worth knowing before you script against this
+
+**The way commands are typed is going to change.** It is being replaced, before
+1.0, with a language written for this project called **CritterScript**: closer
+to saying what you want than to remembering a switch, and ours rather than
+assembled out of somebody else's argument parser.
+
+Nothing has changed yet and nothing on this page is that change. The notice is
+here now because the tool has just been released publicly and somebody is
+about to write scheduled tasks against the current syntax.
+
+- **It happens before 1.0**, which the versioning note at the top of this file
+  already says is when the interfaces stop moving.
+- **The old way of asking will be recognised for one version afterwards**, and
+  will tell you the new way of saying the same thing rather than failing.
+- **`--json` output is not affected.** The shape of what comes back is a
+  contract and is not part of this change.
+- It will appear here, in a release of its own, before it takes effect.
+
+The plan, and the questions it cannot answer yet, are in
+[the proposal](docs/proposals/critterscript.md).
+
+### Changed
+
 **The sweep list no longer offers you the thing you are looking at.**
 
 `outlaw processes` is the list a later "stop everything non-essential" button
@@ -105,6 +129,20 @@ server can make the second one.
   because the fix is the interesting part and taking the copy is one line that
   is easy to leave for later. A change on disk with no copy above it now fails
   the build.
+
+- **Every command the manual prints is now parsed by the program.** The
+  command *names* were checked -- a page cannot name a command that does not
+  exist -- and their arguments were not, so `outlaw audit --limit 200` could
+  have gone on saying `--limit` for a year after a rename, with the only
+  notice being somebody typing it and concluding the tool was unreliable
+  rather than the page. Sixty-odd examples across the manual, checked on every
+  build. It matters more than usual with CritterScript coming, because on the
+  day the syntax changes every one of those lines is wrong at once.
+
+- **The manual is checked as a whole, not only the part inside the binary.**
+  The index, the proposals, and the front page are read by the same people and
+  were not checked at all -- and the index is the page most likely to point at
+  something renamed, since pointing at things is all it does.
 
 - **A link to a heading that has been reworded is a failure now.** The check
   that followed links between manual pages stripped the `#part` and looked only

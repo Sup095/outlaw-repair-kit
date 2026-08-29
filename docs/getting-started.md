@@ -128,10 +128,16 @@ outlaw models    # what would be used, and why the rest were passed over
 ## Seeing what it can do
 
 ```bash
-outlaw probes   # every check, what it looks for, what it needs
-outlaw host     # what the tool detected about this machine
-outlaw docs     # this manual, carried inside the program
+outlaw probes      # every check, what it looks for, what it needs
+outlaw host        # what the tool detected about this machine
+outlaw processes   # what is running, and what a sweep would leave alone
+outlaw docs        # this manual, carried inside the program
 ```
+
+`outlaw processes` is worth a look on your own machine. It stops nothing --
+there is no command here that stops anything -- but it shows what is holding
+the memory, what would be left alone and why, and what is never touched at all.
+In the window it is the **Processes** screen.
 
 ## Next steps
 
@@ -141,6 +147,13 @@ outlaw docs     # this manual, carried inside the program
 - Being told when something changes, rather than going looking:
   [Watching for changes](watching.md).
 - Something not working: [Troubleshooting](troubleshooting.md).
+
+> **One thing to know before you write scripts.** The way commands are typed is
+> going to change before 1.0, to a language written for this project called
+> CritterScript. `--json` output is not affected, the old way of asking will be
+> recognised for a version afterwards and will tell you the new one, and it
+> will appear in [the changelog](../CHANGELOG.md) before it happens. See
+> [the proposal](proposals/critterscript.md).
 
 ## Where your data lives
 

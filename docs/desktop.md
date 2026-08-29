@@ -85,6 +85,7 @@ outlaw boot
 | **Checks** | Every check this build knows how to run, grouped by tier, what each one can report, and whether it can run on this machine |
 | **Watching** | Look on an interval and hear only about what changed |
 | **Stress** | Work the machine hard on purpose, and see whether it gets anything wrong |
+| **Processes** | What is running, what could be stopped, what is held back and why, and what is never touched. It only looks — see below |
 | **Queue** | Problems waiting to be worked through, worst first, each saying when it was last actually seen — and the buttons that work them |
 | **Models** | Which model would handle this run, and exactly why the others were passed over |
 | **Machines** | Pair with another computer so one can lend the other a model, and see what is wrong over there |
@@ -96,6 +97,30 @@ outlaw boot
 A scan you have run stays where it is when you look at another screen and come
 back. So does a report you have started writing. Neither is thrown away by
 going to look something up, which is exactly when somebody would.
+
+### The Processes screen only looks
+
+It stops nothing. There is no button on it that changes anything, and it says
+so at the top rather than leaving somebody hunting for one.
+
+It shows three groups, and the second two are the interesting ones: what could
+be stopped, heaviest first, with what each is holding; what is held back and
+why; and what is never touched at all, counted by reason. Nothing with a window
+in front of you is offered — nor what started it, nor its other processes,
+because a game and the launcher it is running inside go together and a browser
+is forty processes sharing one name.
+
+The memory figure says what those programs are **holding**, never what stopping
+them would give back. Those are different numbers, the second is always
+smaller, and the honest version can only be produced by measuring afterwards.
+
+Where a rule could not be applied, the screen says so in place of applying it
+quietly. On a Linux machine running Wayland the tool cannot ask what has the
+window in front of you — that is deliberate on Wayland's part — so the list
+carries **One rule did not run** and names the reason, because that rule not
+running means the list may include what you are looking at.
+
+The same thing on the terminal is `outlaw processes`.
 
 ### Stopping a scan
 

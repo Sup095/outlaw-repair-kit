@@ -60,14 +60,40 @@ generation-webui -- works too; point the tool at it with `urls` below.
 
 | Video memory | Practical ceiling |
 | --- | --- |
-| Under 4 GB | A local model will be slow and limited -- consider [using another machine](remote-machine.md) |
-| 4-8 GB | A 7-8B model at 4-bit quantisation |
-| 8-16 GB | A 13-14B model at 4-bit |
-| 16-24 GB | A 30B-class model at 4-bit |
-| 24 GB+ | A 70B-class model at 4-bit; also a good machine to serve others from |
+| Under 4 GiB | A local model will be slow and limited -- consider [using another machine](remote-machine.md) |
+| 4-8 GiB | A 7-8B model at 4-bit quantisation |
+| 8-16 GiB | A 13-14B model at 4-bit |
+| 16-24 GiB | A 30B-class model at 4-bit |
+| 24 GiB+ | A 70B-class model at 4-bit; also a good machine to serve others from |
+
+Gibibytes, which is what the tool measures and what a card actually holds. A
+card sold as 24 GB holds 24 GiB, so the row you want is the number on the box.
 
 The tool does not load models itself -- it asks whatever server you are running
 to use one. So this is advice for choosing, not something it enforces.
+
+### Which of your models gets asked
+
+If you have not named one in the settings, the tool asks the server what it has
+and takes the first that could plausibly answer a question. Models whose names
+mark them as producing vectors rather than sentences -- anything with `embed`
+in the name, `bge-`, `gte-`, `e5-`, `all-minilm`, rerankers -- are passed over,
+because they cannot hold a conversation and asking one produces a server error
+rather than an explanation.
+
+Two things it deliberately does not do. **It never overrules a model you named
+yourself**, whatever its name looks like: that is your decision and possibly for
+a reason. And **if everything on the server looks like an embedding model, it
+asks anyway** -- a name is a guess, and refusing to try would turn "these names
+look like embedders" into "you have no models", which is a claim only the server
+can make.
+
+To take the choice away from it, name one:
+
+```toml
+[ai.local]
+model = "qwen3:8b"
+```
 
 ## Option 2: a model on another computer
 

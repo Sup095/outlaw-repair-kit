@@ -37,6 +37,27 @@ depends on the core only for what it genuinely shares -- hardware detection,
 running a command -- and draws itself without a system webview, because an
 installer cannot have prerequisites.
 
+### Where the terminal's parser stops and the tool begins
+
+`clap` appears in `ork-cli` in exactly two places: the `derive` on the `Cli`
+and `Command` types, and the tests that check the manual against the real
+command list. Everything past that point matches on a plain Rust enum and has
+no idea how the value was arrived at.
+
+That boundary is load-bearing rather than incidental. **Anything that can
+produce a `Command` value can drive this tool**, which is what makes replacing
+the way commands are typed a contained change rather than a rewrite -- see
+[the CritterScript proposal](proposals/critterscript.md), which is that
+replacement. Reaching for `clap` inside a command's implementation would quietly
+weld the parser to the tool, so it is worth not doing even while `clap` is what
+is there.
+
+The same shape holds across the join to the window: a Tauri command is a thin
+wrapper that calls into the crates and returns what they returned. Two tests
+read the Rust source and compare it against the TypeScript, because a command is
+a string on one side and a function on the other and no compiler can look across
+that.
+
 ## 2. Diagnostic core (non-AI)
 
 `crates/ork-core`. This does most of the real work.
@@ -245,6 +266,28 @@ cargo fmt --all -- --check
 cargo clippy --all-targets --all-features
 cargo test --workspace --all-features
 ```
+
+The window is a third of the product and none of the above touches it:
+
+```
+cd apps/desktop && npm run check && npm test
+```
+
+Some tests need the network, or a running model server, and are skipped by
+default. They are the ones that check this tool against the world rather than
+against a fixture, which is why they have found faults the fixtures could not
+-- a model server offering only an embedding model, a release publishing a
+bundle under a name nothing looked for. Worth running before a release:
+
+```
+cargo test --workspace -- --ignored
+```
+
+**Build the window with `tauri build`, never with `cargo build` alone.** Plain
+`cargo build --release -p ork-desktop` produces a binary that expects the
+development server and opens on *"can't reach this page"*; the front-end is only
+compiled in by the Tauri build. The window opens and looks fine, which is what
+makes it worth writing down.
 
 `ork-core` holds nearly all of the conditional code, and it cross-checks
 without a C toolchain, so the fourth command closes the gap:

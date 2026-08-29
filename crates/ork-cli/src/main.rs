@@ -835,4 +835,225 @@ mod documentation {
             "README.md links to missing files: {broken:?}"
         );
     }
+
+    // --- Every command the manual prints, actually parsed ---
+    //
+    // The command *names* are checked above: a page cannot name a command that
+    // does not exist. Their arguments were not. `outlaw audit --limit 200`
+    // could have gone on saying `--limit` for a year after the option was
+    // renamed, and the only thing that would have noticed is somebody typing
+    // it, getting an error, and concluding the tool is unreliable rather than
+    // the page.
+    //
+    // It matters more than usual just now: the way commands are typed is going
+    // to change (docs/proposals/critterscript.md), and on the day it does every
+    // one of these lines is wrong at once. This is what will say so, line by
+    // line, rather than leaving them to be found by readers.
+
+    /// Every file that carries examples somebody might type.
+    fn documents() -> Vec<(String, String)> {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut found = Vec::new();
+        for name in ["README.md", "CHANGELOG.md"] {
+            if let Ok(text) = std::fs::read_to_string(root.join(name)) {
+                found.push((name.to_string(), text));
+            }
+        }
+        for directory in ["docs", "docs/proposals"] {
+            let path = root.join(directory);
+            let Ok(entries) = std::fs::read_dir(&path) else {
+                panic!("could not read {}", path.display());
+            };
+            for entry in entries.flatten() {
+                let file = entry.path();
+                if file.extension().is_some_and(|kind| kind == "md")
+                    && let Ok(text) = std::fs::read_to_string(&file)
+                {
+                    let name = format!(
+                        "{directory}/{}",
+                        file.file_name().unwrap_or_default().to_string_lossy()
+                    );
+                    found.push((name, text));
+                }
+            }
+        }
+        found.sort();
+        found
+    }
+
+    /// Which fenced blocks hold commands somebody would type.
+    ///
+    /// Only these. The first run of this check flagged a line from the
+    /// architecture diagram -- `outlaw (CLI)          desktop app` -- which is
+    /// a picture, not an instruction, and reading it as one is how a test
+    /// starts costing more than it catches. A block tagged `text`, `toml`, or
+    /// nothing at all is not somewhere a command lives.
+    const SHELLS: &[&str] = &["bash", "sh", "shell", "powershell", "console"];
+
+    /// The lines of a document that are inside a shell block.
+    fn shell_lines(text: &str) -> Vec<(usize, &str)> {
+        let mut inside = false;
+        let mut found = Vec::new();
+        for (number, line) in text.lines().enumerate() {
+            if let Some(rest) = line.trim_end().strip_prefix("```") {
+                // A fence either opens a block, naming its language, or closes
+                // the one that is open.
+                inside = if inside {
+                    false
+                } else {
+                    SHELLS.contains(&rest.trim())
+                };
+                continue;
+            }
+            if inside {
+                found.push((number, line));
+            }
+        }
+        found
+    }
+
+    /// One `outlaw ...` line, cut down to the part that is a command.
+    ///
+    /// Manual examples are written for people, so they carry what a shell would
+    /// handle and a parser would choke on: a trailing comment, a pipe into
+    /// something else, a redirect. Those are cut. What is left is what somebody
+    /// typing the line would be asking this program to do.
+    fn command_part(line: &str) -> Option<Vec<String>> {
+        let line = line.trim();
+        let rest = line
+            .strip_prefix("outlaw ")
+            .or_else(|| (line == "outlaw").then_some(""))?;
+
+        let mut cut = rest;
+        for separator in ["|", ">", "&&", ";", "#"] {
+            if let Some(at) = cut.find(separator) {
+                cut = &cut[..at];
+            }
+        }
+
+        // A placeholder is the writer saying "your value here". Substituting
+        // something checks the shape of the line, which is what goes stale,
+        // without pretending `<name>` is a machine somebody owns.
+        Some(
+            cut.split_whitespace()
+                .map(|word| word.trim_matches('"'))
+                .map(|word| {
+                    if word.starts_with('<') || word.starts_with('[') {
+                        "placeholder".to_string()
+                    } else {
+                        word.to_string()
+                    }
+                })
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn every_command_the_manual_prints_is_one_the_program_accepts() {
+        use clap::Parser;
+        use clap::error::ErrorKind;
+
+        let mut checked = 0;
+        let mut wrong = Vec::new();
+
+        for (name, text) in documents() {
+            for (number, line) in shell_lines(&text) {
+                let Some(words) = command_part(line) else {
+                    continue;
+                };
+                checked += 1;
+                let mut argv = vec!["outlaw".to_string()];
+                argv.extend(words);
+                if let Err(error) = Cli::try_parse_from(&argv) {
+                    // A page may legitimately show `outlaw --help`.
+                    if matches!(
+                        error.kind(),
+                        ErrorKind::DisplayHelp | ErrorKind::DisplayVersion
+                    ) {
+                        continue;
+                    }
+                    wrong.push(format!(
+                        "{name}:{} -- `{}`: {}",
+                        number + 1,
+                        line.trim(),
+                        error.to_string().lines().next().unwrap_or("").trim()
+                    ));
+                }
+            }
+        }
+
+        // A path that stopped resolving would pass by checking nothing.
+        assert!(
+            checked > 40,
+            "only {checked} example commands found in the manual; the scan has              stopped working"
+        );
+        assert!(
+            wrong.is_empty(),
+            "the manual prints {} command(s) the program would refuse:
+  {}",
+            wrong.len(),
+            wrong.join(
+                "
+  "
+            )
+        );
+    }
+
+    #[test]
+    fn only_lines_inside_shell_blocks_are_treated_as_commands() {
+        let sample = "Some prose with outlaw scan in it.
+
+```
+  outlaw (CLI)          desktop app
+```
+
+```bash
+outlaw scan --tier full
+```
+
+```toml
+outlaw = \"not a command\"
+```
+";
+        let lines: Vec<&str> = shell_lines(sample).into_iter().map(|(_, l)| l).collect();
+        assert_eq!(
+            lines,
+            vec!["outlaw scan --tier full"],
+            "only the bash block holds a command"
+        );
+    }
+
+    #[test]
+    fn the_line_reader_handles_the_shapes_the_manual_uses() {
+        // If the reader quietly returned nothing for the lines that actually
+        // appear, the test above would pass by examining an empty list.
+        assert_eq!(
+            command_part("outlaw scan --tier full"),
+            Some(vec!["scan".into(), "--tier".into(), "full".into()])
+        );
+        assert_eq!(
+            command_part("outlaw audit         # everything that has been done"),
+            Some(vec!["audit".into()])
+        );
+        assert_eq!(
+            command_part("outlaw docs fixing | less"),
+            Some(vec!["docs".into(), "fixing".into()])
+        );
+        assert_eq!(
+            command_part("outlaw link remove <name>"),
+            Some(vec!["link".into(), "remove".into(), "placeholder".into()])
+        );
+        assert_eq!(command_part("outlaw"), Some(Vec::new()));
+        assert_eq!(command_part("The outlaw scan command"), None);
+        assert_eq!(command_part("cargo build --release"), None);
+    }
+
+    #[test]
+    fn a_stale_option_in_the_manual_would_be_caught() {
+        // Proves the check can fail. `--limit` is real; `--limitt` is the shape
+        // of a page left behind by a rename, and must not parse.
+        use clap::Parser;
+        assert!(Cli::try_parse_from(["outlaw", "audit", "--limit", "10"]).is_ok());
+        assert!(Cli::try_parse_from(["outlaw", "audit", "--limitt", "10"]).is_err());
+    }
 }

@@ -193,10 +193,10 @@ model sized to the graphics card it finds:
 
 | Video memory | Model offered |
 | --- | --- |
-| 22GB or more | `qwen3:32b` |
-| 14–21GB | `qwen3:14b` |
-| 10–13GB | `qwen3:8b` |
-| 6–9GB | `qwen3:4b` |
+| 22 GiB or more | `qwen3:32b` |
+| 14–21 GiB | `qwen3:14b` |
+| 10–13 GiB | `qwen3:8b` |
+| 6–9 GiB | `qwen3:4b` |
 | less, or none | `qwen3:1.7b` |
 
 These are sized to leave room for the model's context rather than to be the

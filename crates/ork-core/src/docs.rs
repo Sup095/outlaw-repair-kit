@@ -329,6 +329,97 @@ mod tests {
         );
     }
 
+    /// Every Markdown file this project owns, with the directory its links
+    /// are relative to.
+    ///
+    /// Wider than [`PAGES`] on purpose. The manual is only the part carried
+    /// inside the binary; the index, the proposals, and the front page are
+    /// read by the same people and a dead link in one of those is dead in
+    /// exactly the same way. They were not checked at all until this existed.
+    fn every_markdown_file() -> Vec<(String, std::path::PathBuf)> {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let mut found = Vec::new();
+        for name in ["README.md", "CHANGELOG.md"] {
+            found.push((name.to_string(), root.clone()));
+        }
+        for directory in ["docs", "docs/proposals"] {
+            let path = root.join(directory);
+            let Ok(entries) = std::fs::read_dir(&path) else {
+                panic!("could not read {}", path.display());
+            };
+            for entry in entries.flatten() {
+                let file = entry.path();
+                if file.extension().is_some_and(|kind| kind == "md") {
+                    let relative = format!(
+                        "{directory}/{}",
+                        file.file_name().unwrap_or_default().to_string_lossy()
+                    );
+                    found.push((relative, path.clone()));
+                }
+            }
+        }
+        found.sort();
+        found
+    }
+
+    #[test]
+    fn nothing_we_have_written_links_to_something_that_is_not_there() {
+        // Files and headings both, across every Markdown file in the project
+        // rather than only the ones compiled into the binary. The index in
+        // `docs/README.md` and the proposals were unchecked until this test,
+        // and the index is the page most likely to point at something that has
+        // been renamed, because pointing at things is all it does.
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let files = every_markdown_file();
+        assert!(
+            files.len() > 15,
+            "only {} markdown files found; the walk has stopped working",
+            files.len()
+        );
+
+        let mut broken = Vec::new();
+        for (name, from) in &files {
+            let text = std::fs::read_to_string(root.join(name))
+                .unwrap_or_else(|error| panic!("could not read {name}: {error}"));
+            for target in links(&text) {
+                if target.starts_with("http") || target.starts_with("mailto:") || target.is_empty()
+                {
+                    continue;
+                }
+                let (file, anchor) = match target.split_once('#') {
+                    Some((file, anchor)) => (file, anchor),
+                    None => (target.as_str(), ""),
+                };
+                let (into, holding) = if file.is_empty() {
+                    (name.clone(), text.clone())
+                } else {
+                    let path = from.join(file);
+                    if !path.exists() {
+                        broken.push(format!("{name} -> {target} (no such file)"));
+                        continue;
+                    }
+                    match std::fs::read_to_string(&path) {
+                        Ok(holding) => (file.to_string(), holding),
+                        Err(_) => continue,
+                    }
+                };
+                if !anchor.is_empty() && !anchors_in(&holding).iter().any(|had| had == anchor) {
+                    broken.push(format!("{name} -> {target} (no such heading in {into})"));
+                }
+            }
+        }
+
+        assert!(
+            broken.is_empty(),
+            "links that go nowhere:
+  {}",
+            broken.join(
+                "
+  "
+            )
+        );
+    }
+
     #[test]
     fn the_anchor_rule_matches_the_headings_it_is_given() {
         // The slug rule itself, on the shapes that actually appear in these

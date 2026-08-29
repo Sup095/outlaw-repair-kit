@@ -141,6 +141,32 @@ Studio, load a model. With Ollama, `ollama pull` something first.
 other than `auto`. That is working as intended: pinning stops fallback, so your
 diagnostics cannot end up somewhere you did not choose.
 
+## "does not support chat", or every explanation fails
+
+A model was found and asked, and it answered with an error rather than an
+explanation. Almost always it is an **embedding model** -- one that turns text
+into vectors for searching, not into sentences. `nomic-embed-text`,
+`mxbai-embed-large`, `bge-`, `gte-`, `e5-` and the rerankers are all this kind.
+
+The tool passes over models whose names mark them as this, so it should pick a
+usable one on its own when you have both kinds installed. Two cases where it
+will still ask one:
+
+- **You named it yourself** in `[ai.local] model`. An explicit choice is never
+  overruled, on the grounds that you may have had a reason.
+- **It is the only kind on the server.** The tool asks anyway rather than
+  telling you that you have no models, because it is judging from names and a
+  name is a guess. The server is the one that actually knows, so it is allowed
+  to be the one that says no.
+
+Either way the fix is to have something that can hold a conversation:
+
+```bash
+ollama pull qwen3:8b
+```
+
+`outlaw models` will then show which one it picked.
+
 ## The other machine cannot be reached
 
 Work through it from the machine that is failing to connect:

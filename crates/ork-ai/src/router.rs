@@ -194,6 +194,13 @@ pub struct ModelPick {
     /// size can be said out loud before anybody commits to it. Approximate on
     /// purpose -- quantisations differ, and a number presented to two decimal
     /// places would be a precision this does not have.
+    ///
+    /// Gigabytes, deliberately, while video memory beside it is measured in
+    /// gibibytes. They are different quantities: this is how much comes down
+    /// the wire, which everything that publishes model sizes quotes in GB, and
+    /// that is a size somebody will compare against their connection rather
+    /// than against their card. Not the same mistake as describing one card in
+    /// two units.
     pub about_gb: u32,
     /// Why this one and not a larger one.
     pub why: &'static str,

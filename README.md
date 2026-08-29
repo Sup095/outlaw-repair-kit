@@ -269,13 +269,46 @@ The binary lands at `target/release/outlaw`.
 cargo test
 ```
 
+The window is built with Tauri rather than with `cargo` directly. Building it
+with plain `cargo build` produces a program that expects the development server
+to be running and shows *"can't reach this page"* when it is not, because the
+front-end is only compiled in by the Tauri build:
+
+```bash
+cd apps/desktop && npm install && npm run tauri build
+```
+
+The window has its own tests, which include checks that read the Rust source
+and compare it against the TypeScript -- the one join here that no compiler can
+see across:
+
+```bash
+cd apps/desktop && npm test
+```
+
+Some tests need the network or a running model server and are skipped by
+default. They are the ones that check this tool against the world rather than
+against a fixture, so they are worth running before a release:
+
+```bash
+cargo test --workspace -- --ignored
+```
+
 ## Layout
 
 | Path | What it is |
 | --- | --- |
-| `crates/ork-core` | Diagnostic core: platform layer, probes, scan orchestration |
+| `crates/ork-core` | Diagnostic core: platform layer, probes, scan orchestration, process classification |
+| `crates/ork-ai` | Model routing, runbook library, explanation, credential storage |
+| `crates/ork-fix` | The fix engine: snapshots, the closed set of actions, the audit log |
+| `crates/ork-boot` | Start-up self-test and update check, shared by both front-ends |
+| `crates/ork-link` | Pairing two machines so one can lend the other a model |
 | `crates/ork-cli` | The `outlaw` command-line front-end |
-| `docs/` | Architecture and design notes |
+| `crates/ork-setup` | The graphical installer, which draws its own window |
+| `apps/desktop` | The window: Svelte front-end, Tauri back-end |
+| `docs/` | The manual, compiled into the binary. `docs/proposals/` is work not yet built |
+| `tests/shared/` | Test data read by more than one language |
+| `install/` | The one-line install scripts |
 
 ## Roadmap
 
@@ -332,15 +365,27 @@ cargo test
     debugging: looking much harder, with the argument for whether it should
     ever *act* harder kept deliberately separate. See
     [the proposal](docs/proposals/escalation-mode.md).
-14. **Process control and cleanup** -- proposed, not built. One button that
-    stops everything non-essential so the machine is clear for what you
-    actually want to run, and puts it back afterwards -- with system
-    processes, drivers, control panels, and security software never touched.
-    See [the proposal](docs/proposals/process-control.md).
+14. **Process control and cleanup** -- looking, not yet acting. `outlaw
+    processes` and the **Processes** screen show what is running, what could be
+    stopped, what is held back and why, and what is never touched at all --
+    system processes, drivers, control panels, security software, and anything
+    with a window in front of you. **Nothing stops anything yet**, on purpose:
+    the list exists on its own first so that it can be read on real machines
+    before a button can act on it. The button, the confirmation, and putting it
+    all back are the next stage. See
+    [the proposal](docs/proposals/process-control.md).
+15. **CritterScript** -- proposed, not built. The way the terminal is spoken to
+    is being replaced with a language written for this project: closer to
+    saying what you want than to remembering a switch, and ours rather than
+    assembled out of somebody else's argument parser. It is a breaking change
+    to how commands are typed, it will happen before 1.0, and the old syntax
+    will spend one version telling you the new way of asking rather than
+    failing. `--json` output is not affected. See
+    [the proposal](docs/proposals/critterscript.md).
 
-Both are written down before any of them exists, because the safety argument is
-the hard part and it is worth losing an argument about a document rather than
-about somebody's machine.
+These are written down before they exist, because the argument is the hard part
+and it is worth losing one about a document rather than about somebody's
+machine.
 
 Every released version and what it changed is in [the changelog](CHANGELOG.md),
 which is also readable from inside the program: `outlaw docs changelog`, or the

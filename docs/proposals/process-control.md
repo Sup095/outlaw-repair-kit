@@ -1,7 +1,17 @@
 # Proposal: process control and cleanup
 
-**Status: proposed, not built.** This is for review before any of it exists.
-Nothing here is in the tool.
+**Status: stages one and two are built. Nothing stops a process yet.**
+
+What exists: the enumeration, the classification, the lists of what is never
+touched, `outlaw processes`, and the **Processes** screen in the window. All of
+it only looks. The button, the confirmation, the restore file, and *Restore
+everything* -- stage three, and everything after it -- do not exist, and the
+rest of this document is still a proposal rather than a description.
+
+The order was deliberate: the list is worth having on its own, and it needed to
+be read on real machines before anything could act on it. Doing that found two
+faults that would have mattered a great deal more with a button attached, both
+recorded below.
 
 *In a subdirectory on purpose: `docs/` is the manual, compiled into the binary,
 and a manual must only describe what the program actually does. A proposal is
@@ -251,17 +261,25 @@ disabling one of those, reversibly, because the entry is recorded in full first.
 
 ## Order of work
 
-1. **Enumeration and classification**, with the essential lists. No stopping.
-2. **The screen and the list**, showing what would be stopped and what is held
-   back. Still no stopping. At this point it is already useful.
+1. ~~**Enumeration and classification**, with the essential lists. No
+   stopping.~~ **Built.**
+2. ~~**The screen and the list**, showing what would be stopped and what is
+   held back. Still no stopping.~~ **Built**, in both the terminal
+   (`outlaw processes`) and the window (the **Processes** screen), from the
+   same judgement so the two cannot disagree about what "held back" means.
 3. **The button**, the confirmation, the restore file, and *Restore everything*.
+   **Next.**
 4. **Measured verification**, which also gives memory pressure its verifier.
 5. **Session survival** — the reboot toggle and picking up where it left off.
 6. **Idle-weight watching** over days.
 7. **Permanent blocking**, on top of the start-up enumeration.
 
-Stages 1 and 2 are worth having alone. Nothing stops a process until stage 3,
-by which point the list has been looked at on real machines.
+Stages 1 and 2 were worth having alone, and looking at them on real machines
+paid for itself twice before anything could act on the list: once when every
+process on the machine came back a candidate because the owner check asked one
+question for the whole machine rather than one per process, and once when the
+running game was offered because nothing read the foreground window. Both would
+have been considerably more expensive to discover with a button attached.
 
 ## Still open
 

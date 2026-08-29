@@ -1,5 +1,26 @@
 # Command reference
 
+> ## This syntax is going to change
+>
+> The way commands are typed is being replaced, before 1.0, with a language
+> written for this project called **CritterScript**. The intention is a
+> terminal that reads closer to saying what you want than to remembering a
+> switch, and one that is ours rather than assembled out of somebody else's
+> argument parser.
+>
+> **What that means for you.** Everything on this page works now and will keep
+> working until the release that changes it. When that release comes, the old
+> way of asking will still be *recognised* for one version -- it will tell you
+> the new way of saying the same thing rather than failing. Nothing will change
+> without appearing in [the changelog](../CHANGELOG.md) first.
+>
+> **If you are writing scripts or scheduled tasks against this**, that is worth
+> knowing before you write a lot of them. `--json` output is not affected: the
+> shape of what comes back is a contract and is not part of this change.
+>
+> The plan, including what has not been decided, is in
+> [the proposal](proposals/critterscript.md).
+
 Every command accepts these:
 
 | Option | Meaning |
