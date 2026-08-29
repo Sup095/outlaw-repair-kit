@@ -87,6 +87,15 @@ server can make the second one.
   now failures rather than commits. The settings file holds the *name* of a
   credential and never the credential.
 
+- **`outlaw models` no longer contradicts itself about your graphics card.**
+  It printed *"24 GiB of video memory"* and, one line below, *"24 GB or more
+  of video memory"* -- about the same card. Both were defensible alone: the
+  card holds 24 GiB, and the shops call it a 24 GB card. Together they read as
+  a tool that cannot keep its own units straight, on the screen where somebody
+  is deciding whether to believe its numbers. The bands are computed in
+  gibibytes and now say so, as does the setup program, which was doing the
+  same division under the same wrong label.
+
 - **"Nothing is changed without a copy first" is checked rather than
   claimed.** It is the promise every other safety rail here rests on: the dry
   run, the confirmation, and one-change-at-a-time all assume that a change

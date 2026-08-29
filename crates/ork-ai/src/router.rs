@@ -134,6 +134,14 @@ pub struct VramAdvice {
 
 const GIB: u64 = 1024 * 1024 * 1024;
 
+// The bands below are all multiples of GIB, so they say GiB. They used to
+// say "GB", which put "24 GiB of video memory" and "24 GB or more of video
+// memory" on adjacent lines of `outlaw models`, about the same card. Both
+// are defensible alone -- the card holds 24 GiB and the shops call it a
+// 24 GB card -- and together they read as a tool that cannot keep its own
+// units straight, on the screen where somebody is deciding whether to
+// believe its numbers.
+
 pub fn advise_for_vram(gpus: &[GpuInfo]) -> VramAdvice {
     let vram_bytes = gpus.iter().filter_map(|gpu| gpu.vram_total_bytes).max();
 
@@ -142,24 +150,24 @@ pub fn advise_for_vram(gpus: &[GpuInfo]) -> VramAdvice {
                  Install the graphics vendor's tools, or choose a model yourself."
             .to_string(),
         Some(bytes) if bytes < 4 * GIB => {
-            "Under 4 GB of video memory. A local model will be slow and heavily limited; \
+            "Under 4 GiB of video memory. A local model will be slow and heavily limited; \
              consider using a model on another machine instead."
                 .to_string()
         }
         Some(bytes) if bytes < 8 * GIB => {
-            "Around 6 GB of video memory. A 7-8B model at 4-bit quantisation is the \
+            "Around 6 GiB of video memory. A 7-8B model at 4-bit quantisation is the \
              practical ceiling. Larger analysis is better sent to another machine."
                 .to_string()
         }
         Some(bytes) if bytes < 16 * GIB => {
-            "8-12 GB of video memory. A 13-14B model at 4-bit quantisation fits \
+            "8-12 GiB of video memory. A 13-14B model at 4-bit quantisation fits \
              comfortably."
                 .to_string()
         }
         Some(bytes) if bytes < 24 * GIB => {
-            "16-20 GB of video memory. A 30B-class model at 4-bit quantisation fits.".to_string()
+            "16-20 GiB of video memory. A 30B-class model at 4-bit quantisation fits.".to_string()
         }
-        Some(_) => "24 GB or more of video memory. A 70B-class model at 4-bit quantisation \
+        Some(_) => "24 GiB or more of video memory. A 70B-class model at 4-bit quantisation \
                     fits, and this machine is a good candidate for serving other machines \
                     on the network."
             .to_string(),
@@ -775,6 +783,28 @@ mod tests {
                 "{chatty} can answer questions and must not be skipped"
             );
         }
+    }
+
+    #[test]
+    fn the_advice_is_labelled_with_the_unit_it_was_measured_in() {
+        // Every band is a multiple of GIB, so every band says GiB. This is not
+        // pedantry about a seven per cent difference: `outlaw models` prints
+        // the measured figure and the advice one line apart, and it said
+        // "24 GiB of video memory" directly above "24 GB or more of video
+        // memory" about the same card.
+        for card in [1, 6, 10, 18, 24, 48] {
+            let said = advise_for_vram(&[gpu(card)]).recommendation;
+            assert!(
+                !said.replace("GiB", "").contains("GB"),
+                "{card} GiB card was advised in GB: {said:?}"
+            );
+        }
+        // And the unknown case still says something rather than a unit.
+        assert!(
+            advise_for_vram(&[])
+                .recommendation
+                .contains("could not be determined")
+        );
     }
 
     #[test]

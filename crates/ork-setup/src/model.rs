@@ -48,7 +48,9 @@ impl Hardware {
         match (self.gpus.first(), self.vram_bytes) {
             (Some(gpu), Some(bytes)) => {
                 format!(
-                    "{} — {} GB of video memory",
+                    // GiB, because that is the division being done. See
+                    // the note beside the bands in `ork_ai::router`.
+                    "{} — {} GiB of video memory",
                     gpu.name,
                     bytes / (1024 * 1024 * 1024)
                 )
@@ -382,7 +384,7 @@ mod tests {
 
     #[test]
     fn no_card_says_so_rather_than_reporting_zero() {
-        // "0 GB of video memory" reads like a broken card. There isn't one.
+        // "0 GiB of video memory" reads like a broken card. There isn't one.
         let hardware = Hardware {
             gpus: Vec::new(),
             vram_bytes: None,
