@@ -10,7 +10,7 @@ not that the work has stopped.
 
 ---
 
-## Unreleased
+## v0.12.0
 
 **Four things you actually see, all of them wrong.**
 
