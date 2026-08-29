@@ -7,10 +7,16 @@ program. [Installing](install.md) covers each in full, including building from
 source.
 
 **A window, if you would rather not open a terminal.** Download `outlaw-setup`
-for your system from the
+(`outlaw-setup.exe` on Windows) from the
 [latest release](https://github.com/Sup095/outlaw-repair-kit/releases/latest)
-and run it. It shows you what it is about to do before it does any of it, and
-writes down what it did afterwards.
+and run it. **It is the only file on that page you need** -- it installs the
+command-line tool, the window if you tick it, and a model if you say yes. It
+shows you what it is about to do before it does any of it, and writes down what
+it did afterwards.
+
+> The release also lists `outlaw-repair-kit-<version>-x64-setup.exe`, which
+> installs *only* the window. The one that installs everything is
+> `outlaw-setup`.
 
 **One line, if you would.**
 
@@ -43,9 +49,9 @@ page because nothing else tells you.
 | **Windows** | Start menu -> **Outlaw Repair Kit** |
 | **Linux** | your applications list -> **Outlaw Repair Kit**, or type `outlaw-repair-kit` |
 
-The window is a separate download from the command-line program. If it is not
-in your Start menu or applications list, it is not installed yet -- see
-[Installing](install.md).
+The setup program installs the window if you tick it. If you installed another
+way, or left it unticked, the window is a separate download and will not be in
+your Start menu or applications list -- see [Installing](install.md).
 
 ### The terminal
 

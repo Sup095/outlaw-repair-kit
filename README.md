@@ -37,7 +37,8 @@ output, never the live system.
 Download **`outlaw-setup.exe`** (Windows) or **`outlaw-setup`** (Linux) from the
 [latest release](https://github.com/Sup095/outlaw-repair-kit/releases/latest)
 and run it. That is the whole thing: a small window, a quick download, and no
-terminal.
+terminal. It is the only file on that page you need — it installs the
+command-line tool, the window if you tick it, and a model if you say yes.
 
 It asks which version you want, shows you a list of exactly what it is about to
 do to your computer, and does it. It **refuses** to install any file whose
@@ -50,6 +51,10 @@ same list beside the installed files.
 
 It carries no copy of the tool inside it, so it stays a quick download however
 large the tool becomes.
+
+> Not to be confused with `outlaw-repair-kit-<version>-x64-setup.exe`, also on
+> that page, which installs only the window. The one you want is
+> `outlaw-setup`.
 
 <details>
 <summary>Prefer a terminal?</summary>

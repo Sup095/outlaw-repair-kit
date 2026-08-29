@@ -196,6 +196,10 @@ jobs:
       - name: Write checksums
         working-directory: artifacts
         run: sha256sum * > SHA256SUMS
+      # A release page is a list of eleven files with no indication of which
+      # one a person is supposed to run. The generated notes below say what
+      # changed; this says what to download, which is the question somebody
+      # arriving here actually has. It goes above the generated notes.
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
@@ -203,3 +207,49 @@ jobs:
           draft: false
           generate_release_notes: true
           files: artifacts/*
+          body: |
+            ## Which file do I download?
+
+            **Just one: the setup program.** It installs everything else --
+            the command-line tool, the window if you want it, and a model on
+            your machine if you say yes. You do not need anything else on this
+            page.
+
+            | Your system | Download |
+            | --- | --- |
+            | Windows | **`outlaw-setup.exe`** |
+            | Linux | **`outlaw-setup`** (then `chmod +x outlaw-setup`) |
+
+            It needs no administrator rights, shows you a list of exactly what
+            it is about to do before it does any of it, and **refuses** to
+            install any file whose checksum does not match the one published
+            here.
+
+            ### Opening it afterwards
+
+            | | The window | A terminal |
+            | --- | --- | --- |
+            | Windows | Start menu → **Outlaw Repair Kit** | Start menu → **Outlaw Repair Kit (terminal)**, or type `outlaw` |
+            | Linux | applications list → **Outlaw Repair Kit** | applications list → **Outlaw Repair Kit (terminal)**, or type `outlaw` |
+
+            `outlaw` on its own is not an error -- it says what the tool is and
+            what to type. Do not click `outlaw.exe` directly: it is a
+            command-line program, so it opens a console, prints, and closes it
+            again faster than anybody can read.
+
+            <details>
+            <summary>The other files, and who they are for</summary>
+
+            You do not need these if you used the setup program above.
+
+            | File | What it is |
+            | --- | --- |
+            | `outlaw.exe`, `outlaw` | The command-line tool on its own. What the setup program downloads. |
+            | `outlaw-v*-x86_64-pc-windows-msvc.zip`, `...-linux-gnu.tar.gz` | The same tool, archived. |
+            | `outlaw-repair-kit-v*-x64-setup.exe`, `.msi` | The **window** on its own, for Windows. Not the setup program -- this one installs only the window. |
+            | `outlaw-repair-kit-v*-amd64.AppImage`, `.deb` | The window on its own, for Linux. |
+            | `SHA256SUMS` | The checksums everything above is checked against. |
+
+            </details>
+
+            ---

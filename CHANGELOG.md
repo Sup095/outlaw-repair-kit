@@ -10,6 +10,57 @@ not that the work has stopped.
 
 ---
 
+## Unreleased
+
+**Four things you actually see, all of them wrong.**
+
+**Console windows stopped appearing.** Almost everything this tool asks the
+machine is answered by another program -- PowerShell for the registry and the
+event log, `smartctl` for disk health, `ollama` for a model. From a terminal
+that is invisible. From a window it is not: Windows gives each one its own
+console, so every call flashed a black rectangle onto the screen and took the
+focus with it. A scan makes dozens of them. The effect was an application that
+appeared to be doing something furtive, and it was worst during an install --
+the moment somebody is deciding whether to trust it at all. A test now reads
+the source and fails if a new place to start a program forgets the flag; it
+found three the first attempt had missed.
+
+**The model install works.** A process gets its environment when it starts and
+never sees a change to it, so the installer that had *just* installed Ollama
+was the one process on the machine guaranteed not to find it on `PATH` -- and
+asking for the model straight afterwards therefore failed every time. It is
+looked for where each platform actually puts it. Ollama's own installer no
+longer opens a window over ours, winget is no longer allowed to stop and ask
+questions on a screen nobody is looking at, and "you already have it" is no
+longer reported as a failure. The download reports as it goes, because several
+gigabytes arriving behind a window that says nothing is indistinguishable from
+a window that has stopped working.
+
+**The setup program installs the window.** It used to download it, put it in
+the folder, and say "run it to install the window" -- which left somebody who
+had asked for the window with a folder containing an installer and no window
+in it. Asking for a thing and being handed the means of getting the thing is
+not installing it. It runs it now, and tidies the installer away afterwards.
+The release page also says, at the top, which of its eleven files is the one to
+download, which it never did.
+
+**The window fits its own minimum size.** At 900 pixels wide -- the width it
+will not let you go below -- the last three tabs were not merely cramped but
+cut off, with no way to reach them. A tab you cannot click is a screen that
+does not exist.
+
+### Also
+
+- **The setup program wears the project's colours** rather than being a grey
+  box: the same near-black that leans violet, two crossing grids, a magenta
+  bloom low and a cyan one high, the vignette, and the pulse that says it is
+  still running during a download when nothing else on screen is changing. The
+  values are read out of the window's own stylesheet by a test, so the two
+  cannot drift into being nearly the same colour, which looks worse than being
+  plainly different.
+
+---
+
 ## v0.11.0
 
 **`outlaw processes` -- what is running, and what a sweep would leave alone.**

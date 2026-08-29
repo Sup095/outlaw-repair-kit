@@ -1,8 +1,22 @@
 # Installing
 
-There are four ways in, and they all end up with the same program.
+**If you want one answer: download the setup program and run it.** It installs
+everything else, and nothing on this page is needed afterwards.
 
-## The installer app
+| Your system | The file |
+| --- | --- |
+| Windows | `outlaw-setup.exe` |
+| Linux | `outlaw-setup` (mark it executable: `chmod +x outlaw-setup`) |
+
+The rest of this page is the other ways in, which exist for people who want
+them. They all end up with the same program.
+
+> **The setup program is not the same file as the window's own installer.**
+> A release also publishes `outlaw-repair-kit-<version>-x64-setup.exe`, which
+> installs *only* the window and nothing else. If you are not sure which you
+> have, the one you want is the one called `outlaw-setup`.
+
+## The setup program
 
 The one to use if you would rather not open a terminal at all. Download it from
 the [latest release](https://github.com/Sup095/outlaw-repair-kit/releases/latest)
@@ -16,6 +30,10 @@ and run it:
 It is a small window and a quick download. It carries no copy of the tool
 inside it — it asks GitHub what has been released, you pick a version, and it
 fetches that. So it stays small however large the thing it installs becomes.
+
+**It installs everything you tick, including the window.** The window ships as
+its own installer, and this downloads it, checks it, runs it, and then tidies
+the installer away. You do not have to run anything afterwards.
 
 Before it does anything it shows you a list of exactly what it is about to do
 to your computer. Afterwards it shows you what it did, and writes the same list
@@ -95,7 +113,11 @@ irm https://raw.githubusercontent.com/Sup095/outlaw-repair-kit/main/install/inst
 .\install.ps1 -Desktop -LocalModel
 ```
 
-## The desktop app on its own
+## The window on its own
+
+Only needed if you did *not* use the setup program, or if you want the window
+on a machine that already has the command-line tool.
+
 
 Download the installer for your system from the
 [releases page](https://github.com/Sup095/outlaw-repair-kit/releases):
@@ -105,12 +127,13 @@ Download the installer for your system from the
 | Windows | `outlaw-repair-kit-<version>-x64-setup.exe`, or the `.msi` |
 | Linux | `outlaw-repair-kit-<version>-amd64.AppImage`, or the `.deb` |
 
-The desktop app includes everything the command line does.
+The window includes everything the command line does.
 
-The installer can fetch it for you with `-Desktop` on Windows or `--desktop` on
-Linux. On Linux that installs the AppImage into the same user-owned directory
-as the program, so it still needs no root — run it with `outlaw-repair-kit`. An
-AppImage needs FUSE; the installer says so if it cannot find it.
+The install *scripts* can fetch it for you with `-Desktop` on Windows or
+`--desktop` on Linux. On Linux that installs the AppImage into the same
+user-owned directory as the program, so it still needs no root — run it with
+`outlaw-repair-kit`. An AppImage needs FUSE; the script says so if it cannot
+find it.
 
 ## Opening it once it is installed
 
@@ -195,7 +218,7 @@ Stored keys live in the operating system's credential store; remove them with
 `outlaw set-key cloud --remove` before deleting the program, or from the
 Settings screen in the desktop app.
 
-If you used the installer app, `install-receipt.json` in the program folder
+If you used the setup program, `install-receipt.json` in the program folder
 lists everything it did, including anything it added to your PATH and any
 shortcut it created. There is no uninstaller: the list is short enough to read,
 and a program that can remove things from your machine is a bigger thing to
