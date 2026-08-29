@@ -292,6 +292,32 @@ fn carry_out(choices: &Choices, report: &Sender<Progress>) -> Result<Receipt> {
     if choices.add_to_path {
         let _ = report.send(Progress::Stage("Making `outlaw` available anywhere".into()));
         let bin = install::bin_directory(&choices.directory);
+
+        // First, and separately from the PATH entry. On Linux the program is
+        // installed under `~/.local/share` while the directory that goes on
+        // PATH is `~/.local/bin`, so adding the second without putting the
+        // program in it produced an install where `outlaw` was correctly on
+        // PATH and still answered "command not found". Done before the PATH
+        // step and outside its result, because the common case on Linux is
+        // that `~/.local/bin` is on PATH already -- and that is precisely the
+        // case where the link is the only thing that makes the name work.
+        match install::link_into_path(&placed_program(choices), &bin) {
+            Ok(Some(link)) => {
+                receipt.steps.push(Step::Linked {
+                    path: link.display().to_string(),
+                });
+                let _ = report.send(Progress::Note(format!("`outlaw` is {}", link.display())));
+            }
+            Ok(None) => {}
+            Err(error) => {
+                let _ = report.send(Progress::Warning(format!(
+                    "could not put `outlaw` in {} ({error:#}). It is installed; run it by its \
+                     full path.",
+                    bin.display()
+                )));
+            }
+        }
+
         match install::add_to_path(&bin) {
             Ok(true) => {
                 receipt.steps.push(Step::AddedToPath {
@@ -316,11 +342,23 @@ fn carry_out(choices: &Choices, report: &Sender<Progress>) -> Result<Receipt> {
     }
 
     if choices.shortcut {
-        let _ = report.send(Progress::Stage("Adding a shortcut".into()));
-        match install::make_shortcut(&placed_program(choices), "Outlaw Repair Kit") {
-            Ok(path) => {
+        let _ = report.send(Progress::Stage("Adding shortcuts".into()));
+
+        // The terminal program first, because it is the half that is always
+        // installed. It gets a small script rather than a shortcut straight
+        // to the program: see `install::write_terminal_shim` for why.
+        match install::write_terminal_shim(&choices.directory).and_then(|shim| {
+            install::make_shortcut(&shim, TERMINAL_SHORTCUT, install::Opens::ATerminal)
+                .map(|path| (shim, path))
+        }) {
+            Ok((shim, path)) => {
+                receipt.steps.push(Step::Wrote {
+                    path: shim.display().to_string(),
+                    sha256: String::new(),
+                });
                 receipt.steps.push(Step::Shortcut {
                     path: path.display().to_string(),
+                    label: TERMINAL_SHORTCUT.to_string(),
                 });
                 let _ = report.send(Progress::Note(format!("shortcut at {}", path.display())));
             }
@@ -328,6 +366,31 @@ fn carry_out(choices: &Choices, report: &Sender<Progress>) -> Result<Receipt> {
                 let _ = report.send(Progress::Warning(format!(
                     "could not create a shortcut ({error:#}). Everything else is installed."
                 )));
+            }
+        }
+
+        // The window, only when this installer put one in place that nothing
+        // else will make an entry for. A Windows bundle installs itself and
+        // makes its own Start menu entry, and a second one pointing at the
+        // same program is clutter somebody has to work out the meaning of.
+        let window = choices
+            .directory
+            .join(ork_core::ways_in::window_file_name());
+        if window.is_file() && !cfg!(windows) {
+            match install::make_shortcut(&window, WINDOW_SHORTCUT, install::Opens::AWindow) {
+                Ok(path) => {
+                    receipt.steps.push(Step::Shortcut {
+                        path: path.display().to_string(),
+                        label: WINDOW_SHORTCUT.to_string(),
+                    });
+                    let _ = report.send(Progress::Note(format!("shortcut at {}", path.display())));
+                }
+                Err(error) => {
+                    let _ = report.send(Progress::Warning(format!(
+                        "could not create a shortcut for the window ({error:#}). It is \
+                         installed and can be started by its file name."
+                    )));
+                }
             }
         }
     }
@@ -407,6 +470,14 @@ fn carry_out(choices: &Choices, report: &Sender<Progress>) -> Result<Receipt> {
 
     Ok(receipt)
 }
+
+/// What each shortcut is called, where somebody will read it.
+///
+/// The window keeps the plain name because it is what most people mean by
+/// "the app"; the terminal one says what it is, so that two entries in a
+/// Start menu are telling somebody something rather than making them guess.
+pub const WINDOW_SHORTCUT: &str = "Outlaw Repair Kit";
+pub const TERMINAL_SHORTCUT: &str = "Outlaw Repair Kit (terminal)";
 
 fn placed_program(choices: &Choices) -> PathBuf {
     choices.directory.join(cli_asset_name())

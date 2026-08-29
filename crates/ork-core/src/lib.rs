@@ -30,6 +30,7 @@ pub mod stress;
 pub mod tier;
 pub mod util;
 pub mod watch;
+pub mod ways_in;
 
 pub use config::Config;
 pub use finding::{Category, Evidence, Finding, Severity, Triage};

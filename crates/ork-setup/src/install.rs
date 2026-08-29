@@ -73,8 +73,15 @@ pub enum Step {
     Wrote { path: String, sha256: String },
     /// A directory was added to the user's PATH.
     AddedToPath { directory: String },
+    /// The program was made reachable by name from a terminal.
+    Linked { path: String },
     /// A shortcut or desktop entry was created.
-    Shortcut { path: String },
+    Shortcut {
+        path: String,
+        /// What clicking it opens, in the words the receipt should use.
+        #[serde(default)]
+        label: String,
+    },
     /// Something was installed by another program on our behalf, which this
     /// will never remove -- it did not put it there in any sense it can undo.
     Delegated { what: String, command: String },
@@ -273,12 +280,117 @@ pub fn add_to_path(directory: &Path) -> Result<bool> {
     }
 }
 
-/// Make the desktop application reachable the way this platform expects.
+/// What a shortcut opens when somebody clicks it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Opens {
+    /// The window. Clicking it shows a window and nothing else.
+    AWindow,
+    /// The terminal program, with a terminal around it that stays open.
+    ///
+    /// This is the distinction that used to be missing, and getting it wrong
+    /// produces the worst kind of failure. A shortcut pointing straight at
+    /// `outlaw` opens a console on Windows, prints, and closes it again
+    /// faster than anybody can read; on Linux, in a desktop entry that says
+    /// `Terminal=false`, it does nothing visible whatsoever. Both look
+    /// exactly like a program that is broken, to the one person least able to
+    /// tell the difference -- somebody whose computer is already misbehaving.
+    ATerminal,
+}
+
+/// The name of the little script a terminal shortcut points at.
+pub const fn shim_name() -> &'static str {
+    if cfg!(windows) {
+        "outlaw-terminal.cmd"
+    } else {
+        "outlaw-terminal"
+    }
+}
+
+/// Write the script that opens the program at a prompt and stays there.
+///
+/// A desktop entry has no way of saying "and then leave the terminal open",
+/// and a Windows shortcut can only say it with quoting that is easy to get
+/// wrong and unreadable afterwards. A few lines of script say it plainly, sit
+/// beside the program where anybody can read them, and mean that
+/// double-clicking the file in a file manager works as well as the shortcut
+/// does.
+pub fn write_terminal_shim(directory: &Path) -> Result<PathBuf> {
+    let path = directory.join(shim_name());
+
+    #[cfg(windows)]
+    let contents = concat!(
+        "@echo off\r\n",
+        "rem Opens the Outlaw Repair Kit at a prompt and stays there, so what\r\n",
+        "rem it prints can be read and typed at. Deleting this file removes\r\n",
+        "rem nothing but the convenience.\r\n",
+        "cd /d \"%~dp0\"\r\n",
+        "\"%~dp0outlaw.exe\" %*\r\n",
+        "cmd /k\r\n",
+    );
+
+    #[cfg(not(windows))]
+    let contents = concat!(
+        "#!/bin/sh\n",
+        "# Opens the Outlaw Repair Kit at a prompt and stays there, so what\n",
+        "# it prints can be read and typed at. Deleting this file removes\n",
+        "# nothing but the convenience.\n",
+        "here=$(dirname \"$0\")\n",
+        "\"$here/outlaw\" \"$@\"\n",
+        "exec \"${SHELL:-/bin/sh}\"\n",
+    );
+
+    fs::write(&path, contents).with_context(|| format!("could not write {}", path.display()))?;
+    mark_executable(&path)?;
+    Ok(path)
+}
+
+/// Make the program reachable by name from a terminal.
+///
+/// On Windows the program is installed straight into the directory that goes
+/// on PATH, so there is nothing to do. On Linux it is not: the program lives
+/// under `~/.local/share`, and `~/.local/bin` is the directory every current
+/// desktop distribution already has on PATH. Without this, the installer
+/// added a directory to PATH that the program was not in, and typing `outlaw`
+/// answered "command not found" on a machine where it had just been correctly
+/// installed.
+///
+/// A symlink, so that replacing the program replaces what the link reaches.
+/// A copy if the file system will not have a link, because a working copy is
+/// worth more than a tidy failure.
+pub fn link_into_path(program: &Path, bin: &Path) -> Result<Option<PathBuf>> {
+    let Some(directory) = program.parent() else {
+        return Ok(None);
+    };
+    if directory == bin {
+        return Ok(None);
+    }
+    fs::create_dir_all(bin).with_context(|| format!("could not create {}", bin.display()))?;
+
+    let link = bin.join(program.file_name().unwrap_or_default());
+    // Replaced rather than added to: a link left over from a previous install
+    // is exactly what this is here to correct.
+    let _ = fs::remove_file(&link);
+
+    #[cfg(unix)]
+    {
+        if std::os::unix::fs::symlink(program, &link).is_ok() {
+            return Ok(Some(link));
+        }
+    }
+
+    fs::copy(program, &link)
+        .with_context(|| format!("could not put the program in {}", bin.display()))?;
+    mark_executable(&link)?;
+    Ok(Some(link))
+}
+
+/// Make something reachable the way this platform expects: a Start menu entry
+/// on Windows, a desktop entry on Linux.
 ///
 /// Best-effort by design. A missing shortcut is a nuisance somebody can work
 /// around in ten seconds; failing an otherwise good install over one would be
 /// out of all proportion.
-pub fn make_shortcut(target: &Path, label: &str) -> Result<PathBuf> {
+pub fn make_shortcut(target: &Path, label: &str, opens: Opens) -> Result<PathBuf> {
     #[cfg(windows)]
     {
         let start_menu = dirs::data_dir()
@@ -290,29 +402,36 @@ pub fn make_shortcut(target: &Path, label: &str) -> Result<PathBuf> {
         fs::create_dir_all(&start_menu)?;
         let link = start_menu.join(format!("{label}.lnk"));
 
+        let quote = |path: &Path| path.display().to_string().replace('\'', "''");
+        let working = target.parent().unwrap_or(target);
+        // A terminal shortcut points at the script rather than the program,
+        // and the script has no icon of its own, so the icon is taken from
+        // the program it opens.
+        let icon = match opens {
+            Opens::AWindow => quote(target),
+            Opens::ATerminal => quote(&working.join(program_name())),
+        };
+
         let script = format!(
             "$shell = New-Object -ComObject WScript.Shell; \
              $link = $shell.CreateShortcut('{}'); \
              $link.TargetPath = '{}'; \
              $link.WorkingDirectory = '{}'; \
+             $link.IconLocation = '{}'; \
              $link.Description = 'Outlaw Repair Kit'; \
              $link.Save()",
-            link.display().to_string().replace('\'', "''"),
-            target.display().to_string().replace('\'', "''"),
-            target
-                .parent()
-                .unwrap_or(target)
-                .display()
-                .to_string()
-                .replace('\'', "''"),
+            quote(&link),
+            quote(target),
+            quote(working),
+            icon,
         );
         let output = ork_core::platform::run_capture(
             "powershell",
             &["-NoProfile", "-NonInteractive", "-Command", &script],
         )
-        .context("could not create a Start Menu shortcut")?;
+        .context("could not create a Start menu shortcut")?;
         if !output.success {
-            anyhow::bail!("could not create a Start Menu shortcut");
+            anyhow::bail!("could not create a Start menu shortcut");
         }
         Ok(link)
     }
@@ -323,19 +442,35 @@ pub fn make_shortcut(target: &Path, label: &str) -> Result<PathBuf> {
             .context("this account has no data directory")?
             .join("applications");
         fs::create_dir_all(&applications)?;
-        let entry = applications.join("outlaw-repair-kit.desktop");
+        // Two entries can exist side by side, so they cannot share a file
+        // name. Both are named from the bundle identifier, so a desktop that
+        // already knows this application recognises them as belonging to it.
+        let entry = applications.join(match opens {
+            Opens::AWindow => "systems.outlaw.repairkit.desktop",
+            Opens::ATerminal => "systems.outlaw.repairkit.terminal.desktop",
+        });
+        // `Terminal=true` for the terminal program is the whole point. An
+        // entry that says otherwise leaves somebody clicking an icon that
+        // appears to do nothing at all.
+        let terminal = match opens {
+            Opens::AWindow => "false",
+            Opens::ATerminal => "true",
+        };
         let contents = format!(
             "[Desktop Entry]\n\
              Type=Application\n\
+             Version=1.0\n\
              Name={label}\n\
              Comment=Scan a computer for problems, in plain language\n\
              Exec={}\n\
-             Terminal=false\n\
-             Categories=System;Utility;\n",
+             Terminal={terminal}\n\
+             Categories=System;Utility;Monitor;\n\
+             Keywords=diagnostic;repair;scan;hardware;\n",
             target.display()
         );
         fs::write(&entry, contents)
             .with_context(|| format!("could not write {}", entry.display()))?;
+        mark_executable(&entry)?;
         Ok(entry)
     }
 }
@@ -349,6 +484,160 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    /// A stand-in for the installed program. Nothing here runs it; these
+    /// tests are about where files end up, not about what they do.
+    fn planted_program(directory: &Path) -> PathBuf {
+        let program = directory.join(program_name());
+        fs::write(&program, b"not really a program").unwrap();
+        program
+    }
+
+    #[test]
+    fn the_terminal_script_opens_the_program_and_then_stays_open() {
+        // The whole reason the script exists. Without the last line the
+        // window closes the instant the program finishes printing, which is
+        // the failure this replaced: a shortcut that flashes and vanishes,
+        // indistinguishable from a program that crashed on start-up.
+        let dir = scratch("shim");
+        let shim = write_terminal_shim(&dir).unwrap();
+        let text = fs::read_to_string(&shim).unwrap();
+
+        assert!(
+            text.contains("outlaw"),
+            "the script does not open the program:\n{text}"
+        );
+        let stays_open = text.contains("cmd /k") || text.contains("exec \"${SHELL:-/bin/sh}\"");
+        assert!(stays_open, "the script does not stay open:\n{text}");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_terminal_script_says_what_it_is_for() {
+        // It is a file this installer leaves on somebody's computer. A file
+        // whose purpose cannot be worked out by reading it is one more thing
+        // to be suspicious of.
+        let dir = scratch("shim-comment");
+        let text = fs::read_to_string(write_terminal_shim(&dir).unwrap()).unwrap();
+        assert!(
+            text.to_ascii_lowercase().contains("outlaw repair kit"),
+            "the script does not name itself:\n{text}"
+        );
+        assert!(
+            text.to_ascii_lowercase().contains("deleting"),
+            "the script does not say it is safe to delete:\n{text}"
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_terminal_script_can_be_run() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = scratch("shim-mode");
+        let shim = write_terminal_shim(&dir).unwrap();
+        let mode = fs::metadata(&shim).unwrap().permissions().mode();
+        assert!(mode & 0o111 != 0, "the script is not executable: {mode:o}");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_program_ends_up_in_the_directory_that_goes_on_the_path() {
+        // The bug this was written for. On Linux the program is installed
+        // under `~/.local/share` and `~/.local/bin` is what goes on PATH, so
+        // without this step an install finished successfully and `outlaw`
+        // answered "command not found".
+        let dir = scratch("link-from");
+        let bin = scratch("link-to");
+        let program = planted_program(&dir);
+
+        let link = link_into_path(&program, &bin).unwrap().unwrap();
+        assert_eq!(link, bin.join(program_name()));
+        assert!(link.exists(), "{} was not created", link.display());
+
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&bin);
+    }
+
+    #[test]
+    fn installing_twice_replaces_the_link_rather_than_failing() {
+        // Upgrading is the ordinary case, and a link left over from the last
+        // version is precisely the thing this has to correct.
+        let dir = scratch("link-again-from");
+        let bin = scratch("link-again-to");
+        let program = planted_program(&dir);
+
+        link_into_path(&program, &bin).unwrap().unwrap();
+        let again = link_into_path(&program, &bin);
+        assert!(again.is_ok(), "second install failed: {again:?}");
+        assert!(again.unwrap().is_some());
+
+        let _ = fs::remove_dir_all(&dir);
+        let _ = fs::remove_dir_all(&bin);
+    }
+
+    #[test]
+    fn nothing_is_linked_when_the_program_is_already_where_the_path_points() {
+        // Windows installs straight into the directory that goes on PATH.
+        // Copying a file onto itself is at best pointless and at worst
+        // destroys it.
+        let dir = scratch("link-same");
+        let program = planted_program(&dir);
+        assert_eq!(link_into_path(&program, &dir).unwrap(), None);
+        assert!(program.exists(), "the program was destroyed");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn a_desktop_entry_for_the_terminal_program_asks_for_a_terminal() {
+        // `Terminal=false` on a command-line program is the Linux half of the
+        // flashing-console bug: clicking the entry does nothing visible at
+        // all, and there is no error anywhere to explain why.
+        let dir = scratch("entry");
+        let shim = write_terminal_shim(&dir).unwrap();
+        let entry = make_shortcut(&shim, "Outlaw Repair Kit (terminal)", Opens::ATerminal).unwrap();
+        let text = fs::read_to_string(&entry).unwrap();
+
+        assert!(text.contains("Terminal=true"), "{text}");
+        assert!(text.contains(&shim.display().to_string()), "{text}");
+        let _ = fs::remove_file(&entry);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn a_desktop_entry_for_the_window_does_not_ask_for_a_terminal() {
+        let dir = scratch("entry-window");
+        let window = dir.join(ork_core::ways_in::window_file_name());
+        fs::write(&window, b"not really a window").unwrap();
+        let entry = make_shortcut(&window, "Outlaw Repair Kit", Opens::AWindow).unwrap();
+        let text = fs::read_to_string(&entry).unwrap();
+
+        assert!(text.contains("Terminal=false"), "{text}");
+        let _ = fs::remove_file(&entry);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(not(windows))]
+    #[test]
+    fn the_two_desktop_entries_do_not_overwrite_each_other() {
+        // Both are wanted at once on a machine with both front-ends. One file
+        // name for both would mean installing the second silently removed the
+        // first.
+        let dir = scratch("entry-both");
+        let shim = write_terminal_shim(&dir).unwrap();
+        let window = dir.join(ork_core::ways_in::window_file_name());
+        fs::write(&window, b"not really a window").unwrap();
+
+        let terminal = make_shortcut(&shim, "terminal", Opens::ATerminal).unwrap();
+        let app = make_shortcut(&window, "window", Opens::AWindow).unwrap();
+        assert_ne!(terminal, app);
+
+        let _ = fs::remove_file(&terminal);
+        let _ = fs::remove_file(&app);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[cfg(windows)]

@@ -11,6 +11,7 @@ mod link;
 mod refusal;
 mod render;
 mod report;
+mod start_here;
 mod stress;
 mod style;
 mod watch;
@@ -27,7 +28,7 @@ use tokio::sync::mpsc;
     about = "Scan a computer for hardware and software problems, in plain language.",
     long_about = None
 )]
-struct Cli {
+pub struct Cli {
     /// Print machine-readable JSON instead of a human-readable report.
     #[arg(long, global = true)]
     json: bool,
@@ -40,8 +41,9 @@ struct Cli {
     #[arg(long, global = true)]
     no_boot: bool,
 
+    /// Nothing given is not an error. See `start_here`.
     #[command(subcommand)]
-    command: Command,
+    command: Option<Command>,
 }
 
 #[derive(Subcommand)]
@@ -305,8 +307,15 @@ async fn main() -> Result<()> {
     outcome
 }
 
-async fn dispatch(cli: Cli) -> Result<()> {
-    match cli.command {
+async fn dispatch(mut cli: Cli) -> Result<()> {
+    // Typed on its own, by somebody who has been told to run a repair tool
+    // and does not yet know what to type. Answered rather than refused.
+    let Some(command) = cli.command.take() else {
+        start_here::print();
+        return Ok(());
+    };
+
+    match command {
         Command::Link { action } => match action {
             None => link::show(cli.json, false).await,
             Some(LinkAction::Host {

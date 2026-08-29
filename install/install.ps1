@@ -37,7 +37,10 @@ param(
 
     # Install even if the download cannot be checked against a published
     # checksum. Refused by default.
-    [switch] $AllowUnverified
+    [switch] $AllowUnverified,
+
+    # Do not add anything to the Start menu.
+    [switch] $NoShortcut
 )
 
 $ErrorActionPreference = "Stop"
@@ -142,6 +145,44 @@ try {
         Write-Host "  open a new terminal for this to take effect"
     }
 
+    if (-not $NoShortcut) {
+        Write-Step "Adding it to your Start menu"
+        # A shortcut straight to outlaw.exe opens a console, prints, and
+        # closes it again faster than anybody can read -- which looks exactly
+        # like a program that crashed. This small script runs the program and
+        # then leaves the prompt open, and sits beside it where it can be read
+        # and deleted.
+        $shim = Join-Path $Dir "outlaw-terminal.cmd"
+        $lines = @(
+            "@echo off",
+            "rem Opens the Outlaw Repair Kit at a prompt and stays there, so what",
+            "rem it prints can be read and typed at. Deleting this file removes",
+            "rem nothing but the convenience.",
+            "cd /d ""%~dp0""",
+            """%~dp0outlaw.exe"" %*",
+            "cmd /k"
+        )
+        Set-Content -Path $shim -Value $lines -Encoding ascii
+
+        try {
+            $programs = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
+            if (-not (Test-Path $programs)) { New-Item -ItemType Directory -Path $programs -Force | Out-Null }
+            $lnk = Join-Path $programs "Outlaw Repair Kit (terminal).lnk"
+            $shell = New-Object -ComObject WScript.Shell
+            $link = $shell.CreateShortcut($lnk)
+            $link.TargetPath = $shim
+            $link.WorkingDirectory = $Dir
+            $link.IconLocation = (Join-Path $Dir "outlaw.exe")
+            $link.Description = "Outlaw Repair Kit"
+            $link.Save()
+            Write-Host "  Outlaw Repair Kit (terminal)"
+        } catch {
+            # A missing shortcut is a nuisance; a failed install over one
+            # would be out of all proportion.
+            Write-Warn "could not add a Start menu shortcut. Everything else is installed."
+        }
+    }
+
     if ($Desktop) {
         Write-Step "Installing the desktop app"
         $installer = "outlaw-repair-kit-$Version-x64-setup.exe"
@@ -237,8 +278,22 @@ if ($wantModel -and $null -ne (Get-Command ollama -ErrorAction SilentlyContinue)
 
 Write-Host ""
 Write-Step "Done"
-Write-Host "  outlaw boot      check everything is working"
-Write-Host "  outlaw scan      look for problems"
-Write-Host "  outlaw models    see which model would be used, and why"
+Write-Host ""
+Write-Host "  To open it:"
+if (-not $NoShortcut) {
+    Write-Host "    Start menu -> Outlaw Repair Kit (terminal)"
+}
+if ($Desktop) {
+    Write-Host "    Start menu -> Outlaw Repair Kit          the window"
+}
+Write-Host "    or open a new terminal and type: outlaw"
+Write-Host ""
+Write-Host "  Worth knowing:"
+Write-Host "    outlaw           what this is, and what to type"
+Write-Host "    outlaw boot      check everything is working"
+Write-Host "    outlaw scan      look for problems"
+Write-Host "    outlaw models    see which model would be used, and why"
+Write-Host ""
+Write-Host "  A terminal that was already open will not have the new PATH."
 Write-Host ""
 Write-Host "  Made by Outlaw Systems, in collaboration with AI."

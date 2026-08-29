@@ -21,6 +21,7 @@ WITH_MODEL="ask"
 WITH_DESKTOP="no"
 ASSUME_YES="no"
 ALLOW_UNVERIFIED="no"
+WITH_SHORTCUT="yes"
 
 say() { printf '%s\n' "$*"; }
 step() { printf '\033[38;5;214m==>\033[0m %s\n' "$*"; }
@@ -39,6 +40,7 @@ Usage: install.sh [options]
   --yes               Do not ask anything; take the safe default each time
   --allow-unverified  Install even if the download cannot be checked against a
                       published checksum. Refused by default.
+  --no-shortcut       Do not add anything to your applications list
   --help              Show this
 USAGE
 }
@@ -52,6 +54,7 @@ while [ $# -gt 0 ]; do
     --no-local-model) WITH_MODEL="no"; shift ;;
     --yes) ASSUME_YES="yes"; shift ;;
     --allow-unverified) ALLOW_UNVERIFIED="yes"; shift ;;
+    --no-shortcut) WITH_SHORTCUT="no"; shift ;;
     --help|-h) usage; exit 0 ;;
     *) die "unknown option $1 (try --help)" ;;
   esac
@@ -166,6 +169,52 @@ case ":$PATH:" in
     ;;
 esac
 
+# --- the applications list --------------------------------------------------
+#
+# A desktop entry pointing straight at `outlaw` with Terminal=false does
+# nothing visible at all when it is clicked -- no window, no error, nothing --
+# which is indistinguishable from a broken program. So the entry asks for a
+# terminal, and points at a small script that runs the program and then leaves
+# the prompt open, rather than closing it the instant the program has finished
+# printing.
+
+if [ "$WITH_SHORTCUT" = "yes" ]; then
+  step "Adding it to your applications list"
+  SHIM="$INSTALL_DIR/outlaw-terminal"
+  cat > "$SHIM" <<'SHIM'
+#!/bin/sh
+# Opens the Outlaw Repair Kit at a prompt and stays there, so what it prints
+# can be read and typed at. Deleting this file removes nothing but the
+# convenience.
+here=$(dirname "$0")
+"$here/outlaw" "$@"
+exec "${SHELL:-/bin/sh}"
+SHIM
+  chmod 0755 "$SHIM"
+
+  APPS="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+  if mkdir -p "$APPS" 2>/dev/null; then
+    cat > "$APPS/systems.outlaw.repairkit.terminal.desktop" <<ENTRY
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Outlaw Repair Kit (terminal)
+Comment=Scan a computer for problems, in plain language
+Exec=$SHIM
+Terminal=true
+Categories=System;Utility;Monitor;
+Keywords=diagnostic;repair;scan;hardware;
+ENTRY
+    say "  Outlaw Repair Kit (terminal)"
+    # Some desktops only notice a new entry after their cache is rebuilt.
+    # Best effort: a missing entry is a nuisance, not a failed install.
+    command -v update-desktop-database >/dev/null 2>&1 &&
+      update-desktop-database "$APPS" >/dev/null 2>&1 || true
+  else
+    warn "could not write to $APPS. Everything else is installed."
+  fi
+fi
+
 # --- optional: the desktop app ---------------------------------------------
 #
 # An AppImage into the same user-owned directory as the program. No package
@@ -185,6 +234,29 @@ if [ "$WITH_DESKTOP" = "yes" ]; then
     install -m 0755 "$WORK/$APPIMAGE" "$INSTALL_DIR/outlaw-repair-kit"
     say "  $INSTALL_DIR/outlaw-repair-kit"
     say "  run it with: outlaw-repair-kit"
+
+    # An AppImage has no installer of its own, so nothing else will put it in
+    # the applications list. A .deb would have done this already, which is why
+    # this only ever runs for the AppImage.
+    if [ "$WITH_SHORTCUT" = "yes" ]; then
+      APPS="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+      if mkdir -p "$APPS" 2>/dev/null; then
+        cat > "$APPS/systems.outlaw.repairkit.desktop" <<ENTRY
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Outlaw Repair Kit
+Comment=Scan a computer for problems, in plain language
+Exec=$INSTALL_DIR/outlaw-repair-kit
+Terminal=false
+Categories=System;Utility;Monitor;
+Keywords=diagnostic;repair;scan;hardware;
+ENTRY
+        say "  added to your applications list"
+        command -v update-desktop-database >/dev/null 2>&1 &&
+          update-desktop-database "$APPS" >/dev/null 2>&1 || true
+      fi
+    fi
     # An AppImage needs FUSE to mount itself. Said now rather than left as a
     # baffling failure the first time somebody double-clicks it.
     if ! command -v fusermount >/dev/null 2>&1 && ! command -v fusermount3 >/dev/null 2>&1; then
@@ -267,8 +339,19 @@ fi
 
 say ""
 step "Done"
-say "  outlaw boot      check everything is working"
-say "  outlaw scan      look for problems"
-say "  outlaw models    see which model would be used, and why"
+say ""
+say "  To open it:"
+if [ "$WITH_SHORTCUT" = "yes" ]; then
+  say "    your applications list -> Outlaw Repair Kit (terminal)"
+  [ "$WITH_DESKTOP" = "yes" ] &&
+    say "    your applications list -> Outlaw Repair Kit            the window"
+fi
+say "    or type: outlaw"
+say ""
+say "  Worth knowing:"
+say "    outlaw           what this is, and what to type"
+say "    outlaw boot      check everything is working"
+say "    outlaw scan      look for problems"
+say "    outlaw models    see which model would be used, and why"
 say ""
 say "  Made by Outlaw Systems, in collaboration with AI."

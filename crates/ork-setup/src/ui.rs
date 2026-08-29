@@ -260,8 +260,16 @@ fn next_step(receipt: &Receipt) -> String {
         )
     };
 
+    // What the shortcut opens is what the sentence has to say. It used to
+    // say "the window", which was wrong twice over: the shortcut pointed at
+    // the terminal program, and the window may not have been installed at all.
     if shortcut {
-        format!("{check} The window is on your Start menu.")
+        let place = if cfg!(windows) {
+            "your Start menu"
+        } else {
+            "your applications list"
+        };
+        format!("{check} There are shortcuts in {place}.")
     } else {
         check
     }
@@ -726,7 +734,9 @@ fn describe(step: &Step) -> String {
         Step::AddedToPath { directory } => {
             format!("added {directory} to this account's PATH")
         }
-        Step::Shortcut { path } => format!("created {path}"),
+        Step::Linked { path } => format!("made `outlaw` reachable as {path}"),
+        Step::Shortcut { path, label } if label.is_empty() => format!("created {path}"),
+        Step::Shortcut { path, label } => format!("created {path} -- opens {label}"),
         Step::Delegated { what, command } => {
             format!("installed {what} by running `{command}`")
         }
@@ -759,8 +769,12 @@ mod tests {
             Step::AddedToPath {
                 directory: "C:/x".to_string(),
             },
+            Step::Linked {
+                path: "/home/a/.local/bin/outlaw".to_string(),
+            },
             Step::Shortcut {
                 path: "C:/y/Outlaw.lnk".to_string(),
+                label: "the window".to_string(),
             },
             Step::Delegated {
                 what: "Ollama".to_string(),
@@ -838,8 +852,17 @@ mod tests {
             },
             Step::Shortcut {
                 path: r"C:\Start\Menu\Outlaw.lnk".to_string(),
+                label: "the terminal".to_string(),
             },
         ]));
-        assert!(advice.contains("Start menu"), "{advice}");
+        // Named for where this platform actually puts them. A Linux machine
+        // has no Start menu, and telling somebody to look in one is the same
+        // kind of advice this whole function exists to stop giving.
+        let place = if cfg!(windows) {
+            "Start menu"
+        } else {
+            "applications list"
+        };
+        assert!(advice.contains(place), "{advice}");
     }
 }
