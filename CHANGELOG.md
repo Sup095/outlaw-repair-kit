@@ -87,6 +87,16 @@ server can make the second one.
   now failures rather than commits. The settings file holds the *name* of a
   credential and never the credential.
 
+- **"Nothing is changed without a copy first" is checked rather than
+  claimed.** It is the promise every other safety rail here rests on: the dry
+  run, the confirmation, and one-change-at-a-time all assume that a change
+  which turns out to be wrong can be undone. The engine said so in a comment,
+  which is a statement about the code as it was when somebody wrote the
+  comment -- and adding a new kind of fix is exactly when it stops being true,
+  because the fix is the interesting part and taking the copy is one line that
+  is easy to leave for later. A change on disk with no copy above it now fails
+  the build.
+
 - **A link to a heading that has been reworded is a failure now.** The check
   that followed links between manual pages stripped the `#part` and looked only
   at the file, so a renamed heading still passed and quietly landed somebody at
