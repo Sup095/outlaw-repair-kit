@@ -3907,7 +3907,7 @@ dependencies = [
 
 [[package]]
 name = "ork-ai"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3924,7 +3924,7 @@ dependencies = [
 
 [[package]]
 name = "ork-boot"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "ork-ai",
@@ -3939,7 +3939,7 @@ dependencies = [
 
 [[package]]
 name = "ork-cli"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -3958,7 +3958,7 @@ dependencies = [
 
 [[package]]
 name = "ork-core"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3977,7 +3977,7 @@ dependencies = [
 
 [[package]]
 name = "ork-desktop"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "ork-ai",
@@ -3999,7 +3999,7 @@ dependencies = [
 
 [[package]]
 name = "ork-fix"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4018,7 +4018,7 @@ dependencies = [
 
 [[package]]
 name = "ork-link"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -4040,7 +4040,7 @@ dependencies = [
 
 [[package]]
 name = "ork-setup"
-version = "0.9.0"
+version = "0.10.0"
 dependencies = [
  "anyhow",
  "dirs",

@@ -10,7 +10,7 @@ not that the work has stopped.
 
 ---
 
-## Unreleased
+## v0.10.0
 
 **You can open it now.**
 
