@@ -366,7 +366,7 @@ cargo test --workspace -- --ignored
     debugging: looking much harder, with the argument for whether it should
     ever *act* harder kept deliberately separate. See
     [the proposal](docs/proposals/escalation-mode.md).
-14. **Process control and cleanup** -- looking, not yet acting. `outlaw
+14. **Process control and cleanup** -- looking, and now stopping. `outlaw
     processes` and the **Processes** screen show what is running -- grouped by
     program, because nobody thinks in processes -- what could be stopped, what
     is held back and why, and what is never touched at all: system processes,
@@ -374,10 +374,13 @@ cargo test --workspace -- --ignored
     front of you. Each program says how much of it a sweep would offer, because
     a program is usually not all one thing and stopping part of it leaves it
     running, and anything you want left alone for good can be pinned from
-    either front-end. **Nothing stops anything yet**, on purpose:
-    the list exists on its own first so that it can be read on real machines
-    before a button can act on it. The button, the confirmation, and putting it
-    all back are the next stage. See
+    either front-end. The sweep -- `outlaw processes --stop`, or **Stop
+    these** in the window -- shows the whole list, asks, then judges every
+    entry again against a fresh look at the machine before it acts, one at a
+    time. Only what runs as you is ever offered. **Nothing is put back for
+    you**: there is no snapshot of a running program, so what was stopped is
+    written down and shown afterwards, and starting anything again is yours to
+    do. There is no way to run a sweep unattended, on purpose. See
     [the proposal](docs/proposals/process-control.md).
 15. **CritterScript** -- proposed, not built. The way the terminal is spoken to
     is being replaced with a language written for this project: closer to

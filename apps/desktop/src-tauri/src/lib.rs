@@ -70,6 +70,7 @@ pub fn run() {
             commands::audit_list,
             commands::process_survey,
             commands::process_pin,
+            commands::process_stop,
             watching::watch_status,
             watching::watch_start,
             watching::watch_stop,

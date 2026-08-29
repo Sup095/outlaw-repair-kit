@@ -115,6 +115,41 @@ export interface ProcessSurvey {
   rows: ProcessRow[];
 }
 
+/** One process the window is asking to have stopped.
+
+    The name travels with the number on purpose. Process identifiers are handed
+    out again after a program ends, and the gap between this list being drawn
+    and the button being pressed is long enough for one to have moved on to
+    something else. The back end checks the name still matches before it acts. */
+export interface StopTarget {
+  pid: number;
+  name: string;
+}
+
+/** What became of one of them. */
+export interface StopAttempt {
+  pid: number;
+  name: string;
+  executable: string | null;
+  /** What it was holding when last seen. Not what came back to the machine. */
+  memory_held_bytes: number;
+  outcome: { outcome: string; because?: string; running?: string };
+  /** The outcome as a sentence, written in the back end so the terminal and
+      the window say the same thing about the same event. */
+  says: string;
+  /** Whether the machine is different because of this attempt. Something that
+      had already ended did not change anything, and saying it was stopped
+      would be taking credit for it. */
+  changed_anything: boolean;
+}
+
+export interface StopReport {
+  stopped: number;
+  /** Held by the ones that stopped, when they were last seen. */
+  memory_held_by_stopped: number;
+  attempts: StopAttempt[];
+}
+
 export interface Finding {
   id: string;
   probe: string;
@@ -214,6 +249,13 @@ export const api = {
   // anybody means by "leave this alone". Returns whether anything changed.
   processPin: (name: string, pinned: boolean) =>
     invoke<boolean>("process_pin", { name, pinned }),
+  // Stopping. The window asks first and sends the list it showed; the back end
+  // judges every one of them again against a fresh look at the machine, so a
+  // program that became protected in the meantime is left alone regardless of
+  // what this sent. Nothing is restarted afterwards -- what was stopped comes
+  // back in the report, and starting anything again is the person's to do.
+  processStop: (targets: StopTarget[]) =>
+    invoke<StopReport>("process_stop", { targets }),
   // The manual is compiled into the program, not fetched. A machine that has
   // gone wrong is often a machine that cannot reach the internet, and the
   // pages most likely to be needed are the ones least likely to be reachable

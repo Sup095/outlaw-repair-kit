@@ -2,16 +2,26 @@
   /**
    * What is running, and what a sweep would do to each.
    *
-   * Stage two of `docs/proposals/process-control.md`, in the window. It stops
-   * nothing, and says so on the screen rather than in the manual, because a
-   * list of running programs with no visible way to act on it is a screen
-   * somebody will otherwise spend a minute hunting for the button on.
+   * Stages two and three of `docs/proposals/process-control.md`, in the
+   * window: the list, and the button that acts on it.
    *
    * The judgement is not made here. It comes from the same `Survey` the
    * terminal prints, so the two cannot come to different conclusions about
-   * what "held back" means.
+   * what "held back" means. Neither is the acting: the button sends a list and
+   * the back end judges every entry on it again, against a fresh look at the
+   * machine, so what this screen showed a moment ago cannot become permission
+   * to stop something that has since become protected.
+   *
+   * What is shown before the button is the whole list, grouped, rather than a
+   * count. A dialog that asks "stop 16 processes?" is asking somebody to agree
+   * to a number they have no way of checking.
    */
-  import { api, type ProcessProgram, type ProcessSurvey } from "./api";
+  import {
+    api,
+    type ProcessProgram,
+    type ProcessSurvey,
+    type StopReport,
+  } from "./api";
   import { formatBytes } from "./bytes";
   import { compactDuration } from "./time";
 
@@ -22,6 +32,18 @@
   let showAllPrograms = $state(false);
   /** The program whose pin is being written, so its control can say so. */
   let pinning = $state<string | null>(null);
+  /** Whether the list is being shown for agreement. Nothing has been sent. */
+  let confirming = $state(false);
+  let stopping = $state(false);
+  /**
+   * What happened, kept on screen until it is dismissed.
+   *
+   * It outlives the refresh that follows deliberately. The refresh is what
+   * makes the list above true again, and it would otherwise wipe the only
+   * account of what was just done to the machine off the screen in the same
+   * instant.
+   */
+  let report = $state<StopReport | null>(null);
 
   const ENOUGH = 20;
 
@@ -42,6 +64,16 @@
    */
   const anyPartly = $derived(
     programsShown.some((program) => program.sweep.how === "part-of-it"),
+  );
+  /** What the sweep would touch, grouped the way somebody reads it. */
+  const offeredPrograms = $derived(
+    programs.filter((program) => program.offered > 0),
+  );
+  const stoppedAttempts = $derived(
+    report ? report.attempts.filter((attempt) => attempt.changed_anything) : [],
+  );
+  const leftAlone = $derived(
+    report ? report.attempts.filter((attempt) => !attempt.changed_anything) : [],
   );
 
 
@@ -66,6 +98,31 @@
     }
   }
 
+  /**
+   * Stop everything the sweep offers, having shown it and been told yes.
+   *
+   * The list is built from what is on screen, and is not what decides. Between
+   * the panel opening and the button being pressed somebody can alt-tab, and
+   * the program they switched to is a program they are looking at -- so every
+   * entry is judged again in the back end, one at a time, against a fresh look
+   * at the machine.
+   */
+  async function stopThem() {
+    stopping = true;
+    try {
+      report = await api.processStop(
+        candidates.map((row) => ({ pid: row.pid, name: row.name })),
+      );
+      confirming = false;
+      error = null;
+      await load();
+    } catch (problem) {
+      error = String(problem);
+    } finally {
+      stopping = false;
+    }
+  }
+
   async function load() {
     loading = true;
     try {
@@ -87,10 +144,12 @@
 </div>
 
 <p class="dim intro">
-  What is running, and what would happen to each if there were a button to stop
-  things. <strong>There is not one yet.</strong> This screen only looks: nothing
-  here stops, suspends, or changes anything. The list exists on its own first so
-  that it can be read on real machines before anything is able to act on it.
+  What is running, and what a sweep would do to each. Only what runs as you is
+  ever offered; anything the system owns, anything you are looking at, and
+  anything you have said to leave alone is held back with the reason shown.
+  <strong>Nothing is put back for you.</strong> There is no snapshot of a
+  running program, so what was stopped is written down and shown afterwards,
+  and starting anything again is yours to do.
 </p>
 
 {#if error}
@@ -184,12 +243,103 @@
     {/if}
   </section>
 
+  {#if report}
+    <!-- What happened, including everything that did not. The ones left alone
+         are shown as prominently as the ones stopped: a report that listed
+         only its successes would leave somebody believing a program had gone
+         when it is still running. -->
+    <div class="panel report">
+      <div class="section-head">
+        <h3>
+          Stopped {report.stopped}
+          {report.stopped === 1 ? "program" : "programs"}
+        </h3>
+        <span class="dim">
+          holding {formatBytes(report.memory_held_by_stopped)} when last seen
+        </span>
+      </div>
+      {#if stoppedAttempts.length === 0}
+        <p class="dim">Nothing was stopped.</p>
+      {:else}
+        <div class="rows">
+          {#each stoppedAttempts as attempt (attempt.pid)}
+            <div class="row">
+              <span class="name" title={attempt.name}>{attempt.name}</span>
+              <span class="mem">{formatBytes(attempt.memory_held_bytes)}</span>
+              <span class="dim when">{attempt.says}</span>
+            </div>
+          {/each}
+        </div>
+      {/if}
+      {#if leftAlone.length > 0}
+        <h4>Left alone</h4>
+        <div class="rows">
+          {#each leftAlone as attempt (attempt.pid)}
+            <div class="row">
+              <span class="name" title={attempt.name}>{attempt.name}</span>
+              <span class="dim when wide">{attempt.says}</span>
+            </div>
+          {/each}
+        </div>
+      {/if}
+      <p class="dim note">
+        "Holding" is what they had, not what came back to the machine. Every one
+        of these is in the audit log, including the ones left alone, so what
+        happened here is answerable tomorrow as well as now.
+      </p>
+      <button onclick={() => (report = null)}>Done</button>
+    </div>
+  {/if}
+
+  {#if confirming}
+    <!-- The whole list, before anything is sent. -->
+    <div class="panel confirm">
+      <h3>This would stop</h3>
+      <div class="rows">
+        {#each offeredPrograms as program (program.name)}
+          <div class="row">
+            <span class="name" title={program.name}>{program.name}</span>
+            <span class="mem">{formatBytes(program.memory_held)}</span>
+            <span class="dim when" title={program.sweep_says}>
+              {program.sweep_briefly}
+            </span>
+          </div>
+        {/each}
+      </div>
+      <p class="dim note">
+        Nothing here is put back for you. What was stopped is written down and
+        shown afterwards, and starting anything again is yours to do — so a
+        program you want left alone is worth leaving alone above, first.
+      </p>
+      <p class="dim note">
+        Programs are ended rather than asked to close. Anything that might be
+        holding unsaved work is held back from this list for that reason, but
+        it is worth saving what is open before agreeing.
+      </p>
+      <div class="choices">
+        <button class="act" onclick={stopThem} disabled={stopping}>
+          {stopping
+            ? "Stopping…"
+            : `Stop ${candidates.length} ${candidates.length === 1 ? "process" : "processes"}`}
+        </button>
+        <button onclick={() => (confirming = false)} disabled={stopping}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  {/if}
+
   <section>
     <div class="section-head">
       <h3>Could be stopped</h3>
       <span class="dim">
         holding {formatBytes(survey.memory_held_by_candidates)} between them
       </span>
+      {#if candidates.length > 0 && !confirming}
+        <button class="act" onclick={() => (confirming = true)}>
+          Stop these…
+        </button>
+      {/if}
     </div>
     {#if candidates.length === 0}
       <div class="panel dim">Nothing.</div>
@@ -312,6 +462,19 @@
   .reason { display: flex; gap: 1rem; align-items: baseline; }
   .reason span:first-child { flex: 1 1 auto; min-width: 0; }
   .count { flex: none; }
+
+  /* The list before it is agreed to, and the account of it afterwards. Both
+     are marked out from the reading below them: they are the two moments on
+     this screen where something is about to change or just has. */
+  .confirm { border-color: var(--amber); margin-bottom: 1.5rem; }
+  .confirm h3 { margin: 0 0 0.5rem; color: var(--amber); }
+  .report { border-color: var(--cyan); margin-bottom: 1.5rem; }
+  .report h4 { margin: 0.9rem 0 0.4rem; font-size: 12.5px; }
+  .report .section-head h3 { color: var(--cyan); }
+  .choices { display: flex; gap: 0.6rem; margin-top: 0.9rem; }
+  .act { border-color: var(--amber); color: var(--amber); }
+  /* Where the reason is the whole of what is being said, it gets the room. */
+  .when.wide { flex: 1 1 auto; min-width: 0; }
 
   .bad { border-color: var(--red); color: var(--red); }
 </style>

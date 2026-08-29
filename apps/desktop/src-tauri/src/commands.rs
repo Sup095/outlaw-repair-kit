@@ -335,3 +335,57 @@ pub fn process_pin(name: String, pinned: bool) -> CmdResult<bool> {
     }
     Ok(changed)
 }
+
+/// Stop what a sweep offers. The window asks first; this does not.
+///
+/// The confirmation lives in the window because that is where the list being
+/// agreed to is on screen. What lives here is everything that cannot be
+/// trusted to a front-end: each target is judged again against a fresh look at
+/// the machine, one at a time, and every attempt is written to the audit log
+/// whether or not it changed anything.
+///
+/// Targets carry a name as well as an identifier. Identifiers are reused, and
+/// the gap between a list being drawn and a button being pressed is long
+/// enough for one to be handed to something else.
+///
+/// Nothing is put back. There is no snapshot of a running process and there
+/// cannot be one, so the promise here is different from the rest of the tool
+/// and is stated rather than implied: what was stopped is recorded and
+/// returned, and starting anything again is the person's to do. See
+/// `crates/ork-fix/src/processes.rs` for why capturing enough to restart
+/// faithfully would be the wrong trade.
+#[tauri::command]
+pub fn process_stop(targets: Vec<ork_fix::processes::Target>) -> CmdResult<serde_json::Value> {
+    let config = load_config().map_err(fail)?;
+    let store = open_store().map_err(fail)?;
+    let report =
+        ork_fix::processes::stop_these(&targets, &config.processes.pinned, &store).map_err(fail)?;
+    Ok(serde_json::json!({
+        "stopped": report.stopped_count(),
+        // Named as it is measured here as well. This is what they were holding
+        // when last seen, not what came back to the machine.
+        "memory_held_by_stopped": report.memory_held_by_stopped(),
+        // Each attempt carries the sentence for it, written where the outcome
+        // is decided rather than again in the window. The terminal prints the
+        // same string; two front-ends describing one outcome in two ways is
+        // two chances to describe it wrongly.
+        "attempts": report
+            .attempts
+            .iter()
+            .map(|attempt| {
+                let mut value = serde_json::to_value(attempt).unwrap_or(serde_json::Value::Null);
+                if let Some(object) = value.as_object_mut() {
+                    object.insert(
+                        "says".to_string(),
+                        serde_json::Value::String(attempt.outcome.describe()),
+                    );
+                    object.insert(
+                        "changed_anything".to_string(),
+                        serde_json::Value::Bool(attempt.outcome.changed_anything()),
+                    );
+                }
+                value
+            })
+            .collect::<Vec<_>>(),
+    }))
+}

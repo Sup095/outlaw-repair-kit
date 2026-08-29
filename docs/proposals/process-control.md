@@ -1,12 +1,18 @@
 # Proposal: process control and cleanup
 
-**Status: stages one and two are built. Nothing stops a process yet.**
+**Status: stages one to three are built. A sweep stops things, and nothing is
+put back.**
 
 What exists: the enumeration, the classification, the lists of what is never
-touched, `outlaw processes`, and the **Processes** screen in the window. All of
-it only looks. The button, the confirmation, the restore file, and *Restore
-everything* -- stage three, and everything after it -- do not exist, and the
-rest of this document is still a proposal rather than a description.
+touched, `outlaw processes`, the **Processes** screen in the window, and the
+sweep itself -- `--stop` in the terminal, **Stop these** in the window -- with
+the list shown in full before it is agreed to and every entry judged again
+against a fresh look at the machine before anything happens to it.
+
+What does not exist, and the part of this document that is still a proposal:
+the elevation broker, and everything that depends on it. **Undo works
+differently here from everywhere else in this tool, and that was decided
+rather than deferred** -- see "Putting it back" below.
 
 The order was deliberate: the list is worth having on its own, and it needed to
 be read on real machines before anything could act on it. Doing that found two
@@ -111,16 +117,24 @@ A separate dialog, not a checkbox on the same screen. Roughly:
 > audio control panels, and your security software are all left alone. The full
 > list of what that covers is on the previous screen.
 >
-> **Everything stopped here is written down first.** *Restore everything* puts
-> back what can be put back, whenever you want, and a restart puts back the
-> rest.
+> **Nothing here is put back for you.** What was stopped is written down and
+> shown afterwards, and starting anything again is yours to do.
 >
 > `[ Cancel ]`  `[ Stop 23 programs ]`
 
 Cancel is the default. The confirm button carries the count so that pressing it
 by reflex still shows what is about to happen. In the terminal the same thing
-is typed rather than clicked, and `--yes` skips it exactly as it does for the
-stress test.
+is typed rather than clicked.
+
+**There is no `--yes`, and that is a decision rather than an omission.** Every
+other confirmation this tool skips is skipped so that a scheduled task can run
+unattended, and an unattended sweep is precisely the thing that must not exist:
+nothing is snapshotted, nothing is restarted, and the only record afterwards is
+one a person reads. A flag that closed somebody's programs every night would be
+the tool working exactly as designed and doing something nobody wanted. The
+capability is still reachable from a script -- `--stop` *is* the script -- it
+just needs somebody at the keyboard, for the same reason the window needs
+somebody at the mouse.
 
 ### After
 
@@ -128,46 +142,45 @@ stress test.
   again within seconds.
 - The measured difference in free memory — **measured, not estimated**. If
   stopping 23 programs freed 900 MB rather than 6 GB, it says 900 MB.
-- A persistent *Restore everything* control, visible while the session is open.
+- A list, on screen until it is dismissed, of what was stopped and what was
+  left alone.
 
-## Quiet mode as a session
+## Putting it back
 
-Everything the button does is a **session** with a beginning and an end, and it
-is written to disk before anything is stopped.
+**Decided: the tool records what it stopped and shows you. It does not start
+anything again.** This is the one place where the tool's usual promise --
+snapshot first, undo available -- cannot be kept, and saying so plainly is
+better than an *Undo* that half works.
 
-The restore file holds, per process: image path, command line, working
-directory, the account it ran as, the service it belongs to if any, and whether
-it was stopped or suspended. It is written **first**, so a crash, a power cut,
-or the tool being killed still leaves the machine restorable from the file
-alone.
+Three things stand in the way, and the first is enough on its own.
 
-### Surviving a reboot
+**A snapshot of a running program does not exist.** Every other change this
+tool makes is to something at rest: a setting, a file, a service definition. A
+running program is its memory, its open handles, its half-written files, and
+the state of whatever it was talking to. What could be written down is the
+*recipe* -- image path, arguments, working directory -- and running the recipe
+again produces a new program that resembles the old one and is not it. Calling
+that *undo* would be the tool claiming to have reversed something it replaced.
 
-A toggle, as asked for. Both behaviours are wanted and they are genuinely
-different:
+**The recipe is where the secrets are.** Command lines routinely carry
+passwords, tokens, and database connection strings; that is a well-known bad
+habit and it is somebody else's bad habit, on the machine this is running on.
+Writing every argument of every stopped process to a restore file would mean
+this tool creating a plaintext credential dump as a side effect of tidying up,
+and then keeping it. That is a worse outcome than the one it was avoiding.
 
-- **Off (default).** A restart brings everything back. The safest promise, and
-  the easiest one to keep.
-- **On.** The session is re-applied after the machine restarts, so a machine
-  set up for gaming stays that way. Re-applied only after the desktop has
-  settled, and never before the security software is up.
+**A relaunch is not the same program.** Started again by the tool, it inherits
+the tool's account, its environment, and its place in the process tree. For
+anything that cares -- and services, elevated programs, and anything started by
+another program all care -- that is a different program wearing the same name.
 
-### Picking up where it left off
+So the promise is smaller and it is kept: everything attempted is written to
+the audit log, including everything left alone and why, and the report says
+what was stopped and what it was holding when last seen. Starting something
+again is a person's decision, made with the name in front of them.
 
-Separately from the toggle, and this is the part that matters most:
-
-**An unfinished session is never silently lost.** If the machine restarts —
-whether you asked it to, or it fell over — the tool notices on next start that a
-session was open and offers to pick it up:
-
-> A quiet session was open when this machine restarted, on 28 August at 21:04.
-> 23 programs were stopped then. **Restore them**, **carry on where it left
-> off**, or **forget it**.
-
-So the toggle decides whether it happens *automatically*; the session record
-means it is *available* either way. Nothing is re-applied without being asked
-unless the toggle says so, and a session record older than a set number of days
-is offered for deletion rather than acted on.
+*Restarting the machine remains the honest general answer, and it is the one
+the screen gives.*
 
 ## What "essential" means
 
@@ -267,7 +280,8 @@ disabling one of those, reversibly, because the entry is recorded in full first.
    held back. Still no stopping.~~ **Built**, in both the terminal
    (`outlaw processes`) and the window (the **Processes** screen), from the
    same judgement so the two cannot disagree about what "held back" means.
-3. **The button**, the confirmation, the restore file, and *Restore everything*.
+3. **The button**, the confirmation, and the report. *Done.* The restore file
+   was dropped rather than deferred -- see "Putting it back".
    **Next.**
 4. **Measured verification**, which also gives memory pressure its verifier.
 5. **Session survival** — the reboot toggle and picking up where it left off.
@@ -289,10 +303,7 @@ have been considerably more expensive to discover with a button attached.
   restores anything, so the rule rules out the case with no answer at all
   rather than claiming to know which programs come back cleanly. Whether the
   tool should ever start something again *itself* is a separate question and
-  the answer is probably no -- the command line of a running process is where
-  passwords passed as arguments live, and a tool that recorded them in order to
-  be helpful would be putting them somewhere they were not before. Telling
-  somebody what was stopped is enough, and costs nothing.
+  the answer is no, and it has now been decided -- see "Putting it back".
 - **Elevation.** Many of the heaviest processes run as SYSTEM. Reaching them
   needs the elevation broker, which is separate work. Without it the sweep still
   works on everything running as you, and must say plainly what it could not
@@ -335,5 +346,9 @@ have been considerably more expensive to discover with a button attached.
   would have been discovered from inside a dialog, at the moment of highest
   consequence.
 
+- **Restarting something the sweep stopped.** Answered, and the answer is that
+  this tool does not: see "Putting it back". Left here because it is the first
+  thing anybody asks for after using the sweep once, and the reason should be
+  findable rather than inferred from its absence.
 - **`outlaw quiet run <program>`** — quiet until that program exits, then
   everything back. Attractive for launching a game. Decide separately.

@@ -35,6 +35,53 @@ The plan is in [the proposal](docs/proposals/critterscript.md), which has now
 been written against the language itself rather than against a description of
 it, and says plainly what has been decided and what has not.
 
+### Added
+
+**Something can now be stopped.**
+
+`outlaw processes --stop`, and **Stop these** in the window. Both show the whole
+list first, grouped by program, and ask. Neither can be made not to ask.
+
+Agreeing does not act on the list that was shown. Every entry is judged again
+against a fresh look at the machine, one at a time, immediately before anything
+happens to it -- because between a list being drawn and a button being pressed
+somebody can switch programs, and the program they switched to is a program
+they are looking at. Anything that has become protected in the meantime is left
+alone and said so. Afterwards, what was stopped, what it was holding when last
+seen, and everything left alone with the reason. All of it, including the
+things nothing happened to, goes to `outlaw audit`.
+
+Two limits, stated rather than discovered:
+
+- **Only what runs as you.** Anything running as the system is held back with
+  that reason. Reaching those needs privileges this build does not ask for.
+- **Nothing is put back.** This is the one place the tool's usual promise --
+  snapshot first, undo available -- cannot be kept, and it was decided rather
+  than deferred. A running program is its memory and its open handles; what
+  could be written down is the recipe for a *new* program that resembles it.
+  Worse, that recipe is the command line, which is where passwords passed as
+  arguments live -- so a restore file would mean this tool creating a plaintext
+  credential dump as a side effect of tidying up, and keeping it. The promise
+  is smaller and it is kept: what was stopped is recorded and shown, and
+  starting anything again is yours to do. The reasoning is in
+  [the proposal](docs/proposals/process-control.md).
+
+There is deliberately no `--yes` and no unattended sweep. Every other
+confirmation this tool can skip is skipped so a scheduled task can run; a
+scheduled task that closed somebody's programs every night would be this
+working exactly as designed and doing something nobody wanted. `--stop` refuses
+with its input redirected, or alongside `--json`, and says which it is.
+
+Writing it turned up a fault in its own tests, which is the reason the split
+between judging and acting exists. A test written to check that `Steam.exe` and
+`steam.exe` are one program called the function that judges *and acts*, with a
+made-up survey and a real process identifier -- so on a machine where that
+identifier was in use, running the test suite would have stopped whatever was
+wearing it. It passed, because the number happened to be free that day. The
+judging is now a separate function that touches nothing, the tests call only
+that, and a test in `ork-fix` fails if anything but the one real caller ever
+reaches the code that ends a program.
+
 ### Changed
 
 **You can tell the tool to leave a program alone without editing a file.**

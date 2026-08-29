@@ -197,12 +197,13 @@ enum Command {
 
     /// Show what is running, and what would happen to each.
     ///
-    /// Read-only. It stops nothing and changes nothing -- it shows which
-    /// programs a sweep would offer to stop, which it would hold back and
-    /// why, and which it will never touch on any account.
+    /// On its own it changes nothing -- it shows which programs a sweep would
+    /// offer to stop, which it would hold back and why, and which it will
+    /// never touch on any account.
     ///
-    /// `--pin` and `--unpin` are the exception, and they change a setting
-    /// rather than the machine: a pinned program is never offered.
+    /// `--stop` acts, after showing the list and asking. `--pin` and `--unpin`
+    /// change a setting rather than the machine: a pinned program is never
+    /// offered.
     Processes {
         /// Show every row rather than the heaviest few.
         #[arg(long)]
@@ -215,6 +216,14 @@ enum Command {
         /// Stop leaving this program alone.
         #[arg(long, value_name = "NAME", conflicts_with = "pin")]
         unpin: Option<String>,
+
+        /// Stop everything a sweep offers, after showing it and asking.
+        ///
+        /// Nothing is put back for you: what was stopped is written down and
+        /// shown, and starting anything again is yours to do. There is no way
+        /// to skip the question, so this cannot be run unattended.
+        #[arg(long, conflicts_with_all = ["pin", "unpin"])]
+        stop: bool,
     },
     /// Show what this tool detected about the machine it is running on.
     Host,
@@ -479,7 +488,12 @@ async fn dispatch(mut cli: Cli) -> Result<Ending> {
         }
         Command::Docs { page } => fine(render::docs(page, cli.json)),
         Command::Probes => fine(render::probes(cli.json)),
-        Command::Processes { all, pin, unpin } => fine(processes::run(all, pin, unpin, cli.json)),
+        Command::Processes {
+            all,
+            pin,
+            unpin,
+            stop,
+        } => fine(processes::run(all, pin, unpin, stop, cli.json)),
         Command::Host => fine(render::host(cli.json)),
         Command::Models => fine(ai::show_models(cli.json).await),
         Command::Queue => fine(fix::show_queue(cli.json)),

@@ -134,6 +134,7 @@ Show what is running, and what would happen to each.
 outlaw processes
 outlaw processes --all
 outlaw processes --json
+outlaw processes --stop
 ```
 
 | Option | Meaning |
@@ -141,10 +142,10 @@ outlaw processes --json
 | `--all` | Every row and every program, rather than the heaviest few |
 | `--pin <name>` | Always leave that program alone. It is never offered again |
 | `--unpin <name>` | Stop leaving it alone |
+| `--stop` | Show what a sweep would stop, ask, and stop it |
 
-**It stops nothing and changes nothing.** It is the list that a later
-"stop everything non-essential" button would act on, published on its own first
-so that it can be read on real machines before anything is able to act on it.
+**Without `--stop` it changes nothing.** It is the same list a sweep acts on,
+and reading it first is the point of it being a separate thing to run.
 
 Four sections. The first groups the list the way you read it; of the other
 three, the last two are the interesting ones.
@@ -211,7 +212,9 @@ It says what the candidates are **holding**, never what stopping them would
 free. Those are different numbers and the second is always smaller: memory
 shared between programs is counted against every one of them, so adding working
 sets up always overstates the total. The honest version of "would free" can
-only be produced by measuring afterwards, which is what a later stage will do.
+only be produced by measuring afterwards. The report a sweep prints says the
+same thing in the same words: what the stopped programs were **holding when
+last seen**, not what came back to the machine.
 
 ### What `--json` carries
 
@@ -222,6 +225,46 @@ one entry per process -- there is `programs`, the same rows grouped, each with
 saying whether all of it, part of it, or none of it would be offered. `sweep`
 is structured, `sweep_says` is the sentence, and `sweep_briefly` is the short
 form the terminal prints in its own list.
+
+### Stopping them
+
+```bash
+outlaw processes --stop
+```
+
+It shows the whole list first, grouped by program, then asks. Cancelling is the
+default: only `y` or `yes` is a yes.
+
+Each entry is then judged **again** against a fresh look at the machine, one at
+a time, immediately before anything happens to it. Between the list being shown
+and the answer being given somebody can switch programs, and the program they
+switched to is a program they are looking at -- so what was on screen a moment
+ago is never permission on its own. Anything that has become protected in the
+meantime is left alone and said so.
+
+Afterwards it prints what was stopped, what it was holding when last seen, and
+**everything that was left alone with the reason**. All of it goes to
+`outlaw audit`, including the ones nothing happened to.
+
+Three things about it are worth knowing before you run it:
+
+- **Nothing is put back.** There is no snapshot of a running program, so
+  starting anything again is yours to do. A program you want kept is worth
+  pinning first. The reasoning is in
+  [the proposal](proposals/process-control.md).
+- **Programs are ended, not asked to close.** On Windows there is no portable
+  way to ask a program to close itself as though you had clicked its close
+  button, so it does not get to save. That is why anything that might be
+  holding unsaved work is held back from being offered at all -- but save what
+  is open first.
+- **Only what runs as you.** Anything running as the system is held back and
+  said so. Reaching those needs privileges this build does not ask for.
+
+There is no `--yes`, and no way to run a sweep unattended. Everything else this
+tool can skip a confirmation for is skipped so that a scheduled task can run;
+a scheduled task that closed your programs every night is the one thing here
+that must not be possible. `--stop` refuses when there is nobody to ask -- with
+its input redirected, or alongside `--json` -- and says which it is.
 
 ### Pinning
 

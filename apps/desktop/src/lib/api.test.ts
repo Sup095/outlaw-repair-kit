@@ -202,3 +202,103 @@ Survey::as_report, so they arrive undefined: ${missing.join(", ")}`,
     }
   });
 });
+
+
+describe("the window cannot stop something by accident", () => {
+  /**
+   * Three things have to stay true of the stopping screen, and none of them
+   * are the sort of thing a type checker or a rendered page would complain
+   * about if they stopped being true.
+   */
+  const viewSource = read("./ProcessesView.svelte");
+
+  /**
+   * The file with its commentary removed.
+   *
+   * The checks below are about what the screen says to the person reading it,
+   * and a comment explaining why a phrase is not used would otherwise fail the
+   * check for using it.
+   */
+  function shownText(): string {
+    return viewSource
+      .replace(/<!--[\s\S]*?-->/g, " ")
+      .replace(/\/\*[\s\S]*?\*\//g, " ")
+      .replace(/^\s*\/\/.*$/gm, " ")
+      .toLowerCase();
+  }
+
+  test("the file being read is the one this is about", () => {
+    // Without this, a rename makes every check below pass by finding nothing.
+    expect(viewSource.length).toBeGreaterThan(4000);
+    expect(viewSource).toContain("api.processStop(");
+  });
+
+  test("nothing is sent without the list having been shown", () => {
+    // The confirmation is not decoration. It is the only place the person sees
+    // what they are agreeing to, and the back end will happily stop everything
+    // in a list it is handed. So the call must sit behind the panel, and the
+    // panel must list the programs rather than count them.
+    expect(viewSource).toContain("confirming = true");
+    const panel = viewSource.slice(
+      viewSource.indexOf("{#if confirming}"),
+      viewSource.indexOf("<section>", viewSource.indexOf("{#if confirming}")),
+    );
+    expect(panel.length).toBeGreaterThan(500);
+    expect(panel, "the confirmation lists what it would stop").toContain(
+      "each offeredPrograms as program",
+    );
+    expect(panel, "and the button that acts is inside it").toContain(
+      "onclick={stopThem}",
+    );
+  });
+
+  test("only the confirmation reaches the back end", () => {
+    // One caller. More than one is more than one place the panel could be
+    // skipped, and the panel is the whole of the asking.
+    const calls = viewSource
+      .split("\n")
+      .filter((line) => line.includes("api.processStop("));
+    expect(calls).toHaveLength(1);
+  });
+
+  test("outcomes are not described again on this side", () => {
+    // Every attempt arrives with the sentence for it. Writing a second set
+    // here would mean the terminal and the window could describe one event in
+    // two ways, and the wrong one would be the one somebody read.
+    expect(viewSource).toContain("attempt.says");
+    for (const invented of ["already gone", "still running", "was killed"]) {
+      expect(
+        shownText(),
+        `"${invented}" is written in the window as well as in the back end`,
+      ).not.toContain(invented);
+    }
+  });
+
+  test("the report says what was left alone, not only what was stopped", () => {
+    // A report that listed only its successes would leave somebody believing a
+    // program had gone when it is still on the taskbar.
+    // Scoped to the report panel. "Left alone" is also what the pinning
+    // control says once a program is pinned, so a check against the whole file
+    // would pass whether or not the report mentions them at all -- which is
+    // exactly what it did the first time this was written.
+    const start = viewSource.indexOf("{#if report}");
+    const end = viewSource.indexOf("{#if confirming}");
+    expect(start, "the report panel is still here").toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const panel = viewSource.slice(start, end);
+    expect(panel).toContain("Left alone");
+    expect(panel).toContain("each leftAlone as attempt");
+    // What this cannot see is the block being left in place and made
+    // unreachable. It catches the likely fault -- somebody tidying the report
+    // down to its successes -- and not every possible one.
+  });
+
+  test("nothing on this screen offers to start anything again", () => {
+    // The promise here is different from the rest of the tool and it is the
+    // one thing on the screen that must not quietly change: what was stopped
+    // is reported, and restarting is the person's to do.
+    for (const forbidden of ["restart", "relaunch", "reopen", "undo"]) {
+      expect(shownText()).not.toContain(forbidden);
+    }
+  });
+});

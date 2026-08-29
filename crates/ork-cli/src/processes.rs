@@ -18,10 +18,14 @@
 //!   Wayland nothing can. Where it could not, the list says so, in the same
 //!   place and the same voice as a scan reporting a check that did not run.
 
+use std::io::IsTerminal;
+
 use anyhow::Result;
 use ork_core::processes::{Program, Row, Survey, Sweep};
 use ork_core::util::{counted_as, format_bytes};
+use ork_fix::processes::Target;
 
+use crate::refusal::refuse;
 use crate::style::{bold, dim};
 
 /// How many rows to print before saying how many were left out.
@@ -114,10 +118,17 @@ fn some_of(rows: &[&Row], all: bool) {
 /// did: `[processes] pinned` could only be used by finding a TOML file and
 /// editing it by hand, which is exactly what this tool is supposed to save
 /// people from.
-pub fn run(all: bool, pin: Option<String>, unpin: Option<String>, json: bool) -> Result<()> {
-    match (pin, unpin) {
-        (Some(name), _) => set_pinned(&name, true, json),
-        (_, Some(name)) => set_pinned(&name, false, json),
+pub fn run(
+    all: bool,
+    pin: Option<String>,
+    unpin: Option<String>,
+    stop: bool,
+    json: bool,
+) -> Result<()> {
+    match (pin, unpin, stop) {
+        (Some(name), _, _) => set_pinned(&name, true, json),
+        (_, Some(name), _) => set_pinned(&name, false, json),
+        (_, _, true) => sweep(json),
         _ => show(all, json),
     }
 }
@@ -298,11 +309,188 @@ pub fn show(all: bool, json: bool) -> Result<()> {
     }
     println!();
 
-    println!(
-        "  {}",
-        dim("Nothing here stops anything. This command only looks.")
-    );
+    // Said here rather than only in the manual: a list of running programs
+    // with no visible way to act on it is a screen somebody spends a minute
+    // hunting for the button on.
+    for line in crate::render::wrap(
+        "Nothing has been stopped. `outlaw processes --stop` sweeps what is \
+         offered above, after showing it and asking.",
+        72,
+    ) {
+        println!("  {}", dim(&line));
+    }
     Ok(())
+}
+
+/// Stop what a sweep offers, after showing it and asking.
+///
+/// There is no `--yes`, and that is deliberate rather than an omission. Every
+/// other option in this tool that skips a confirmation exists so a scheduled
+/// task can run unattended, and an unattended sweep is precisely the thing
+/// that must not exist: nothing is snapshotted, nothing is restarted, and the
+/// only record afterwards is the one a person reads. A flag that let a
+/// scheduled task close somebody's programs every night would be the tool
+/// working exactly as designed and doing something nobody wanted.
+///
+/// The capability is still reachable from a script -- this is the script -- it
+/// just needs somebody at the keyboard, in the terminal for the same reason it
+/// needs somebody at the mouse in the window.
+fn sweep(json: bool) -> Result<()> {
+    if let Some(reason) = nobody_to_ask(json, std::io::stdin().is_terminal()) {
+        refuse!("{reason}");
+    }
+
+    let config = crate::ai::load_config()?;
+    let survey = Survey::of_this_machine(&config.processes.pinned)?;
+    let candidates: Vec<&Row> = survey.candidates().collect();
+
+    if candidates.is_empty() {
+        println!();
+        println!(
+            "  {}",
+            dim("Nothing is offered for stopping. Nothing to do.")
+        );
+        println!();
+        return Ok(());
+    }
+
+    // Shown before asking, in full, grouped the way a person reads it. A
+    // confirmation that says "stop 16 processes?" is asking somebody to agree
+    // to a number.
+    println!();
+    println!("{}", bold("This would stop"));
+    for program in survey
+        .by_program()
+        .iter()
+        .filter(|program| program.offered > 0)
+    {
+        println!("{}", program_line(program));
+    }
+    println!();
+    for line in crate::render::wrap(
+        "Nothing here is put back for you. What was stopped is written down and \
+         shown afterwards, and starting anything again is yours to do -- so a \
+         program you want left alone is worth pinning first, with \
+         `outlaw processes --pin <name>`.",
+        72,
+    ) {
+        println!("  {}", dim(&line));
+    }
+    println!();
+
+    if !confirmed(candidates.len())? {
+        println!("  {}", dim("Nothing was stopped."));
+        println!();
+        return Ok(());
+    }
+
+    // The list is turned into targets here, and judged again inside. Between
+    // the question and the answer somebody can alt-tab, and the program they
+    // switched to is a program they are looking at.
+    let targets: Vec<Target> = candidates
+        .iter()
+        .map(|row| Target {
+            pid: row.pid,
+            name: row.name.clone(),
+        })
+        .collect();
+
+    let store = crate::fix::open_store()?;
+    let report = ork_fix::processes::stop_these(&targets, &config.processes.pinned, &store)?;
+    show_report(&report);
+    Ok(())
+}
+
+/// Why this cannot go ahead, if it cannot.
+///
+/// The two conditions are pulled out here so they can be checked without
+/// calling the sweep. A test that called the sweep in order to find out
+/// whether it would refuse would, on the day the refusal stopped working,
+/// stop the programs on the machine running the tests -- and it would be a
+/// test written in good faith about a refusal.
+fn nobody_to_ask(json: bool, interactive: bool) -> Option<&'static str> {
+    if json {
+        return Some(
+            "--json cannot ask before stopping programs, and stopping programs \
+             without asking is not something this offers",
+        );
+    }
+    if !interactive {
+        return Some(
+            "there is nobody to ask. Stopping programs needs a person at the \
+             keyboard, so this will not run with its input redirected",
+        );
+    }
+    None
+}
+
+/// What happened, including everything that did not.
+fn show_report(report: &ork_fix::processes::StopReport) {
+    println!();
+    println!(
+        "{}  {}",
+        bold("Stopped"),
+        dim(&format!(
+            "{}, holding {} when last seen",
+            counted_as(report.stopped_count(), "program", "programs"),
+            format_bytes(report.memory_held_by_stopped())
+        ))
+    );
+    if report.stopped_count() == 0 {
+        println!("  {}", dim("nothing"));
+    }
+    for attempt in report.stopped() {
+        println!(
+            "  {:<34}{}",
+            crate::render::ellipsise(&attempt.name, 33),
+            dim(&format_bytes(attempt.memory_held_bytes))
+        );
+    }
+
+    let left: Vec<_> = report.did_not_stop().collect();
+    if !left.is_empty() {
+        println!();
+        println!("{}", bold("Left alone"));
+        for attempt in left {
+            println!(
+                "  {:<34}{}",
+                crate::render::ellipsise(&attempt.name, 33),
+                dim(&attempt.outcome.describe())
+            );
+        }
+    }
+
+    println!();
+    for line in crate::render::wrap(
+        "\"Holding\" is what they had, not what came back to the machine. Every \
+         one of these is in `outlaw audit`, including the ones left alone, so \
+         what happened here is answerable tomorrow as well as now.",
+        72,
+    ) {
+        println!("  {}", dim(&line));
+    }
+    println!();
+}
+
+/// Ask, and take only a clear yes.
+///
+/// Named with the number, because the number is the part somebody should be
+/// reading twice.
+fn confirmed(how_many: usize) -> Result<bool> {
+    use std::io::Write;
+    print!(
+        "Stop {}? [y/N] ",
+        counted_as(how_many, "process", "processes")
+    );
+    std::io::stdout().flush()?;
+    let mut answer = String::new();
+    if std::io::stdin().read_line(&mut answer).is_err() {
+        return Ok(false);
+    }
+    Ok(matches!(
+        answer.trim().to_ascii_lowercase().as_str(),
+        "y" | "yes"
+    ))
 }
 
 #[cfg(test)]
@@ -410,5 +598,35 @@ mod tests {
         // round would make an old process look like a new one -- which is
         // exactly the judgement somebody is using this list to make.
         assert_eq!(how_long(400 * 86_400), "400d 0h");
+    }
+
+    #[test]
+    fn a_sweep_will_not_run_with_nobody_there() {
+        // Checked on the conditions rather than by calling the sweep. Calling
+        // it to find out whether it refuses would, on the day the refusal
+        // stopped working, stop the programs on the machine running the tests.
+        assert!(nobody_to_ask(true, true).is_some(), "--json must refuse");
+        assert!(
+            nobody_to_ask(true, false).is_some(),
+            "--json with no terminal must refuse"
+        );
+        assert!(
+            nobody_to_ask(false, false).is_some(),
+            "redirected input must refuse"
+        );
+        // And the one case that goes ahead: a person, at a terminal, reading
+        // human output.
+        assert!(nobody_to_ask(false, true).is_none());
+    }
+
+    #[test]
+    fn each_refusal_says_which_one_it_is() {
+        // Two conditions, two sentences. One message for both would leave
+        // somebody adding a terminal to fix a --json problem.
+        let json = nobody_to_ask(true, true).expect("refused");
+        let quiet = nobody_to_ask(false, false).expect("refused");
+        assert_ne!(json, quiet);
+        assert!(json.contains("--json"));
+        assert!(quiet.contains("keyboard"));
     }
 }

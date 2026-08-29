@@ -134,15 +134,20 @@ outlaw processes   # what is running, and what a sweep would leave alone
 outlaw docs        # this manual, carried inside the program
 ```
 
-`outlaw processes` is worth a look on your own machine. It stops nothing --
-there is no command here that stops anything -- but it shows what is holding
-the memory, what would be left alone and why, and what is never touched at all.
+`outlaw processes` is worth a look on your own machine. On its own it changes
+nothing: it shows what is holding the memory, what would be left alone and why,
+and what is never touched at all.
 It opens grouped **by program**, because a browser is one program however many
 processes it is, and each line says how much of that program a sweep would
 actually offer -- which is often not all of it. If there is something you never
 want it to offer, `outlaw processes --pin <name>` says so once and for good. In
 the window it is the **Processes** screen, and the **Leave alone** button on
 each row.
+
+When you want to act on that list rather than read it, `outlaw processes
+--stop` shows it, asks, and stops what you agreed to -- or **Stop these** in
+the window. It asks every time, and there is no way to make it not ask.
+**Nothing is put back for you**, so save what is open first.
 
 ## Next steps
 

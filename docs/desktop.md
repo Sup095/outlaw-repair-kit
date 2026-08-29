@@ -85,7 +85,7 @@ outlaw boot
 | **Checks** | Every check this build knows how to run, grouped by tier, what each one can report, and whether it can run on this machine |
 | **Watching** | Look on an interval and hear only about what changed |
 | **Stress** | Work the machine hard on purpose, and see whether it gets anything wrong |
-| **Processes** | What is running, what could be stopped, what is held back and why, and what is never touched. It only looks — see below |
+| **Processes** | What is running, what could be stopped, what is held back and why, and what is never touched. One button acts — see below |
 | **Queue** | Problems waiting to be worked through, worst first, each saying when it was last actually seen — and the buttons that work them |
 | **Models** | Which model would handle this run, and exactly why the others were passed over |
 | **Machines** | Pair with another computer so one can lend the other a model, and see what is wrong over there |
@@ -98,10 +98,28 @@ A scan you have run stays where it is when you look at another screen and come
 back. So does a report you have started writing. Neither is thrown away by
 going to look something up, which is exactly when somebody would.
 
-### The Processes screen only looks
+### The Processes screen
 
-It stops nothing. There is no button on it that changes anything, and it says
-so at the top rather than leaving somebody hunting for one.
+It shows what is running and what a sweep would do to each, and it has one
+control that changes anything: **Stop these**.
+
+That button does not act. It opens the whole list, grouped by program, and asks
+-- because a dialog saying "stop 16 processes?" is asking somebody to agree to a
+number they have no way of checking. Agreeing sends the list, and every entry on
+it is then judged again in the back end against a fresh look at the machine,
+one at a time, so a program that has become protected since the list was drawn
+is left alone whatever the window sent.
+
+Afterwards a panel says what was stopped, what it was holding when last seen,
+and **everything that was left alone, with the reason**. It stays there until
+it is dismissed, so the refresh underneath it cannot wipe the only account of
+what just happened.
+
+**Nothing is put back for you.** There is no snapshot of a running program, so
+starting anything again is yours to do -- and programs are ended rather than
+asked to close, which is why anything that might be holding unsaved work is
+never offered in the first place. The reasoning is in
+`docs/proposals/process-control.md`.
 
 It opens with **By program**, because nobody thinks in processes. Several
 processes sharing one name are one application to whoever is looking at them,
