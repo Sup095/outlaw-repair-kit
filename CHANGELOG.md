@@ -10,7 +10,7 @@ not that the work has stopped.
 
 ---
 
-## Unreleased
+## v0.11.0
 
 **`outlaw processes` -- what is running, and what a sweep would leave alone.**
 
