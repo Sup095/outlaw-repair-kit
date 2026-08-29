@@ -280,6 +280,60 @@ pub fn add_to_path(directory: &Path) -> Result<bool> {
     }
 }
 
+/// Install the window by running the bundle it ships as, and then tidy the
+/// bundle away.
+///
+/// This used to download the bundle, put it in the folder, and say "run it to
+/// install the window" -- which left somebody who asked for the window with a
+/// folder containing an installer and no window in it. Asking for a thing and
+/// being handed the means of getting the thing is not installing it.
+///
+/// Run without its own questions, because they were already asked here: the
+/// person ticked a box that said install the window, and answering the same
+/// question twice in two different windows is how an installer loses somebody
+/// half way through. Nothing else about it is silent -- the plan says this
+/// will happen before it happens, and the receipt records it afterwards.
+#[cfg(windows)]
+pub fn run_window_installer(bundle: &Path) -> Result<()> {
+    use ork_core::unseen::Unseen;
+
+    // The `/S` is NSIS's, and is the only way to install without a second
+    // window appearing over this one.
+    let status = std::process::Command::new(bundle)
+        .arg("/S")
+        .unseen()
+        .status()
+        .with_context(|| format!("could not run {}", bundle.display()))?;
+
+    if !status.success() {
+        anyhow::bail!(
+            "the window's installer stopped with {}",
+            status
+                .code()
+                .map(|code| format!("code {code}"))
+                .unwrap_or_else(|| "no exit code".to_string())
+        );
+    }
+    Ok(())
+}
+
+/// On Linux the window is an AppImage: placing it *is* installing it, so
+/// there is nothing to run.
+#[cfg(not(windows))]
+pub fn run_window_installer(bundle: &Path) -> Result<()> {
+    mark_executable(bundle)
+}
+
+/// Whether the window's bundle is a thing to be run or a thing to be kept.
+///
+/// A Windows bundle is an installer: once it has run, keeping it is keeping a
+/// copy of an installer nobody needs, in a folder somebody will later wonder
+/// about. A Linux AppImage *is* the program, and deleting it would delete
+/// what was just installed.
+pub const fn bundle_is_disposable() -> bool {
+    cfg!(windows)
+}
+
 /// What a shortcut opens when somebody clicks it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Opens {

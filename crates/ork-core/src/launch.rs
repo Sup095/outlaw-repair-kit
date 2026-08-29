@@ -33,6 +33,7 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
 use crate::PlatformKind;
+use crate::unseen::Unseen;
 use async_trait::async_trait;
 
 /// How long to keep watching for a failure before concluding it started.
@@ -178,6 +179,7 @@ impl RealLaunchTester {
                 .args(args)
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
+                .unseen()
                 .status();
         }
     }
@@ -190,6 +192,7 @@ impl RealLaunchTester {
                     .args(args)
                     .stdout(Stdio::null())
                     .stderr(Stdio::null())
+                    .unseen()
                     .status();
                 match asked {
                     Ok(status) if status.success() => {
@@ -246,6 +249,7 @@ impl LaunchTester for RealLaunchTester {
                 .args(target.launch_args)
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped())
+                .unseen()
                 .spawn()
             {
                 Ok(child) => child,

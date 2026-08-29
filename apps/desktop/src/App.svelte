@@ -132,11 +132,17 @@
 
   /* A rule of light under the header, brightest in the middle, so the top of
      the window reads as powered rather than merely drawn. */
+  /* Wraps rather than clips. At the window's own minimum width the twelve
+     screens did not fit on one row, and the last three -- Audit, Report a
+     problem, and Info -- were not merely cramped but unreachable: cut off at
+     the edge with nothing to scroll and no way to get to them. A tab you
+     cannot click is a screen that does not exist. */
   header {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 2rem;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
     padding: 0.75rem 1.25rem;
     border-bottom: 1px solid var(--line-bright);
     background:
@@ -195,6 +201,10 @@
     display: flex;
     align-items: baseline;
     gap: 0.55rem;
+    /* The wordmark is two words and one thing. Letting it wrap turned the
+       header into three rows and made the mark look like a mistake. */
+    white-space: nowrap;
+    flex: none;
   }
 
   /* The wordmark is split into two offset colour copies behind the real one --
@@ -222,7 +232,12 @@
 
   nav {
     display: flex;
-    gap: 0.4rem;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.4rem;
+    /* Takes the rest of the row and wraps within it, so a narrow window gets
+       two rows of tabs rather than one row and a cliff edge. */
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   nav button {
@@ -231,6 +246,36 @@
     border-bottom: 2px solid transparent;
     box-shadow: none;
     color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  /* Narrow windows get tighter tabs before they get a second row of them.
+     Tracking is the first thing to go: it is what makes the tabs read as a
+     readout rather than as a toolbar, and it is also what makes them wide. */
+  @media (max-width: 1180px) {
+    nav button {
+      padding: 0.35rem 0.5rem;
+      letter-spacing: 0.06em;
+      font-size: 12px;
+    }
+
+    header {
+      gap: 0.4rem 1rem;
+      padding: 0.6rem 0.9rem;
+    }
+
+    /* Once the tabs need their own row, they take the whole of it and the
+       version stays up beside the wordmark. Otherwise the version is pushed
+       onto a third row of its own, which spends a row of a small window on
+       seven characters. */
+    nav {
+      order: 3;
+      flex-basis: 100%;
+    }
+
+    .meta {
+      margin-left: auto;
+    }
   }
 
   nav button:hover:not(.active) {

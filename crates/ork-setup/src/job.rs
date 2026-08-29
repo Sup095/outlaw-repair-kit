@@ -256,9 +256,9 @@ fn carry_out(choices: &Choices, report: &Sender<Progress>) -> Result<Receipt> {
     });
     let _ = report.send(Progress::Note(format!("installed to {}", placed.display())));
 
-    // 3. The desktop bundle, if asked for. This one is another installer, and
-    //    is downloaded and checked here but handed to the person rather than
-    //    run: it wants its own decisions about where it goes.
+    // 3. The window, if asked for. Downloaded, checked, and then actually
+    //    installed -- see `install::run_window_installer` for why handing
+    //    somebody an installer is not the same as installing something.
     if choices.desktop {
         let _ = report.send(Progress::Stage(
             "Downloading the desktop application".into(),
@@ -280,10 +280,38 @@ fn carry_out(choices: &Choices, report: &Sender<Progress>) -> Result<Receipt> {
                     path: placed.display().to_string(),
                     sha256: digest,
                 });
-                let _ = report.send(Progress::Note(format!(
-                    "saved to {} -- run it to install the window",
-                    placed.display()
-                )));
+
+                let _ = report.send(Progress::Stage("Installing the window".into()));
+                match install::run_window_installer(&placed) {
+                    Ok(()) => {
+                        receipt.steps.push(Step::Delegated {
+                            what: "the window".to_string(),
+                            command: format!("{} /S", placed.display()),
+                        });
+                        // The bundle has done its job. Leaving an installer
+                        // behind in the program's folder is leaving something
+                        // for somebody to find later and wonder about.
+                        if install::bundle_is_disposable() && std::fs::remove_file(&placed).is_ok()
+                        {
+                            receipt.steps.retain(|step| {
+                                !matches!(step, Step::Wrote { path, .. }
+                                    if path == &placed.display().to_string())
+                            });
+                        }
+                        let _ = report.send(Progress::Note("the window is installed".into()));
+                    }
+                    Err(error) => {
+                        // Not fatal. The command-line tool is installed and
+                        // working, and the bundle is still there to be run by
+                        // hand -- so say exactly that rather than leaving
+                        // somebody to guess what state they are in.
+                        let _ = report.send(Progress::Warning(format!(
+                            "the window did not install ({error:#}). Everything else is \
+                             installed; run {} yourself to finish it.",
+                            placed.display()
+                        )));
+                    }
+                }
             }
         }
     }
@@ -439,7 +467,10 @@ fn carry_out(choices: &Choices, report: &Sender<Progress>) -> Result<Receipt> {
             let _ = report.send(Progress::Note(format!(
                 "fetching {tag} -- this is several gigabytes and has no time limit"
             )));
-            match model::pull(tag) {
+            let mut say = |line: String| {
+                let _ = report.send(Progress::Note(line));
+            };
+            match model::pull(tag, &mut say) {
                 Ok(()) => {
                     receipt.steps.push(Step::Delegated {
                         what: format!("the model {tag}"),

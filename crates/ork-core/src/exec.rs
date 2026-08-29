@@ -22,6 +22,7 @@ use anyhow::Context;
 use sysinfo::{MINIMUM_CPU_UPDATE_INTERVAL, Pid, ProcessRefreshKind, ProcessesToUpdate, System};
 
 use crate::Result;
+use crate::unseen::Unseen;
 
 /// When to conclude that a running process is stuck rather than working.
 #[derive(Debug, Clone, Copy)]
@@ -267,6 +268,7 @@ pub fn run_supervised(
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        .unseen()
         .spawn()
         .with_context(|| format!("could not start `{program}`"))?;
 

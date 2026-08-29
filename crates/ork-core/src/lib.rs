@@ -28,6 +28,7 @@ pub mod respond;
 pub mod scan;
 pub mod stress;
 pub mod tier;
+pub mod unseen;
 pub mod util;
 pub mod watch;
 pub mod ways_in;

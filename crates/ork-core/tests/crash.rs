@@ -28,7 +28,7 @@ fn a_crash_is_recorded_where_a_report_can_find_it() {
     std::fs::create_dir_all(&dir).expect("a scratch directory");
 
     let binary = std::env::current_exe().expect("the test binary");
-    let output = std::process::Command::new(binary)
+    let output = ork_core::unseen::Unseen::unseen(&mut std::process::Command::new(binary))
         .args([
             "a_crash_is_recorded_where_a_report_can_find_it",
             "--exact",

@@ -20,6 +20,7 @@
 mod install;
 mod job;
 mod model;
+mod paint;
 mod release;
 mod ui;
 
@@ -42,14 +43,33 @@ fn forced_renderer() -> Option<eframe::Renderer> {
 }
 
 fn options(renderer: eframe::Renderer) -> eframe::NativeOptions {
+    let mut viewport = eframe::egui::ViewportBuilder::default()
+        .with_inner_size([840.0, 660.0])
+        .with_min_inner_size([680.0, 520.0])
+        .with_title("Outlaw Repair Kit — Setup");
+    if let Some(icon) = icon() {
+        viewport = viewport.with_icon(icon);
+    }
     eframe::NativeOptions {
-        viewport: eframe::egui::ViewportBuilder::default()
-            .with_inner_size([760.0, 620.0])
-            .with_min_inner_size([680.0, 520.0])
-            .with_title("Outlaw Repair Kit — Setup"),
+        viewport,
         renderer,
         ..Default::default()
     }
+}
+
+/// The project's icon, so the installer is recognisable in a taskbar.
+///
+/// Best-effort: an installer that refused to start because it could not
+/// decode its own picture would be a poor trade.
+fn icon() -> Option<std::sync::Arc<eframe::egui::IconData>> {
+    let bytes = include_bytes!("../assets/outlaw.png");
+    let image = image::load_from_memory(bytes).ok()?.into_rgba8();
+    let (width, height) = image.dimensions();
+    Some(std::sync::Arc::new(eframe::egui::IconData {
+        rgba: image.into_raw(),
+        width,
+        height,
+    }))
 }
 
 fn start(renderer: eframe::Renderer) -> eframe::Result<()> {

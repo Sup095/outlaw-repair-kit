@@ -4045,6 +4045,7 @@ dependencies = [
  "anyhow",
  "dirs",
  "eframe",
+ "image",
  "ork-ai",
  "ork-core",
  "reqwest",

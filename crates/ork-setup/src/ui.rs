@@ -15,19 +15,7 @@ use crate::job::{self, Choices, ModelChoice, Progress};
 use crate::model::{self, Hardware, Runner};
 use crate::release::{self, Release};
 
-/// The project's colours, so the installer looks like the thing it installs.
-mod paint {
-    use eframe::egui::Color32;
-
-    pub const AMBER: Color32 = Color32::from_rgb(255, 176, 0);
-    pub const CYAN: Color32 = Color32::from_rgb(34, 224, 226);
-    pub const RED: Color32 = Color32::from_rgb(255, 89, 94);
-    pub const YELLOW: Color32 = Color32::from_rgb(255, 209, 102);
-    pub const DIM: Color32 = Color32::from_rgb(150, 158, 172);
-    pub const BACKGROUND: Color32 = Color32::from_rgb(12, 15, 21);
-    pub const PANEL: Color32 = Color32::from_rgb(18, 22, 30);
-    pub const LINE: Color32 = Color32::from_rgb(35, 42, 54);
-}
+use crate::paint;
 
 #[derive(PartialEq, Eq)]
 enum Page {
@@ -219,19 +207,58 @@ impl Setup {
 
 fn style(context: &egui::Context) {
     let mut visuals = egui::Visuals::dark();
-    visuals.panel_fill = paint::BACKGROUND;
+
+    // Transparent, so the grids and the blooms behind them are visible
+    // through the panels rather than covered by a flat rectangle. The ground
+    // colour is painted once, at the back, by `paint::backdrop`.
+    visuals.panel_fill = egui::Color32::TRANSPARENT;
     visuals.window_fill = paint::BACKGROUND;
     visuals.extreme_bg_color = paint::PANEL;
+    visuals.override_text_color = Some(paint::TEXT);
+
     visuals.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0_f32, paint::LINE);
-    visuals.widgets.inactive.bg_fill = paint::PANEL;
-    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, paint::AMBER);
-    visuals.selection.bg_fill = paint::AMBER.gamma_multiply(0.35);
+    visuals.widgets.noninteractive.fg_stroke = egui::Stroke::new(1.0_f32, paint::TEXT);
+
+    // Controls are lit boxes rather than grey ones: a raised ground, a violet
+    // edge at rest, and the project's cyan when the pointer is on them.
+    visuals.widgets.inactive.bg_fill = paint::RAISED;
+    visuals.widgets.inactive.weak_bg_fill = paint::RAISED;
+    visuals.widgets.inactive.bg_stroke = egui::Stroke::new(1.0_f32, paint::LINE);
+    visuals.widgets.inactive.fg_stroke = egui::Stroke::new(1.0_f32, paint::TEXT);
+
+    visuals.widgets.hovered.bg_fill = paint::RAISED;
+    visuals.widgets.hovered.weak_bg_fill = paint::RAISED;
+    visuals.widgets.hovered.bg_stroke = egui::Stroke::new(1.0_f32, paint::CYAN);
+    visuals.widgets.hovered.fg_stroke = egui::Stroke::new(1.0_f32, paint::CYAN);
+
+    visuals.widgets.active.bg_fill = paint::CYAN.gamma_multiply(0.22);
+    visuals.widgets.active.weak_bg_fill = paint::CYAN.gamma_multiply(0.22);
+    visuals.widgets.active.bg_stroke = egui::Stroke::new(1.0_f32, paint::CYAN);
+    visuals.widgets.active.fg_stroke = egui::Stroke::new(1.0_f32, paint::TEXT);
+
+    visuals.selection.bg_fill = paint::CYAN.gamma_multiply(0.3);
+    visuals.selection.stroke = egui::Stroke::new(1.0_f32, paint::CYAN);
+    visuals.hyperlink_color = paint::CYAN;
     context.set_visuals(visuals);
 
     let mut style = (*context.style()).clone();
-    style.spacing.item_spacing = egui::vec2(8.0, 8.0);
-    style.spacing.button_padding = egui::vec2(12.0, 6.0);
+    style.spacing.item_spacing = egui::vec2(8.0, 9.0);
+    style.spacing.button_padding = egui::vec2(14.0, 7.0);
+    style.spacing.interact_size.y = 26.0;
     context.set_style(style);
+}
+
+/// Whether the one moving thing on the screen should move.
+///
+/// The pulse under the header is two rows of pixels travelling once every
+/// eight seconds, and it is there so that a long download does not look like
+/// a window that has stopped. Somebody who does not want it can say so, and
+/// nothing else here moves at all.
+fn animation_wanted() -> bool {
+    !matches!(
+        std::env::var("ORK_SETUP_NO_ANIMATION").as_deref(),
+        Ok("1") | Ok("true") | Ok("yes")
+    )
 }
 
 /// What to tell somebody to do next, given what was actually done.
@@ -275,15 +302,23 @@ fn next_step(receipt: &Receipt) -> String {
     }
 }
 
+/// A screen title: a lit bar and the words, the way a readout labels a
+/// section rather than the way a document labels a chapter. The same device
+/// the window uses, for the same reason.
 fn heading(ui: &mut egui::Ui, text: &str) {
+    ui.add_space(6.0);
+    ui.horizontal(|ui| {
+        let (bar, _) = ui.allocate_exact_size(egui::vec2(3.0, 20.0), egui::Sense::hover());
+        ui.painter().rect_filled(bar, 1.0, paint::AMBER);
+        ui.add_space(6.0);
+        ui.label(
+            egui::RichText::new(text.to_uppercase())
+                .size(19.0)
+                .color(paint::AMBER)
+                .strong(),
+        );
+    });
     ui.add_space(4.0);
-    ui.label(
-        egui::RichText::new(text)
-            .size(22.0)
-            .color(paint::AMBER)
-            .strong(),
-    );
-    ui.add_space(2.0);
 }
 
 fn dim(ui: &mut egui::Ui, text: &str) {
@@ -294,40 +329,66 @@ impl eframe::App for Setup {
     fn update(&mut self, context: &egui::Context, _frame: &mut eframe::Frame) {
         self.drain(context);
 
-        egui::TopBottomPanel::top("brand").show(context, |ui| {
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                ui.label(
-                    egui::RichText::new("OUTLAW")
-                        .color(paint::AMBER)
-                        .strong()
-                        .size(18.0),
-                );
-                ui.label(
-                    egui::RichText::new("REPAIR KIT")
-                        .color(paint::DIM)
-                        .size(13.0),
-                );
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(
-                        egui::RichText::new(format!("setup v{}", env!("CARGO_PKG_VERSION")))
-                            .color(paint::DIM)
-                            .size(12.0),
-                    );
-                });
-            });
-            ui.add_space(8.0);
-        });
+        // Behind everything, including the panels, which are transparent for
+        // exactly this reason.
+        paint::backdrop(
+            &context.layer_painter(egui::LayerId::background()),
+            context.screen_rect(),
+        );
 
-        egui::TopBottomPanel::bottom("footer").show(context, |ui| {
-            ui.add_space(6.0);
-            dim(
-                ui,
-                "Made by Outlaw Systems, in collaboration with AI. Nothing is installed \
+        egui::TopBottomPanel::top("brand")
+            .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(14, 0)))
+            .show(context, |ui| {
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    ui.label(
+                        egui::RichText::new("OUTLAW")
+                            .color(paint::AMBER)
+                            .strong()
+                            .size(18.0),
+                    );
+                    ui.label(
+                        egui::RichText::new("REPAIR KIT")
+                            .color(paint::DIM)
+                            .size(13.0),
+                    );
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(
+                            egui::RichText::new(format!("setup v{}", env!("CARGO_PKG_VERSION")))
+                                .color(paint::DIM)
+                                .size(12.0),
+                        );
+                    });
+                });
+                ui.add_space(8.0);
+
+                // The rule under the title, and the one thing on this screen that
+                // moves. A long download changes nothing else on screen for
+                // minutes at a time, and a window that shows no sign of life is
+                // one people close.
+                let (rule, _) = ui.allocate_exact_size(
+                    egui::vec2(ui.available_width(), 3.0),
+                    egui::Sense::hover(),
+                );
+                let animate = animation_wanted();
+                paint::header_rule(ui.painter(), rule, ui.input(|i| i.time), animate);
+                if animate {
+                    ui.ctx()
+                        .request_repaint_after(std::time::Duration::from_millis(33));
+                }
+            });
+
+        egui::TopBottomPanel::bottom("footer")
+            .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(14, 0)))
+            .show(context, |ui| {
+                ui.add_space(6.0);
+                dim(
+                    ui,
+                    "Made by Outlaw Systems, in collaboration with AI. Nothing is installed \
                  that does not match its published checksum.",
-            );
-            ui.add_space(6.0);
-        });
+                );
+                ui.add_space(6.0);
+            });
 
         // Above the footer and below everything else, so that on the page
         // where it matters the plan and the button that carries it out are
@@ -335,17 +396,21 @@ impl eframe::App for Setup {
         // scrolling column, which put the one thing somebody must read before
         // pressing Install below the fold, under the Install button.
         if self.page == Page::Choose {
-            egui::TopBottomPanel::bottom("plan").show(context, |ui| {
-                self.plan_and_buttons(ui, context);
-            });
+            egui::TopBottomPanel::bottom("plan")
+                .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(14, 0)))
+                .show(context, |ui| {
+                    self.plan_and_buttons(ui, context);
+                });
         }
 
-        egui::CentralPanel::default().show(context, |ui| match self.page {
-            Page::Welcome => self.welcome(ui),
-            Page::Choose => self.choose(ui),
-            Page::Working => self.working(ui),
-            Page::Done => self.done(ui),
-        });
+        egui::CentralPanel::default()
+            .frame(egui::Frame::NONE.inner_margin(egui::Margin::symmetric(14, 6)))
+            .show(context, |ui| match self.page {
+                Page::Welcome => self.welcome(ui),
+                Page::Choose => self.choose(ui),
+                Page::Working => self.working(ui),
+                Page::Done => self.done(ui),
+            });
     }
 }
 
@@ -364,6 +429,42 @@ impl Setup {
             "Nothing here needs administrator rights. Everything goes in your own \
              account, and a record of what was done is written beside it.",
         );
+
+        // What is actually being offered, in a bracketed block. This page
+        // used to be an introduction, a dropdown and a button on an otherwise
+        // empty screen, which left somebody deciding whether to run an
+        // installer with nothing in front of them to decide on.
+        ui.add_space(14.0);
+        let slot = paint::reserve_panel(ui);
+        let inner = egui::Frame::NONE
+            .inner_margin(egui::Margin::symmetric(12, 10))
+            .show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.label(
+                    egui::RichText::new("What this installs")
+                        .color(paint::CYAN)
+                        .size(13.0),
+                );
+                for line in [
+                    "`outlaw` -- the whole tool, at a prompt. Scans, explains, and fixes.",
+                    "The window -- the same tool with a screen. Optional, and installed for \
+                     you if you ask for it on the next page.",
+                    "A model on this machine -- optional, and only if you say yes. Every \
+                     check works without one.",
+                ] {
+                    dim(ui, &format!("- {line}"));
+                }
+                ui.add_space(2.0);
+                ui.label(
+                    egui::RichText::new(
+                        "Nothing is installed that does not match the checksum published \
+                         with it. Not a warning -- a refusal.",
+                    )
+                    .color(paint::AMBER)
+                    .size(12.0),
+                );
+            });
+        paint::fill_panel(ui, slot, inner.response.rect);
 
         if let Some(already) = &self.already {
             ui.add_space(10.0);
@@ -462,8 +563,8 @@ impl Setup {
                 );
                 dim(
                     ui,
-                    "The window is downloaded and checked here, then left for you to run — \
-                     it is its own installer and asks its own questions.",
+                    "Downloaded, checked against its published checksum, and installed. \
+                     You will not have to run anything else afterwards.",
                 );
 
                 ui.add_space(8.0);
@@ -555,15 +656,40 @@ impl Setup {
     /// The plan, and the button that carries it out, side by side and always
     /// visible.
     fn plan_and_buttons(&mut self, ui: &mut egui::Ui, context: &egui::Context) {
-        ui.add_space(8.0);
-        ui.label(
-            egui::RichText::new("What will happen")
-                .color(paint::CYAN)
-                .size(13.0),
+        // Where the scrolling half of the screen ends and the fixed half
+        // begins. Without it the last line above is clipped mid-height and
+        // reads as a rendering fault rather than as more to scroll to.
+        let (edge, _) =
+            ui.allocate_exact_size(egui::vec2(ui.available_width(), 1.0), egui::Sense::hover());
+        ui.painter().line_segment(
+            [edge.left_center(), edge.right_center()],
+            egui::Stroke::new(1.0_f32, paint::LINE),
         );
-        for line in self.plan_lines() {
-            dim(ui, &format!("• {line}"));
-        }
+        ui.add_space(8.0);
+
+        // Bracketed, the way the window brackets a block of content: cyan
+        // where reading starts and magenta where it ends. This is the one
+        // thing somebody must read before pressing Install, so it is the one
+        // thing on the screen that is drawn as a distinct block.
+        let plan = self.plan_lines();
+        let slot = paint::reserve_panel(ui);
+        let inner = egui::Frame::NONE
+            .inner_margin(egui::Margin::symmetric(12, 10))
+            .show(ui, |ui| {
+                // Filled to the width it is given rather than shrunk to its
+                // longest line, so it reads as the block at the foot of the
+                // screen rather than as a box that happens to be there.
+                ui.set_width(ui.available_width());
+                ui.label(
+                    egui::RichText::new("What will happen")
+                        .color(paint::CYAN)
+                        .size(13.0),
+                );
+                for line in &plan {
+                    dim(ui, &format!("• {line}"));
+                }
+            });
+        paint::fill_panel(ui, slot, inner.response.rect);
 
         ui.add_space(10.0);
         ui.horizontal(|ui| {
@@ -602,7 +728,7 @@ impl Setup {
             self.directory
         ));
         if self.desktop {
-            lines.push("Download the window's installer and leave it in that folder".into());
+            lines.push("Download the window, check it, and install it".into());
         }
         if self.add_to_path {
             lines.push("Add that folder to this account's PATH".into());
@@ -666,9 +792,10 @@ impl Setup {
         match self.outcome.clone() {
             Some(Ok(receipt)) => {
                 heading(ui, "Installed");
-                dim(
-                    ui,
-                    &format!("{} is in {}", receipt.version, receipt.directory),
+                ui.label(
+                    egui::RichText::new(format!("{} is in {}", receipt.version, receipt.directory))
+                        .color(paint::GREEN)
+                        .size(13.0),
                 );
 
                 ui.add_space(10.0);

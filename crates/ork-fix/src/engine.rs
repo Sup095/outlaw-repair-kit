@@ -25,6 +25,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 
+use ork_core::unseen::Unseen;
+
 use crate::Result;
 use crate::action::FixAction;
 use crate::snapshot::Snapshot;
@@ -168,6 +170,7 @@ impl FixEngine {
 
                 let output = std::process::Command::new(program)
                     .args(&args)
+                    .unseen()
                     .output()
                     .map_err(|error| anyhow::anyhow!("could not run {program}: {error}"))?;
 

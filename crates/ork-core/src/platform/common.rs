@@ -239,9 +239,12 @@ pub struct CommandOutput {
 pub fn run_capture(program: &str, args: &[&str]) -> Result<CommandOutput> {
     use std::process::Command;
 
+    use crate::unseen::Unseen;
+
     tracing::debug!(program, ?args, "running external command");
     let output = Command::new(program)
         .args(args)
+        .unseen()
         .output()
         .with_context(|| format!("could not run `{program}`"))?;
 
@@ -328,6 +331,7 @@ pub fn open_url(url: &str) -> Result<()> {
         // separator, which silently cuts a query string in half and would run
         // whatever followed it.
         let mut command = std::process::Command::new("rundll32.exe");
+        crate::unseen::Unseen::unseen(&mut command);
         command.arg("url.dll,FileProtocolHandler").arg(url);
         command
     };
@@ -335,6 +339,7 @@ pub fn open_url(url: &str) -> Result<()> {
     #[cfg(target_os = "macos")]
     let mut command = {
         let mut command = std::process::Command::new("open");
+        crate::unseen::Unseen::unseen(&mut command);
         command.arg(url);
         command
     };
@@ -342,6 +347,7 @@ pub fn open_url(url: &str) -> Result<()> {
     #[cfg(all(unix, not(target_os = "macos")))]
     let mut command = {
         let mut command = std::process::Command::new("xdg-open");
+        crate::unseen::Unseen::unseen(&mut command);
         command.arg(url);
         command
     };

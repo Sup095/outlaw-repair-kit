@@ -57,3 +57,4 @@ wgpu = { version = "25", default-features = false, features = [
     "vulkan",
     "gles",
 ] }
+image = { version = "0.25.9", default-features = false, features = ["png"] }
