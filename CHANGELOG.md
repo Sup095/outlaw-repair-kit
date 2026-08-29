@@ -84,6 +84,24 @@ server can make the second one.
 
 ### Also
 
+- **No command ends the process where it stands any more.** Three did: `boot`
+  when the self-test said the machine was not ready, `scan` when it found
+  something serious, and the self-test gate in front of `fix --apply`. Each one
+  stopped the world in the middle of the command rather than saying what it had
+  decided. That was invisible while the only thing that ever calls a command is
+  a process that was about to end anyway -- and it stops being invisible the
+  moment anything else does. A script that ran `scan` as one line of several
+  would lose the rest of the script, silently, and the window could not call
+  either command at all. `boot` and `scan` now hand back what they found and
+  the terminal turns that into an exit code in one place; the self-test gate is
+  a refusal, which is what it always was, so it is printed and recorded like
+  every other "no" rather than dying with a bare line on standard error.
+  **The exit codes are unchanged**, and are now written down in the command
+  reference, which never said what they were.
+
+- **`--no-boot` was missing from the manual's list of options that apply
+  everywhere.** It has existed the whole time.
+
 - **The line between the argument parser and the tool is checked now.** Nothing
   behind that line knows how a command was typed -- everything past it matches
   on a plain value -- which is the whole reason replacing the way commands are

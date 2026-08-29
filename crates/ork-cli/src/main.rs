@@ -316,19 +316,96 @@ async fn main() -> Result<()> {
         tracing::error!(target: "outlaw::command", "{error:#}");
         report::hint_if_anything_recorded();
     }
-    outcome
+
+    // The one place a command's answer becomes an exit code. Nothing else in
+    // this program ends the process: a command that stopped the world where it
+    // stood could not be called by anything with work left afterwards, which
+    // is every caller other than this one.
+    match outcome? {
+        Ending::Fine => Ok(()),
+        ending => std::process::exit(ending.code()),
+    }
 }
 
-async fn dispatch(mut cli: Cli) -> Result<()> {
+/// What a finished command implies for the exit code.
+///
+/// Two commands have an answer a script is meant to branch on without reading
+/// the output: `boot` says whether the machine is ready, and `scan` says
+/// whether it found anything serious. Both used to say it by calling
+/// `std::process::exit` where they stood.
+///
+/// That is fine only while the one thing that ever calls a command is a
+/// process that was about to end anyway. It stops being fine the moment
+/// anything else does -- and the plan in
+/// `docs/proposals/critterscript.md` is exactly that: a language in which a
+/// command is one step of a script with more lines after it. `scan | ...`
+/// would take the whole interpreter with it, silently, and the window could
+/// not call either command at all.
+///
+/// So the answer is returned and the terminal turns it into an exit code in
+/// one place. The codes are unchanged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ending {
+    /// Nothing beyond the output itself.
+    Fine,
+    /// `boot`: the self-test says the machine is not ready.
+    NotReady,
+    /// `scan`: something was found that is worth acting on.
+    SomethingSerious,
+}
+
+impl Ending {
+    /// The exit code a script or a scheduled task reads.
+    pub fn code(self) -> i32 {
+        match self {
+            Ending::Fine => 0,
+            Ending::NotReady => 1,
+            Ending::SomethingSerious => 2,
+        }
+    }
+}
+
+/// A command that finished with nothing to add beyond whether it worked.
+fn fine(outcome: Result<()>) -> Result<Ending> {
+    outcome.map(|()| Ending::Fine)
+}
+
+#[cfg(test)]
+mod endings {
+    use super::Ending;
+
+    #[test]
+    fn the_codes_are_the_ones_already_written_down() {
+        // These are documented in the manual and read by scheduled tasks that
+        // this project cannot see. Moving one silently turns "found something
+        // serious" into "not ready", or either into success.
+        assert_eq!(Ending::Fine.code(), 0);
+        assert_eq!(Ending::NotReady.code(), 1);
+        assert_eq!(Ending::SomethingSerious.code(), 2);
+    }
+
+    #[test]
+    fn no_two_endings_look_the_same_from_outside() {
+        // The whole point of returning an ending rather than printing one is
+        // that something can branch on it without reading the output.
+        let all = [Ending::Fine, Ending::NotReady, Ending::SomethingSerious];
+        let mut codes: Vec<i32> = all.iter().map(|ending| ending.code()).collect();
+        codes.sort_unstable();
+        codes.dedup();
+        assert_eq!(codes.len(), all.len(), "two endings share an exit code");
+    }
+}
+
+async fn dispatch(mut cli: Cli) -> Result<Ending> {
     // Typed on its own, by somebody who has been told to run a repair tool
     // and does not yet know what to type. Answered rather than refused.
     let Some(command) = cli.command.take() else {
         start_here::print();
-        return Ok(());
+        return Ok(Ending::Fine);
     };
 
     match command {
-        Command::Link { action } => match action {
+        Command::Link { action } => fine(match action {
             None => link::show(cli.json, false).await,
             Some(LinkAction::Host {
                 port,
@@ -340,31 +417,17 @@ async fn dispatch(mut cli: Cli) -> Result<()> {
             Some(LinkAction::Check) => link::show(cli.json, true).await,
             Some(LinkAction::View { name }) => link::view(name, cli.json).await,
             Some(LinkAction::Remove { name }) => link::remove(&name),
-        },
-        Command::Boot => {
-            // Quietly when the answer is being read by something rather than
-            // somebody: the banner and the progress pane are drawn on stdout,
-            // and JSON with a picture in front of it is not JSON. Asked for
-            // explicitly, so `--no-boot` has no say here.
-            let report = if cli.json {
-                boot::run_quietly().await
-            } else {
-                boot::run().await
-            };
-            if cli.json {
-                println!("{}", serde_json::to_string_pretty(&report)?);
-            }
-            if report.ready() {
-                Ok(())
-            } else {
-                std::process::exit(1)
-            }
-        }
+        }),
+        Command::Boot => Ok(if boot::command(cli.json).await? {
+            Ending::Fine
+        } else {
+            Ending::NotReady
+        }),
         Command::Scan { tier, explain } => {
             // The start-up screen belongs on the commands a person sits and
             // watches. Putting a network update check in front of `config`
             // would make a one-line answer take four seconds.
-            start_up(&cli, false).await;
+            start_up(&cli, false).await?;
             run_scan(tier, cli.json, explain).await
         }
         Command::Watch { tier, every, once } => {
@@ -374,11 +437,11 @@ async fn dispatch(mut cli: Cli) -> Result<()> {
             // task, where there is nobody to read a splash screen and the only
             // thing that should reach a log is what changed.
             if !once {
-                start_up(&cli, false).await;
+                start_up(&cli, false).await?;
             }
-            watch::run(tier, every, cli.json, once).await
+            fine(watch::run(tier, every, cli.json, once).await)
         }
-        Command::Watching => watch::status(cli.json),
+        Command::Watching => fine(watch::status(cli.json)),
         Command::Stress {
             minutes,
             no_cpu,
@@ -389,38 +452,38 @@ async fn dispatch(mut cli: Cli) -> Result<()> {
         } => {
             // Something somebody sits and watches, like a scan, so the
             // start-up screen belongs here too.
-            start_up(&cli, false).await;
-            stress::run(
-                !no_cpu,
-                !no_memory,
-                minutes,
-                memory_share,
-                threads,
-                cli.json,
-                yes,
+            start_up(&cli, false).await?;
+            fine(
+                stress::run(
+                    !no_cpu,
+                    !no_memory,
+                    minutes,
+                    memory_share,
+                    threads,
+                    cli.json,
+                    yes,
+                )
+                .await,
             )
-            .await
         }
-        Command::Docs { page } => render::docs(page, cli.json),
-        Command::Probes => render::probes(cli.json),
-        Command::Processes { all } => processes::show(all, cli.json),
-        Command::Host => render::host(cli.json),
-        Command::Models => ai::show_models(cli.json).await,
-        Command::Queue => fix::show_queue(cli.json),
+        Command::Docs { page } => fine(render::docs(page, cli.json)),
+        Command::Probes => fine(render::probes(cli.json)),
+        Command::Processes { all } => fine(processes::show(all, cli.json)),
+        Command::Host => fine(render::host(cli.json)),
+        Command::Models => fine(ai::show_models(cli.json).await),
+        Command::Queue => fine(fix::show_queue(cli.json)),
         Command::Fix { apply } => {
-            start_up(&cli, apply).await;
-            fix::work_queue(apply, cli.json).await
+            start_up(&cli, apply).await?;
+            fine(fix::work_queue(apply, cli.json).await)
         }
-        Command::Audit { limit } => fix::show_audit(limit, cli.json),
-        Command::Report { open, save, clear } => report::run(open, save, clear, cli.json),
-        Command::Config => ai::show_config(cli.json),
-        Command::SetKey { which, remove } => {
-            if remove {
-                ai::clear_key(&which)
-            } else {
-                ai::set_key(&which)
-            }
-        }
+        Command::Audit { limit } => fine(fix::show_audit(limit, cli.json)),
+        Command::Report { open, save, clear } => fine(report::run(open, save, clear, cli.json)),
+        Command::Config => fine(ai::show_config(cli.json)),
+        Command::SetKey { which, remove } => fine(if remove {
+            ai::clear_key(&which)
+        } else {
+            ai::set_key(&which)
+        }),
     }
 }
 
@@ -458,19 +521,25 @@ fn boot_style(no_boot: bool, json: bool) -> Boot {
     }
 }
 
-async fn start_up(cli: &Cli, required: bool) {
+async fn start_up(cli: &Cli, required: bool) -> Result<()> {
     let report = match boot_style(cli.no_boot, cli.json) {
-        Boot::Skip => return,
+        Boot::Skip => return Ok(()),
         Boot::Quietly => boot::run_quietly().await,
         Boot::OnScreen => boot::run().await,
     };
+    // A refusal rather than an exit. It is the tool working correctly -- it
+    // declined, and said why -- so it takes the same path every other "no"
+    // takes: printed, non-zero, and not filed alongside crashes. Exiting from
+    // here also meant nothing after this call could ever run, which is a
+    // promise the terminal cannot keep once something other than a process
+    // that was about to end is doing the calling.
     if required && !report.ready() {
-        eprintln!("Refusing to change anything while the self-test is failing.");
-        std::process::exit(1);
+        refusal::refuse!("Refusing to change anything while the self-test is failing.");
     }
+    Ok(())
 }
 
-async fn run_scan(tier: ScanTier, json: bool, explain: bool) -> Result<()> {
+async fn run_scan(tier: ScanTier, json: bool, explain: bool) -> Result<Ending> {
     let (events_tx, mut events_rx) = mpsc::unbounded_channel();
     let scanner = Scanner::new()?.with_events(events_tx);
 
@@ -523,14 +592,18 @@ async fn run_scan(tier: ScanTier, json: bool, explain: bool) -> Result<()> {
     }
 
     // A non-zero exit code lets this be used in a script or a scheduled task
-    // without parsing the output.
-    if report
-        .worst_severity()
-        .is_some_and(|worst| worst >= ork_core::Severity::High)
-    {
-        std::process::exit(2);
-    }
-    Ok(())
+    // without parsing the output. Returned rather than exited from here, so
+    // that a caller with work left to do still has a process to do it in.
+    Ok(
+        if report
+            .worst_severity()
+            .is_some_and(|worst| worst >= ork_core::Severity::High)
+        {
+            Ending::SomethingSerious
+        } else {
+            Ending::Fine
+        },
+    )
 }
 
 /// Tests that the documentation still describes the program.
@@ -1241,6 +1314,78 @@ mod the_seam {
             trimmed.len() > main.len() / 6,
             "stripping the tests removed almost everything, which means it \
              removed more than the tests"
+        );
+    }
+
+    #[test]
+    fn only_main_ends_the_process() {
+        // The same property as the check above, one level down. A parser can
+        // be replaced only if the things behind it hand back answers, and
+        // `std::process::exit` in the middle of a command is not an answer --
+        // it is the end of whatever was calling. That is invisible while the
+        // only caller is a process that was about to end anyway, and it is
+        // fatal the moment a script front-end runs a command as one line of
+        // several, or the window calls one at all.
+        //
+        // Three commands used to do it: `boot` when the machine came out not
+        // ready, `scan` when it found something serious, and the self-test
+        // gate in front of `fix --apply`. The first two now return an
+        // `Ending`; the third is a refusal, which is what it always was.
+        let mut outside = Vec::new();
+        for (file, text) in sources() {
+            let program = without_tests(&text);
+            let lines: Vec<&str> = program.lines().collect();
+            // `fn main` runs from its signature to the next `}` at the margin.
+            let main_body = lines
+                .iter()
+                .position(|line| line.starts_with("async fn main("))
+                .map(|start| {
+                    let end = lines[start + 1..]
+                        .iter()
+                        .position(|line| *line == "}")
+                        .map(|at| start + 1 + at)
+                        .expect("fn main is closed at the margin");
+                    start..=end
+                });
+            for (index, line) in lines.iter().enumerate() {
+                if !line.contains("process::exit") {
+                    continue;
+                }
+                if line.trim_start().starts_with("//") {
+                    continue;
+                }
+                if main_body.as_ref().is_some_and(|body| body.contains(&index)) {
+                    continue;
+                }
+                outside.push(format!("{file} line {}: {}", index + 1, line.trim()));
+            }
+        }
+
+        assert!(
+            outside.is_empty(),
+            "these end the process from somewhere other than `fn main`:\n  {}\n\nA \
+             command should hand back what it decided and let `main` turn that \
+             into an exit code, or refuse with `refuse!` if it is declining. \
+             Anything else cannot be called by something with work left to do.",
+            outside.join("\n  ")
+        );
+    }
+
+    #[test]
+    fn main_still_ends_the_process_itself() {
+        // The check above passes trivially if nothing anywhere exits, and
+        // "nothing exits" would mean a scan that found something serious now
+        // returns success to the scheduled task watching for it. So the one
+        // permitted exit has to actually be there.
+        let main = sources()
+            .into_iter()
+            .find(|(file, _)| file == "main.rs")
+            .map(|(_, text)| without_tests(&text))
+            .expect("ork-cli has a main.rs");
+        assert!(
+            main.contains("std::process::exit(ending.code())"),
+            "`main` no longer turns a command's answer into an exit code, so a \
+             scan that found something serious would report success"
         );
     }
 

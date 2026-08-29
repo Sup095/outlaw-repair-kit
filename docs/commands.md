@@ -27,10 +27,26 @@ Every command accepts these:
 | --- | --- |
 | `--json` | Machine-readable output instead of human-readable |
 | `--log <level>` | `error`, `warn`, `info`, `debug`, `trace` (default `warn`) |
+| `--no-boot` | Skip the start-up screen, self-test, and update check |
 
 The `ORK_LOG` environment variable overrides `--log` and takes per-module
 filters, e.g. `ORK_LOG=ork_ai=debug`. Logs go to standard error, so `--json`
 output on standard out stays clean for piping.
+
+### What the exit code means
+
+For a scheduled task or a script that would rather branch than read the output.
+
+| Code | Meaning |
+| --- | --- |
+| `0` | The command did what it was asked |
+| `1` | Something went wrong, or the tool declined and said why. Also `outlaw boot` when the self-test says the machine is not ready |
+| `2` | `outlaw scan` finished, and found something of high severity or worse |
+
+`2` is not a failure. The scan worked; the machine is what it found. It is a
+separate code from `1` precisely so that "the scan could not run" and "the scan
+ran and you should look at this" are not the same event in a log somebody reads
+once a week.
 
 ---
 

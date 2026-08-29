@@ -59,6 +59,14 @@ freely. A `clap::Error` returned from the middle of a command would compile,
 pass clippy, look unremarkable in review, and cost nothing until somebody tried
 to move the parser; this fails the build the day it is written.
 
+The same boundary has a second half, and it is easier to miss. **A command
+hands back what it decided; only `main` ends the process.** `boot` saying the
+machine is not ready and `scan` finding something serious are answers, and they
+used to be delivered by calling `std::process::exit` where they stood. A
+command that stops the world cannot be one line of a script with more lines
+after it, and cannot be called by the window at all — so the exit codes are
+computed by the commands and applied in exactly one place, and a test says so.
+
 The same shape holds across the join to the window: a Tauri command is a thin
 wrapper that calls into the crates and returns what they returned. Two tests
 read the Rust source and compare it against the TypeScript, because a command is

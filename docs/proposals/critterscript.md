@@ -324,9 +324,14 @@ whether preparation is real or speculative.
    code. `dispatch` is checked for still taking a plain `Cli`, and `ArgMatches`
    is banned outright. The first time somebody reaches for `clap::Error` in the
    middle of a command, the build says so.
-2. **Give every command a home that is not `main.rs`.** Several are implemented
-   inline. A command whose behaviour lives in its own function, taking plain
-   values, is a command a second parser can call.
+2. ~~**Give every command a home that is not `main.rs`.**~~ Done, and it turned
+   up something worse than an inline body. `boot` and `scan` did not *return*
+   their answer — they called `std::process::exit` in the middle of themselves,
+   and so did the self-test gate in front of `fix --apply`. A command that ends
+   the process cannot be one step of a script with lines after it, and cannot
+   be called by the window at all. All three now hand back what they decided;
+   the terminal turns that into an exit code in one place, and a test fails the
+   build if anything but `main` ever ends the process again.
 3. **Write down what each command *means*, once.** The descriptions currently
    live in doc comments that `clap` reads. A second front-end needs the same
    text, and two copies would drift. CritterScript's registry has a place for it

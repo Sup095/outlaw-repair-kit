@@ -188,6 +188,31 @@ pub async fn run_quietly() -> BootReport {
     ork_boot::boot(|_| {}).await
 }
 
+/// `outlaw boot` -- the start-up sequence asked for on its own.
+///
+/// Kept here rather than in the dispatcher so that the whole of what the
+/// command does is in one place, callable by anything holding a `bool`. It
+/// hands back whether the machine came out ready rather than acting on it:
+/// ending the process from inside a command is fine only while the only thing
+/// that ever calls a command is a process that was about to end anyway, and
+/// that stops being true the moment a script front-end or the window calls
+/// one.
+pub async fn command(json: bool) -> anyhow::Result<bool> {
+    // Quietly when the answer is being read by something rather than
+    // somebody: the banner and the progress pane are drawn on stdout, and
+    // JSON with a picture in front of it is not JSON. Asked for explicitly,
+    // so `--no-boot` has no say here.
+    let report = if json {
+        run_quietly().await
+    } else {
+        run().await
+    };
+    if json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+    }
+    Ok(report.ready())
+}
+
 async fn show_and_run() -> BootReport {
     let _palette = Palette::apply();
     print_banner();
