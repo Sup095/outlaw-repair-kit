@@ -306,3 +306,32 @@ pub fn process_survey() -> CmdResult<serde_json::Value> {
     // told different things about one machine.
     Ok(survey.as_report())
 }
+
+/// Add a program to the leave-alone list, or take it off it.
+///
+/// The reason this is a command and not a line in the manual: the setting has
+/// existed since the list did, and the only way to use it was to find a TOML
+/// file and edit it by hand. A control whose entire meaning is "leave this one
+/// alone" is exactly the sort a person wants to reach for while they are
+/// looking at the thing they want left alone.
+///
+/// By name rather than by process id, deliberately. A browser is forty
+/// processes and pinning one of them would leave the other thirty-nine
+/// offered, which is not what anybody means by it -- and identifiers are
+/// reused, so a pin against one would eventually apply to something else.
+#[tauri::command]
+pub fn process_pin(name: String, pinned: bool) -> CmdResult<bool> {
+    let path = Config::default_path().map_err(fail)?;
+    let mut config = Config::load_or_default(&path).map_err(fail)?;
+    let changed = if pinned {
+        config.processes.pin(&name)
+    } else {
+        config.processes.unpin(&name)
+    };
+    // Nothing to write is not a failure, and writing anyway would rewrite a
+    // file the person may have laid out themselves for no reason at all.
+    if changed {
+        config.save(&path).map_err(fail)?;
+    }
+    Ok(changed)
+}

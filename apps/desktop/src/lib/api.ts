@@ -79,6 +79,14 @@ export interface ProcessProgram {
   offered: number;
   held_back: number;
   protected: number;
+  /** Whether this program is on the leave-alone list.
+   *
+   * Read from what the classifier decided rather than from the settings file,
+   * so the control shows what the tool will actually do. The two agree by
+   * construction, which is the point: a checkbox drawn from the file while the
+   * list was drawn from the classifier could show a program as left alone and
+   * offer it in the same breath. */
+  pinned: boolean;
   sweep: Sweep;
   /** The same answer as a sentence, written once, in the back end. */
   sweep_says: string;
@@ -201,6 +209,11 @@ export const api = {
   // What is running and what a sweep would do to each. Read-only: there is no
   // command that stops anything, in either front-end, by design.
   processSurvey: () => invoke<ProcessSurvey>("process_survey"),
+  // Pinning is by name, not by process id: a browser is forty processes and
+  // pinning one of them would leave the rest offered, which is not what
+  // anybody means by "leave this alone". Returns whether anything changed.
+  processPin: (name: string, pinned: boolean) =>
+    invoke<boolean>("process_pin", { name, pinned }),
   // The manual is compiled into the program, not fetched. A machine that has
   // gone wrong is often a machine that cannot reach the internet, and the
   // pages most likely to be needed are the ones least likely to be reachable

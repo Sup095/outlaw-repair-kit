@@ -69,6 +69,7 @@ pub fn run() {
             commands::queue_list,
             commands::audit_list,
             commands::process_survey,
+            commands::process_pin,
             watching::watch_status,
             watching::watch_start,
             watching::watch_stop,

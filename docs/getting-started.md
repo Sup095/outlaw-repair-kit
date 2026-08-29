@@ -139,8 +139,10 @@ there is no command here that stops anything -- but it shows what is holding
 the memory, what would be left alone and why, and what is never touched at all.
 It opens grouped **by program**, because a browser is one program however many
 processes it is, and each line says how much of that program a sweep would
-actually offer -- which is often not all of it. In the window it is the
-**Processes** screen.
+actually offer -- which is often not all of it. If there is something you never
+want it to offer, `outlaw processes --pin <name>` says so once and for good. In
+the window it is the **Processes** screen, and the **Leave alone** button on
+each row.
 
 ## Next steps
 

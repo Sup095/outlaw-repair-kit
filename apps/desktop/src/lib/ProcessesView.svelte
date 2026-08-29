@@ -11,7 +11,7 @@
    * terminal prints, so the two cannot come to different conclusions about
    * what "held back" means.
    */
-  import { api, type ProcessSurvey } from "./api";
+  import { api, type ProcessProgram, type ProcessSurvey } from "./api";
   import { formatBytes } from "./bytes";
   import { compactDuration } from "./time";
 
@@ -20,6 +20,8 @@
   let loading = $state(false);
   let showAll = $state(false);
   let showAllPrograms = $state(false);
+  /** The program whose pin is being written, so its control can say so. */
+  let pinning = $state<string | null>(null);
 
   const ENOUGH = 20;
 
@@ -42,6 +44,27 @@
     programsShown.some((program) => program.sweep.how === "part-of-it"),
   );
 
+
+  /**
+   * Put a program on the leave-alone list, or take it off.
+   *
+   * The survey is read again afterwards rather than the row being adjusted in
+   * place. Pinning changes what the classifier decides about every process of
+   * that name, and guessing the new answer here would be a second opinion --
+   * the screen would show what it expected rather than what the tool decided.
+   */
+  async function togglePin(program: ProcessProgram) {
+    pinning = program.name;
+    try {
+      await api.processPin(program.name, !program.pinned);
+      await load();
+      error = null;
+    } catch (problem) {
+      error = String(problem);
+    } finally {
+      pinning = null;
+    }
+  }
 
   async function load() {
     loading = true;
@@ -125,6 +148,25 @@
             >
               {program.sweep_briefly}
             </span>
+            <!-- Only where it would mean something. A program nothing would
+                 ever touch is already left alone, and a control that changed
+                 a setting with no effect would be teaching the wrong thing
+                 about what the setting does. -->
+            {#if program.protected < program.processes}
+              <button
+                class="pin"
+                class:on={program.pinned}
+                disabled={pinning === program.name}
+                onclick={() => togglePin(program)}
+                title={program.pinned
+                  ? `Stop leaving ${program.name} alone`
+                  : `Never offer ${program.name} for stopping`}
+              >
+                {pinning === program.name ? "…" : program.pinned ? "Left alone" : "Leave alone"}
+              </button>
+            {:else}
+              <span class="pin placeholder"></span>
+            {/if}
           </div>
         {/each}
         {#if programs.length > programsShown.length}
@@ -258,6 +300,10 @@
   .mem { flex: none; min-width: 5.5rem; text-align: right; color: var(--cyan); }
   .when { flex: none; min-width: 8rem; }
   .offered { flex: none; min-width: 9rem; }
+  .pin { flex: none; min-width: 6.5rem; font-size: 11px; padding: 0.15rem 0.45rem; }
+  .pin.on { border-color: var(--cyan); color: var(--cyan); }
+  /* Keeps the column aligned where no control is drawn. */
+  .pin.placeholder { border: none; background: none; }
   /* The one case worth a colour: the program is still there afterwards. */
   .offered.partly { color: var(--amber); }
   .more { margin-top: 0.5rem; justify-self: start; font-size: 12px; padding: 0.3rem 0.7rem; }

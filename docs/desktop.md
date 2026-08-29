@@ -128,6 +128,13 @@ that is not an instruction anybody can follow about a program the tool cannot
 name a way back from. It is rare, and it is the rail for the remainder rather
 than a rule that shapes the list.
 
+Each program has a **Leave alone** button. A program left alone is never
+offered for stopping, whatever else the tool decides about it -- and it is the
+one control on this screen that changes anything, though what it changes is a
+setting rather than the machine. It appears only where it would mean something:
+a program nothing would ever touch is already left alone. The same thing on the
+terminal is `outlaw processes --pin <name>`.
+
 The per-process list is the honest one and stays. It is what to check when a
 number in the grouped view looks wrong, and the two are built from one survey
 so they cannot disagree.

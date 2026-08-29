@@ -139,6 +139,8 @@ outlaw processes --json
 | Option | Meaning |
 | --- | --- |
 | `--all` | Every row and every program, rather than the heaviest few |
+| `--pin <name>` | Always leave that program alone. It is never offered again |
+| `--unpin <name>` | Stop leaving it alone |
 
 **It stops nothing and changes nothing.** It is the list that a later
 "stop everything non-essential" button would act on, published on its own first
@@ -223,8 +225,24 @@ form the terminal prints in its own list.
 
 ### Pinning
 
-Programs listed under `[processes] pinned` in the configuration file are always
-held back, matched without regard to capitalisation.
+A pinned program is never offered, whatever else the tool decides about it.
+
+```bash
+outlaw processes --pin Steam.exe
+outlaw processes --unpin steam.exe
+```
+
+By name, not by process id: a browser is forty processes, and pinning one of
+them would leave the other thirty-nine offered -- which is not what anybody
+means by it. Identifiers are also reused, so a pin against one would eventually
+apply to something else entirely.
+
+In the window it is the **Leave alone** button on each row of **By program**.
+
+Capitalisation does not matter anywhere: pinning `Steam.exe` and unpinning
+`steam.exe` are the same program. The name is stored the way you typed it.
+
+It is kept in the configuration file, so it can also be written by hand:
 
 ```toml
 [processes]

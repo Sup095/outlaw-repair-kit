@@ -106,6 +106,72 @@ fn some_of(rows: &[&Row], all: bool) {
     }
 }
 
+/// `outlaw processes`, including the two options that change a setting.
+///
+/// Pinning lives here rather than under `config` because the moment somebody
+/// wants a program left alone is the moment they are looking at it in this
+/// list. It is also the answer to a gap that stood for as long as the setting
+/// did: `[processes] pinned` could only be used by finding a TOML file and
+/// editing it by hand, which is exactly what this tool is supposed to save
+/// people from.
+pub fn run(all: bool, pin: Option<String>, unpin: Option<String>, json: bool) -> Result<()> {
+    match (pin, unpin) {
+        (Some(name), _) => set_pinned(&name, true, json),
+        (_, Some(name)) => set_pinned(&name, false, json),
+        _ => show(all, json),
+    }
+}
+
+/// Add a program to the leave-alone list, or take it off it.
+///
+/// By name rather than by process id, deliberately. A browser is forty
+/// processes and pinning one of them would leave the other thirty-nine
+/// offered, which is not what anybody means by it -- and process identifiers
+/// are reused, so a pin against one would eventually apply to something else
+/// entirely.
+fn set_pinned(name: &str, pinned: bool, json: bool) -> Result<()> {
+    let path = ork_core::Config::default_path()?;
+    let mut config = ork_core::Config::load_or_default(&path)?;
+    let changed = if pinned {
+        config.processes.pin(name)
+    } else {
+        config.processes.unpin(name)
+    };
+    // Nothing to write is not a failure. Writing anyway would rewrite a file
+    // somebody may have laid out by hand, for no reason at all.
+    if changed {
+        config.save(&path)?;
+    }
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "name": name,
+                "pinned": config.processes.is_pinned(name),
+                "changed": changed,
+                "path": path.display().to_string(),
+                "pinned_programs": config.processes.pinned,
+            }))?
+        );
+        return Ok(());
+    }
+
+    println!();
+    if changed && pinned {
+        println!("  {name} will be left alone. It will not be offered for stopping.");
+    } else if changed {
+        println!("  {name} is no longer pinned. It will be judged like anything else.");
+    } else if pinned {
+        println!("  {name} was already pinned. Nothing changed.");
+    } else {
+        println!("  {name} was not pinned. Nothing changed.");
+    }
+    println!("  {}", dim(&format!("settings: {}", path.display())));
+    println!();
+    Ok(())
+}
+
 pub fn show(all: bool, json: bool) -> Result<()> {
     let config = crate::ai::load_config()?;
     let survey = Survey::of_this_machine(&config.processes.pinned)?;

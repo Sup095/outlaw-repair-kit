@@ -213,6 +213,111 @@ pub struct ProcessConfig {
     pub pinned: Vec<String>,
 }
 
+impl ProcessConfig {
+    /// Whether this program is on the leave-alone list.
+    ///
+    /// The comparison is the same one the classifier makes, so a program that
+    /// reads as pinned here is pinned there. Two answers to "is this pinned"
+    /// would be worse than none.
+    pub fn is_pinned(&self, name: &str) -> bool {
+        let wanted = name.trim().to_ascii_lowercase();
+        self.pinned
+            .iter()
+            .any(|held| held.trim().to_ascii_lowercase() == wanted)
+    }
+
+    /// Add a program to the leave-alone list.
+    ///
+    /// Returns whether anything changed, so a caller can avoid writing a file
+    /// that would come out identical. Keeps the name as it was given rather
+    /// than lower-casing it: the list is read by people, and a settings file
+    /// that quietly rewrote `Steam.exe` as `steam.exe` would look like the
+    /// tool had misunderstood.
+    ///
+    /// An empty name is refused rather than stored. An empty string in this
+    /// list would match nothing and read, on the screen, as a rule that was
+    /// there.
+    pub fn pin(&mut self, name: &str) -> bool {
+        let name = name.trim();
+        if name.is_empty() || self.is_pinned(name) {
+            return false;
+        }
+        self.pinned.push(name.to_string());
+        true
+    }
+
+    /// Take a program off the leave-alone list, however it was capitalised
+    /// when it went on.
+    pub fn unpin(&mut self, name: &str) -> bool {
+        let wanted = name.trim().to_ascii_lowercase();
+        let before = self.pinned.len();
+        self.pinned
+            .retain(|held| held.trim().to_ascii_lowercase() != wanted);
+        self.pinned.len() != before
+    }
+}
+
+#[cfg(test)]
+mod pinning {
+    use super::ProcessConfig;
+
+    fn with(names: &[&str]) -> ProcessConfig {
+        ProcessConfig {
+            pinned: names.iter().map(|name| name.to_string()).collect(),
+        }
+    }
+
+    #[test]
+    fn a_program_is_recognised_however_it_was_typed() {
+        // The whole point of the setting is "leave this one alone", and being
+        // silently ignored because of a capital letter is the worst possible
+        // outcome for it. The classifier already matches this way; so does
+        // this, or the window would show a program as unpinned while the
+        // classifier held it back.
+        let held = with(&["Steam.exe"]);
+        for typed in ["Steam.exe", "steam.exe", "STEAM.EXE", "  steam.exe  "] {
+            assert!(held.is_pinned(typed), "{typed} should read as pinned");
+        }
+        assert!(!held.is_pinned("steamwebhelper.exe"));
+    }
+
+    #[test]
+    fn pinning_the_same_program_twice_changes_nothing() {
+        let mut held = with(&["Steam.exe"]);
+        assert!(!held.pin("steam.exe"), "already pinned, differently typed");
+        assert_eq!(held.pinned, vec!["Steam.exe"]);
+        assert!(held.pin("obs64.exe"));
+        assert_eq!(held.pinned.len(), 2);
+    }
+
+    #[test]
+    fn the_name_is_kept_as_it_was_given() {
+        // A settings file that rewrote what somebody typed would read as the
+        // tool having misunderstood them, and this is a file people open.
+        let mut held = ProcessConfig::default();
+        held.pin("Steam.exe");
+        assert_eq!(held.pinned, vec!["Steam.exe"]);
+    }
+
+    #[test]
+    fn unpinning_works_whatever_case_it_went_in_as() {
+        let mut held = with(&["Steam.exe", "obs64.exe"]);
+        assert!(held.unpin("STEAM.EXE"));
+        assert_eq!(held.pinned, vec!["obs64.exe"]);
+        assert!(!held.unpin("steam.exe"), "already gone");
+    }
+
+    #[test]
+    fn nothing_is_pinned_by_an_empty_name() {
+        // A blank in the list matches nothing and reads, on a screen, as a
+        // rule that is there. Refused where it is cheapest to refuse.
+        let mut held = ProcessConfig::default();
+        assert!(!held.pin(""));
+        assert!(!held.pin("   "));
+        assert!(held.pinned.is_empty());
+    }
+}
+
 /// The whole configuration file.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Config {

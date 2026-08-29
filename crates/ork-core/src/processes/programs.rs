@@ -101,6 +101,21 @@ pub struct Program {
 }
 
 impl Program {
+    /// Whether this program is on the leave-alone list.
+    ///
+    /// Read from what the classifier decided rather than from the settings
+    /// file. The two agree by construction, and that is the point: a control
+    /// drawn from the file while the list beside it was drawn from the
+    /// classifier could show a program as left alone and offer it in the same
+    /// breath, and whichever a person believed, one of them would be lying.
+    pub fn pinned(&self) -> bool {
+        self.held_back
+            .iter()
+            .any(|(reason, _)| *reason == Restraint::Pinned)
+    }
+}
+
+impl Program {
     /// How many processes are running under this name.
     pub fn processes(&self) -> usize {
         self.pids.len()

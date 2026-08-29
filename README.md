@@ -373,7 +373,8 @@ cargo test --workspace -- --ignored
     drivers, control panels, security software, and anything with a window in
     front of you. Each program says how much of it a sweep would offer, because
     a program is usually not all one thing and stopping part of it leaves it
-    running. **Nothing stops anything yet**, on purpose:
+    running, and anything you want left alone for good can be pinned from
+    either front-end. **Nothing stops anything yet**, on purpose:
     the list exists on its own first so that it can be read on real machines
     before a button can act on it. The button, the confirmation, and putting it
     all back are the next stage. See

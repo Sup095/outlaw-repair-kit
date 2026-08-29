@@ -200,10 +200,21 @@ enum Command {
     /// Read-only. It stops nothing and changes nothing -- it shows which
     /// programs a sweep would offer to stop, which it would hold back and
     /// why, and which it will never touch on any account.
+    ///
+    /// `--pin` and `--unpin` are the exception, and they change a setting
+    /// rather than the machine: a pinned program is never offered.
     Processes {
         /// Show every row rather than the heaviest few.
         #[arg(long)]
         all: bool,
+
+        /// Always leave this program alone, by name. Never offered again.
+        #[arg(long, value_name = "NAME")]
+        pin: Option<String>,
+
+        /// Stop leaving this program alone.
+        #[arg(long, value_name = "NAME", conflicts_with = "pin")]
+        unpin: Option<String>,
     },
     /// Show what this tool detected about the machine it is running on.
     Host,
@@ -468,7 +479,7 @@ async fn dispatch(mut cli: Cli) -> Result<Ending> {
         }
         Command::Docs { page } => fine(render::docs(page, cli.json)),
         Command::Probes => fine(render::probes(cli.json)),
-        Command::Processes { all } => fine(processes::show(all, cli.json)),
+        Command::Processes { all, pin, unpin } => fine(processes::run(all, pin, unpin, cli.json)),
         Command::Host => fine(render::host(cli.json)),
         Command::Models => fine(ai::show_models(cli.json).await),
         Command::Queue => fine(fix::show_queue(cli.json)),

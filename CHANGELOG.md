@@ -37,6 +37,29 @@ it, and says plainly what has been decided and what has not.
 
 ### Changed
 
+**You can tell the tool to leave a program alone without editing a file.**
+
+The setting has existed for as long as the list has, and the only way to use it
+was to find a TOML file and edit it by hand -- in a tool whose whole point is
+that nobody should have to. There is now a **Leave alone** button on each
+program in the window, and `outlaw processes --pin <name>` and `--unpin <name>`
+in the terminal. A pinned program is never offered for stopping, whatever else
+the tool decides about it.
+
+By name rather than by process id, deliberately: a browser is forty processes,
+and pinning one of them would leave the other thirty-nine offered, which is not
+what anybody means by it. Identifiers are reused as well, so a pin against one
+would eventually apply to something else entirely.
+
+Writing it turned up a disagreement worth having found before somebody else
+did. Two places answer "is this pinned": the classifier, and the settings, which
+is what a screen asks in order to draw the control. The classifier lowered the
+case of what it read and the settings check also trimmed the spaces around it --
+so a hand-typed `" steam.exe "` was pinned according to one and not according to
+the other, and the window would have shown a program as left alone while
+offering it in the same breath. They match now, with a test that fails if they
+ever stop.
+
 **What is running is now shown by program as well as by process.**
 
 Nobody thinks in processes. On a real machine the list opened with thirteen

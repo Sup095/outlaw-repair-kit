@@ -179,6 +179,7 @@ impl Survey {
                     "offered": program.offered,
                     "held_back": program.held_back_count(),
                     "protected": program.protected_count(),
+                    "pinned": program.pinned(),
                     "sweep": program.sweep(),
                     "sweep_says": program.sweep().describe(),
                     "sweep_briefly": program.sweep().briefly(),
@@ -225,9 +226,14 @@ impl Circumstances {
         };
         let in_front_family = family_of(&in_front_lineage, processes);
         Circumstances {
+            // Trimmed as well as lower-cased, and both for the same reason:
+            // this is a hand-edited list, and `ProcessConfig::is_pinned`
+            // answers the same question for the window. Two answers to "is
+            // this pinned" would be worse than none -- the screen would show
+            // a program as left alone while the classifier offered it.
             pinned: pinned
                 .iter()
-                .map(|name| name.to_ascii_lowercase())
+                .map(|name| name.trim().to_ascii_lowercase())
                 .collect(),
             in_front,
             in_front_lineage,
@@ -386,6 +392,40 @@ mod tests {
             "a pinned program was offered anyway: {:?}",
             survey.rows[0].standing
         );
+    }
+
+    #[test]
+    fn the_window_and_the_classifier_agree_about_what_is_pinned() {
+        // Two places answer "is this pinned": this classifier, and
+        // `ProcessConfig::is_pinned`, which is what a screen asks to draw the
+        // control. If they disagreed, the window would show a program as left
+        // alone while the list below it offered the same program -- and
+        // whichever the person believed, one of them would be lying.
+        //
+        // Stray spaces are the case that separated them: this is a
+        // hand-edited file and " steam.exe " is a thing somebody types.
+        let processes = [process("SomeUpdater.exe", 1, 10)];
+        for typed in [
+            "SomeUpdater.exe",
+            "someupdater.exe",
+            "  SomeUpdater.exe  ",
+            "SOMEUPDATER.EXE",
+        ] {
+            let settings = crate::config::ProcessConfig {
+                pinned: vec![typed.to_string()],
+            };
+            let about = Circumstances::here(&processes, &settings.pinned);
+            let survey = Survey::of(&processes, PlatformKind::Windows, &about);
+            assert_eq!(
+                settings.is_pinned("SomeUpdater.exe"),
+                !survey.rows[0].standing.stopped_by_default(),
+                "`{typed}`: the settings and the classifier disagree"
+            );
+            assert!(
+                settings.is_pinned("SomeUpdater.exe"),
+                "`{typed}` should read as pinned"
+            );
+        }
     }
 
     #[test]
