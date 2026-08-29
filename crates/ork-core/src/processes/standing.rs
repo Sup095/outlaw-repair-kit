@@ -375,6 +375,30 @@ pub fn classify(process: &ProcessInfo, platform: PlatformKind, about: &Circumsta
             because: Restraint::RunsAsAnotherAccount,
         };
     }
+    // Nothing is offered that could not be started again afterwards. A sweep
+    // is only reversible in the sense that a person can put back what it took,
+    // and "put it back" is not an instruction anybody can follow about a
+    // program whose own path could not be read.
+    //
+    // Deliberately narrow, and it is worth saying what it does not claim. A
+    // readable path is not a promise that starting the program from that path
+    // restores it: a service wants its service manager, and a helper started
+    // by something else may not survive being started on its own. What this
+    // rules out is the case with no answer at all -- where the tool would be
+    // offering to stop something it could not even name a way back from.
+    //
+    // Rare, and that is the intent -- pointed at this machine it holds nothing
+    // back that the ownership check above had not already taken. A process of
+    // yours almost always reports its own path on both platforms. The case
+    // that remains is the one worth having: a process that ended somewhere
+    // between being listed and being asked about, which comes back with no
+    // path and would otherwise be offered as something to stop. This is the
+    // rail for that remainder, not a rule that shapes the list.
+    if process.executable.is_none() {
+        return Standing::HeldBack {
+            because: Restraint::CannotBeRestarted,
+        };
+    }
     if process.run_time_secs < JUST_STARTED_SECS {
         return Standing::HeldBack {
             because: Restraint::JustStarted,
@@ -1058,6 +1082,46 @@ mod tests {
     }
 
     #[test]
+    fn something_with_no_path_is_not_offered_because_there_is_no_way_back() {
+        // A sweep is reversible only in the sense that a person can start
+        // again what it stopped. With no path there is nothing to tell them,
+        // so it is not offered -- and the reason says exactly that rather
+        // than something vaguer that would leave them guessing.
+        let mut ordinary_program = process("SomeBackgroundThing.exe", 55);
+        ordinary_program.executable = None;
+        assert_eq!(
+            classify(&ordinary_program, PlatformKind::Windows, &ordinary()),
+            Standing::HeldBack {
+                because: Restraint::CannotBeRestarted
+            }
+        );
+        // And the same process with a path is ordinary again, so the rule is
+        // about the missing path and not about the program.
+        let with_path = process("SomeBackgroundThing.exe", 55);
+        assert_eq!(
+            classify(&with_path, PlatformKind::Windows, &ordinary()),
+            Standing::Candidate
+        );
+    }
+
+    #[test]
+    fn whose_it_is_is_the_reason_shown_before_whether_it_could_come_back() {
+        // Both are true of most of the machine's services and only one is
+        // useful to read. "It runs as another account" tells somebody why
+        // this tool will not touch it; "could not be started again" would
+        // send them looking for a missing file that was never the point.
+        let mut theirs = process("SomeService.exe", 56);
+        theirs.runs_as_you = Some(false);
+        theirs.executable = None;
+        assert_eq!(
+            classify(&theirs, PlatformKind::Windows, &ordinary()),
+            Standing::HeldBack {
+                because: Restraint::RunsAsAnotherAccount
+            }
+        );
+    }
+
+    #[test]
     fn not_knowing_who_owns_something_is_the_careful_answer() {
         // `None` is not `false`. Treating an unanswered question as "yes, it
         // is yours" is how a tool ends up stopping something it had no
@@ -1577,12 +1641,8 @@ mod tests {
     /// a reason exist that nothing can ever give.
     fn a_rule_can_produce(restraint: Restraint) -> bool {
         match restraint {
-            // Stage three. The tool has no notion yet of what it could start
-            // again, so nothing can decide this, and the variant is a
-            // placeholder rather than an oversight. Written down here so that
-            // it stays a decision -- see docs/proposals/process-control.md.
-            Restraint::CannotBeRestarted => false,
-            Restraint::RunsAsAnotherAccount
+            Restraint::CannotBeRestarted
+            | Restraint::RunsAsAnotherAccount
             | Restraint::InFrontOfYou
             | Restraint::JustStarted
             | Restraint::MayHoldUnsavedWork
@@ -1630,6 +1690,11 @@ mod tests {
         let mut fresh = process("SomeUpdater.exe", 11);
         fresh.run_time_secs = 1;
         check(&fresh, &ordinary());
+
+        // No path to it, so no way back from stopping it.
+        let mut nameless = process("SomeUpdater.exe", 14);
+        nameless.executable = None;
+        check(&nameless, &ordinary());
 
         // Pinned.
         check(

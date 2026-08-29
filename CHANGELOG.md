@@ -72,6 +72,35 @@ both call, with a test that fails if either starts assembling its own again --
 because a contract with two authors is two contracts, and something reading
 either of them is reading it about the same machine.
 
+**Nothing is offered that the tool could not tell you how to start again.**
+
+There was a reason in the code for this -- *"this tool could not start it
+again"* -- documented, listed on screen, and produced by nothing. It was
+written down as a placeholder for a later stage, with a test recording that
+nothing decided it yet so that it stayed a decision rather than becoming an
+oversight. It is decided now: a process whose own path cannot be read is held
+back, because a sweep is reversible only in the sense that a person can start
+again what it stopped, and "start it again" is not an instruction anybody can
+follow about a program with no path to it.
+
+Deliberately narrow, and worth saying what it does not claim. A readable path
+is not a promise that starting the program from it restores anything: a service
+wants its service manager, and a helper started by something else may not
+survive being started alone. What this rules out is the case with no answer at
+all.
+
+It is rare on both platforms, and that is the intent: pointed at a real machine
+it held nothing back that was not already held back for belonging to another
+account. The case that remains is the one worth having -- a process that ended
+between being listed and being asked about comes back with no path, and would
+otherwise be offered as something to stop.
+
+**Every reason the tool can give is now written down in the command reference,
+in the tool's own words**, with a test that fails if a reason exists that the
+manual does not mention, or if the manual lists one the tool cannot give. The
+words are the tool's rather than a paraphrase because the person most likely to
+look them up has just seen one on their screen.
+
 **The sweep list no longer offers you the thing you are looking at.**
 
 `outlaw processes` is the list a later "stop everything non-essential" button

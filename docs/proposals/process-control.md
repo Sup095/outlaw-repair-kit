@@ -283,6 +283,16 @@ have been considerably more expensive to discover with a button attached.
 
 ## Still open
 
+- ~~**Nothing decides "could not be started again".**~~ **Decided.** A process
+  whose own path cannot be read is held back, with that reason. It is narrow on
+  purpose: a readable path is not a promise that starting the program from it
+  restores anything, so the rule rules out the case with no answer at all
+  rather than claiming to know which programs come back cleanly. Whether the
+  tool should ever start something again *itself* is a separate question and
+  the answer is probably no -- the command line of a running process is where
+  passwords passed as arguments live, and a tool that recorded them in order to
+  be helpful would be putting them somewhere they were not before. Telling
+  somebody what was stopped is enough, and costs nothing.
 - **Elevation.** Many of the heaviest processes run as SYSTEM. Reaching them
   needs the elevation broker, which is separate work. Without it the sweep still
   works on everything running as you, and must say plainly what it could not

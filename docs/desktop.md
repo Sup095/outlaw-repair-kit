@@ -121,6 +121,13 @@ in front of you is offered — nor what started it, nor its other processes,
 because a game and the launcher it is running inside go together and a browser
 is forty processes sharing one name.
 
+Among the reasons for holding something back is **`this tool could not start
+it again`** -- a program whose own path could not be read. A sweep is
+reversible only in the sense that a person can start again what it stopped, and
+that is not an instruction anybody can follow about a program the tool cannot
+name a way back from. It is rare, and it is the rail for the remainder rather
+than a rule that shapes the list.
+
 The per-process list is the honest one and stays. It is what to check when a
 number in the grouped view looks wrong, and the two are built from one survey
 so they cannot disagree.

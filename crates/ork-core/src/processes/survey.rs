@@ -248,7 +248,11 @@ mod tests {
             pid,
             parent_pid: None,
             name: name.to_string(),
-            executable: None,
+            // A path, because a real process of yours has one and something
+            // with no path is now held back for not being restartable. A
+            // fixture without one would make every candidate test here a test
+            // of that rule instead of the rule it was written for.
+            executable: Some(format!(r"C:\Program Files\Somewhere\{name}")),
             memory_bytes: memory_mb * 1024 * 1024,
             cpu_percent: 0.0,
             run_time_secs: 60 * 60,

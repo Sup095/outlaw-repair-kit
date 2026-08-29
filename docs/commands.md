@@ -161,15 +161,31 @@ three, the last two are the interesting ones.
 
 - **Could be stopped** -- ordinary programs belonging to you, heaviest first,
   with what each is holding.
-- **Held back, and why** -- not offered by default, with the reason: you are
-  looking at it, it belongs to another account, it may have unsaved work in it,
-  it may be part-way through syncing files, it belongs to another program, it
-  is what you would reach for to undo this, it started a moment ago, or you
-  pinned it.
-- **Never touched** -- the operating system, security software, drivers and
-  their control panels, the display, input and audio stack, networking, disk
-  encryption, accessibility software, and this tool. There is no flag that
-  changes this.
+- **Held back, and why** -- not offered by default. You could still choose one
+  deliberately, once there is anything to choose it for. Every reason the tool
+  can give, in its own words:
+
+  - `in front of you right now`
+  - `not yours -- it runs as another account`
+  - `may have unsaved work in it`
+  - `may be part-way through syncing files`
+  - `belongs to another program`
+  - `what you would use to undo this`
+  - `this tool could not start it again`
+  - `started just now`
+  - `you asked to leave this one alone`
+
+- **Never touched** -- no flag changes this, and there is no setting for it.
+  Every reason, again in the tool's own words:
+
+  - `part of the operating system`
+  - `security software`
+  - `a driver or its control panel`
+  - `part of the display, input, or audio stack`
+  - `part of networking`
+  - `disk encryption`
+  - `accessibility software`
+  - `this tool`
 
 ### What you are looking at
 

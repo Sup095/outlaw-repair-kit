@@ -549,4 +549,98 @@ mod tests {
             assert!(find(expected).is_some(), "{expected} is missing");
         }
     }
+
+    /// The page that lists why a process is left alone.
+    fn command_reference() -> &'static str {
+        PAGES
+            .iter()
+            .find(|page| page.id == "commands")
+            .map(|page| page.body)
+            .expect("the manual has a command reference")
+    }
+
+    #[test]
+    fn every_reason_the_tool_can_give_is_written_down_in_the_manual() {
+        // The command reference lists these in the tool's own words, on
+        // purpose: a paraphrase drifts and nothing notices, and the reader
+        // most likely to look them up is somebody who has just seen one on
+        // their screen and wants to know what it means.
+        //
+        // Adding a reason is exactly when this stops being true. The reason is
+        // the interesting part; the line in the manual is somewhere else.
+        use crate::processes::{Protection, Restraint};
+
+        let page = command_reference();
+        let mut missing: Vec<&str> = Vec::new();
+        for restraint in Restraint::ALL {
+            if !page.contains(restraint.describe()) {
+                missing.push(restraint.describe());
+            }
+        }
+        for protection in Protection::ALL {
+            if !page.contains(protection.describe()) {
+                missing.push(protection.describe());
+            }
+        }
+
+        assert!(
+            missing.is_empty(),
+            "the command reference does not mention these, so somebody who saw \
+             one on their screen could not look it up:\n  {}",
+            missing.join("\n  ")
+        );
+    }
+
+    #[test]
+    fn the_manual_does_not_list_a_reason_that_no_longer_exists() {
+        // The other direction, and the one that ages worse. A reason removed
+        // from the code leaves its sentence in the manual describing something
+        // the tool cannot do, which is worse than an omission: it reads as
+        // authoritative.
+        use crate::processes::{Protection, Restraint};
+
+        let page = command_reference();
+        let real: Vec<&str> = Restraint::ALL
+            .iter()
+            .map(|restraint| restraint.describe())
+            .chain(Protection::ALL.iter().map(|p| p.describe()))
+            .collect();
+
+        // Only the part of the page that holds the two lists. Scoped rather
+        // than scanning the whole page, because a bullet holding nothing but a
+        // backticked phrase is a shape that could reasonably appear elsewhere
+        // in a command reference, and would then be read as a reason the tool
+        // cannot give.
+        let from = page
+            .find("- **Held back, and why**")
+            .expect("the command reference has a held-back section");
+        let to = page[from..]
+            .find("### What you are looking at")
+            .map(|at| from + at)
+            .expect("the held-back section is followed by the section it always was");
+        let listed: Vec<&str> = page[from..to]
+            .lines()
+            .map(str::trim)
+            .filter_map(|line| line.strip_prefix("- `"))
+            .filter_map(|rest| rest.strip_suffix('`'))
+            .collect();
+
+        // If the parse ever finds nothing, this has stopped checking.
+        assert!(
+            listed.len() >= real.len(),
+            "only {} backticked reasons were found in the manual and the tool has \
+             {}; the parse has drifted off the lists it was written for",
+            listed.len(),
+            real.len()
+        );
+
+        let stale: Vec<&&str> = listed
+            .iter()
+            .filter(|entry| !real.contains(entry))
+            .collect();
+        assert!(
+            stale.is_empty(),
+            "the command reference lists reasons the tool cannot give: {stale:?}"
+        );
+    }
 }
