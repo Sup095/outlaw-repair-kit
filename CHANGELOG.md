@@ -147,6 +147,27 @@ server can make the second one.
 
 ### Also
 
+- **A program is no longer cut off for time the tool could not watch it.** The
+  liveness check asks four things of a supervised process, and when it cannot
+  read the process at all it used to get four zeros back -- which read exactly
+  like a process that had done nothing, and counted towards declaring it stuck.
+  That is the one direction a liveness check must never fail in: everywhere
+  else in this tool an unanswered question makes it more careful, and here it
+  would have terminated somebody's repair on the strength of the tool's own
+  blindness. A reading now says whether it saw anything, time that could not be
+  watched does not count as idle time, and a reading of nothing is not compared
+  against a real one -- because the next real reading after it would look like a
+  process leaping into life.
+
+  Found by a build machine failing the end-to-end test for this: a process
+  spinning flat out was declared stuck having last shown a sign of life three
+  seconds earlier. The counter that rail depends on was checked deliberately
+  and does work on that platform, so what happened was that a shared runner
+  gave the process no processor at all for five seconds. That is somebody
+  else's scheduler and not something a test can assert about, so the test now
+  has room for a slow machine -- and the platform check that settled it is kept
+  as a test of its own, to be run on purpose when a platform is in question.
+
 - **No command ends the process where it stands any more.** Three did: `boot`
   when the self-test said the machine was not ready, `scan` when it found
   something serious, and the self-test gate in front of `fix --apply`. Each one

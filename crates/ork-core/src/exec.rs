@@ -174,6 +174,14 @@ struct ActivitySample {
     /// A counter, not a rate, and that distinction is the whole reason it is
     /// here. See [`ActivitySample::differs_from`].
     cpu_time_ms: u64,
+    /// Whether the process could be looked at at all this time round.
+    ///
+    /// `false` is not "it did nothing". It is "we do not know what it did",
+    /// and the two must not be rounded together: every other unknown in this
+    /// tool makes it more careful, and rounding this one to idle would have it
+    /// terminate somebody's work on no evidence at all. See the loop in
+    /// [`run_supervised`], which does not let unseen time count as idle time.
+    observed: bool,
 }
 
 impl ActivitySample {
@@ -233,10 +241,13 @@ fn sample(system: &mut System, pid: Pid, output_bytes: u64) -> ActivitySample {
                     .saturating_add(disk.total_written_bytes),
                 burning_cpu: process.cpu_usage() > CPU_NOISE_FLOOR,
                 cpu_time_ms: process.accumulated_cpu_time(),
+                observed: true,
             }
         }
-        // The process is gone, or we cannot see it. Either way this poll tells
-        // us nothing, so report no activity and let try_wait decide.
+        // The process is gone, or we cannot see it. This poll tells us
+        // nothing, and now says so rather than reporting that nothing
+        // happened. `try_wait` decides whether it has ended; until it does,
+        // time we could not see does not count towards being stuck.
         None => ActivitySample {
             output_bytes,
             ..Default::default()
@@ -285,6 +296,10 @@ pub fn run_supervised(
     let mut system = System::new();
     let mut previous = ActivitySample::default();
     let mut last_activity = Instant::now();
+    // Time the process could not be looked at, which is not time it spent
+    // doing nothing. Subtracted from the idle clock below.
+    let mut unseen = Duration::ZERO;
+    let mut said_so = false;
 
     loop {
         if cancel.is_cancelled() {
@@ -314,12 +329,31 @@ pub fn run_supervised(
             pid,
             out.bytes.load(Ordering::Relaxed) + err.bytes.load(Ordering::Relaxed),
         );
-        if current.differs_from(&previous) {
-            last_activity = Instant::now();
+        if current.observed {
+            if current.differs_from(&previous) {
+                last_activity = Instant::now();
+            }
+            previous = current;
+        } else {
+            // Nothing was learned this time round, so nothing is concluded
+            // from it. The alternative -- letting a poll that saw nothing
+            // count as a poll that saw nothing happen -- is how a process
+            // gets terminated on the strength of the tool's own blindness,
+            // and it is the one direction this must never fail in.
+            //
+            // The sample is not kept either: comparing the next real reading
+            // against an empty one would show a jump and read as activity.
+            unseen += policy.effective_poll_interval();
+            if !said_so {
+                said_so = true;
+                tracing::debug!(
+                    program,
+                    "could not read this process; not counting the time against it"
+                );
+            }
         }
-        previous = current;
 
-        let idle = last_activity.elapsed();
+        let idle = last_activity.elapsed().saturating_sub(unseen);
         if idle >= policy.stall_window {
             tracing::debug!(
                 program,
@@ -351,6 +385,115 @@ mod tests {
         } else {
             ("sh", vec!["-c", "echo hello"])
         }
+    }
+
+    #[test]
+    #[ignore = "starts a real process and reads the clock; run it deliberately"]
+    fn the_processor_time_counter_moves_on_this_platform() {
+        // The whole liveness rail leans on consumed processor time being a
+        // counter that climbs while a process runs. That is a claim about the
+        // operating system and the library reading it, not about this code,
+        // and it is worth being able to check on a platform rather than
+        // assuming it. On Windows it climbs by about the poll interval for a
+        // process holding a core, which is what it should do.
+        //
+        // Left `#[ignore]` because it starts a real process and reads a clock:
+        // on a machine already busy it proves nothing and would fail for the
+        // machine's reasons rather than the code's. Run it on purpose, on a
+        // quiet machine, when a platform is in question.
+        let (program, args) = busy_command(4);
+        let args: Vec<&str> = args.iter().map(String::as_str).collect();
+        let mut child = std::process::Command::new(program)
+            .args(&args)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .unseen()
+            .spawn()
+            .expect("spawn");
+        let pid = Pid::from_u32(child.id());
+        let mut system = System::new();
+        let mut readings = Vec::new();
+        for _ in 0..15 {
+            std::thread::sleep(Duration::from_millis(200));
+            let taken = sample(&mut system, pid, 0);
+            println!("{taken:?}");
+            readings.push(taken);
+        }
+        let _ = child.kill();
+        let _ = child.wait();
+
+        let seen: Vec<&ActivitySample> = readings.iter().filter(|r| r.observed).collect();
+        assert!(
+            seen.len() > 10,
+            "the process could not be read {} times out of {}",
+            readings.len() - seen.len(),
+            readings.len()
+        );
+        let first = seen.first().expect("a reading").cpu_time_ms;
+        let last = seen.last().expect("a reading").cpu_time_ms;
+        assert!(
+            last > first,
+            "consumed processor time did not move for a process holding a core              ({first}ms to {last}ms). The liveness check leans on this counter,              and without it a busy process is only kept alive by a CPU *rate*,              which is exactly what stops being measurable under load."
+        );
+    }
+
+    #[test]
+    fn a_poll_that_saw_nothing_is_not_a_poll_that_saw_nothing_happen() {
+        // The distinction the loop rests on. A sample taken when the process
+        // could not be read carries no information, and the fields it carries
+        // are zeros -- so comparing it against a real one would look like the
+        // counters going backwards, and comparing the next real one against
+        // *it* would look like a jump. Neither is a fact about the process.
+        let real = ActivitySample {
+            output_bytes: 100,
+            io_bytes: 4096,
+            burning_cpu: true,
+            cpu_time_ms: 900,
+            observed: true,
+        };
+        let blind = ActivitySample {
+            output_bytes: 100,
+            ..Default::default()
+        };
+        assert!(
+            !blind.observed,
+            "a sample of nothing must say it saw nothing"
+        );
+        assert!(real.observed);
+
+        // And the reason the loop must not keep the blind one: against it,
+        // an unchanged process reads as having leapt into life.
+        assert!(
+            real.differs_from(&blind),
+            "this is what would be mistaken for activity if a blind sample              were kept"
+        );
+    }
+
+    #[test]
+    fn time_the_process_could_not_be_seen_is_not_idle_time() {
+        // The arithmetic the loop does, stated on its own. Ten seconds since
+        // the last sign of life, eight of which nobody could look, is two
+        // seconds of idleness -- not ten. Rounding the other way terminates
+        // somebody's work because the tool could not see, which is the one
+        // direction a liveness check must never fail in.
+        let since_activity = Duration::from_secs(10);
+        let unseen = Duration::from_secs(8);
+        assert_eq!(
+            since_activity.saturating_sub(unseen),
+            Duration::from_secs(2)
+        );
+
+        // Blind for longer than the whole window still is not stuck.
+        let window = Duration::from_secs(5);
+        assert!(
+            since_activity.saturating_sub(Duration::from_secs(10)) < window,
+            "a process nobody could look at must not be declared stuck"
+        );
+        // And a process that really was watched and really did nothing is.
+        assert!(
+            since_activity.saturating_sub(Duration::ZERO) >= window,
+            "a watched, idle process is still stuck"
+        );
     }
 
     /// A command that sleeps without doing anything -- the shape of a hang.
@@ -472,8 +615,19 @@ mod tests {
         // *rate* is covered next door without any real process at all, which
         // is where that belongs. Here the point is that the whole thing works
         // end to end, and headroom is worth more than seconds saved.
-        const STALL_SECS: u64 = 5;
-        const WORK_SECS: u32 = 8;
+        // Raised from five and eight after a build machine failed here: the
+        // process was declared stuck with 5.07 seconds of idle, having last
+        // shown a sign of life three seconds into its loop. Consumed processor
+        // time is a counter and does move on that platform -- checked
+        // deliberately, above -- so the process had genuinely been given no
+        // processor at all for five seconds, on a shared runner with the rest
+        // of this suite spinning cores beside it.
+        //
+        // That is a fact about somebody else's scheduler, and this test cannot
+        // assert about it. What it can assert is that a busy process is
+        // allowed to finish, so it is given room for the machine to be slow.
+        const STALL_SECS: u64 = 15;
+        const WORK_SECS: u32 = 20;
 
         let (program, args) = busy_command(WORK_SECS);
         let args: Vec<&str> = args.iter().map(String::as_str).collect();
@@ -552,6 +706,7 @@ mod tests {
             io_bytes: 0,
             burning_cpu: true,
             cpu_time_ms: 0,
+            observed: true,
         };
         assert!(busy.differs_from(&busy));
 
@@ -560,6 +715,7 @@ mod tests {
             io_bytes: 0,
             burning_cpu: false,
             cpu_time_ms: 0,
+            observed: true,
         };
         assert!(!idle.differs_from(&idle));
     }
@@ -580,6 +736,7 @@ mod tests {
             io_bytes: 0,
             burning_cpu: false,
             cpu_time_ms: 1_000,
+            observed: true,
         };
         let after = ActivitySample {
             cpu_time_ms: 1_001,
@@ -606,6 +763,7 @@ mod tests {
             io_bytes: 0,
             burning_cpu: false,
             cpu_time_ms: 5_000,
+            observed: true,
         };
         let after = ActivitySample {
             cpu_time_ms: 10,
@@ -621,6 +779,7 @@ mod tests {
             io_bytes: 0,
             burning_cpu: false,
             cpu_time_ms: 0,
+            observed: true,
         };
         let after = ActivitySample {
             output_bytes: 20,

@@ -286,9 +286,10 @@ see across:
 cd apps/desktop && npm test
 ```
 
-Some tests need the network or a running model server and are skipped by
-default. They are the ones that check this tool against the world rather than
-against a fixture, so they are worth running before a release:
+Some tests need the network, a running model server, or a quiet machine, and
+are skipped by default. They are the ones that check this tool against the
+world rather than against a fixture, so they are worth running before a
+release -- and on any platform this is new on:
 
 ```bash
 cargo test --workspace -- --ignored

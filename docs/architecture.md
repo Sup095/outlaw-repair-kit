@@ -292,7 +292,11 @@ Some tests need the network, or a running model server, and are skipped by
 default. They are the ones that check this tool against the world rather than
 against a fixture, which is why they have found faults the fixtures could not
 -- a model server offering only an embedding model, a release publishing a
-bundle under a name nothing looked for. Worth running before a release:
+bundle under a name nothing looked for. One of them checks the platform rather
+than the world: whether consumed processor time really is a counter that climbs
+while a process runs, which is what stops the liveness check killing a busy
+program on a loaded machine. Worth running before a release, and worth running
+on any platform this is new on:
 
 ```
 cargo test --workspace -- --ignored
