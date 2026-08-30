@@ -1,0 +1,13 @@
+[package]
+name = "ork-critter"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "CritterScript: the language the tool is spoken to in."
+
+# Deliberately nothing of ours. See the note at the top of src/lib.rs: a parser
+# that can reach the tool is a parser whose tests can reach the tool.
+[dependencies]

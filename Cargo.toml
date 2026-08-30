@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/ork-core", "crates/ork-ai", "crates/ork-fix", "crates/ork-boot", "crates/ork-link", "crates/ork-cli", "crates/ork-setup", "apps/desktop/src-tauri"]
+members = ["crates/ork-critter", "crates/ork-core", "crates/ork-ai", "crates/ork-fix", "crates/ork-boot", "crates/ork-link", "crates/ork-cli", "crates/ork-setup", "apps/desktop/src-tauri"]
 
 [workspace.package]
 version = "0.12.0"
@@ -11,6 +11,7 @@ repository = "https://github.com/Sup095/outlaw-repair-kit"
 authors = ["Outlaw Systems"]
 
 [workspace.dependencies]
+ork-critter = { path = "crates/ork-critter" }
 ork-core = { path = "crates/ork-core" }
 ork-ai = { path = "crates/ork-ai" }
 ork-fix = { path = "crates/ork-fix" }

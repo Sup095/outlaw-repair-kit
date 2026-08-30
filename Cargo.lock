@@ -3977,6 +3977,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ork-critter"
+version = "0.12.0"
+
+[[package]]
 name = "ork-desktop"
 version = "0.12.0"
 dependencies = [
