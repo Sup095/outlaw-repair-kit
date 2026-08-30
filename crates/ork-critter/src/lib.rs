@@ -25,6 +25,10 @@
 //!
 //! `ork-core` may depend on this later. This never depends on `ork-core`.
 
+pub mod ast;
+pub mod parse;
 pub mod token;
 
+pub use ast::{Expr, Literal, Stage, Stmt};
+pub use parse::{Problem, parse};
 pub use token::{Token, TokenKind, tokenize};
