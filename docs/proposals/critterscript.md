@@ -403,12 +403,26 @@ whether preparation is real or speculative.
 1. ~~The rest of the preparation above.~~ Done -- all five.
 2. ~~Decide the changing-commands question.~~ Decided -- the rule is removed,
    and two rails replace it. See above.
-3. `ork-critter`: the grammar, a parser, an interpreter, and its refusals. No
-   tool behaviour at all — it turns text into a value or into a complaint, and
-   it is tested on its own. **Port the FieldKit test suite alongside it**: about
-   270 checks exist against the reference implementation, and they are a
-   conformance suite for free. A Rust implementation that passes the JavaScript
-   one's tests is the same language rather than a similar one.
+3. `ork-critter`: the grammar, a parser, an interpreter, and its refusals.
+   **Built.** The tokenizer, the parser, the six kinds of value, the budgets,
+   the registry, and `check()`. No tool behaviour at all -- it turns text into
+   a value or into a complaint, and it is tested on its own with a command set
+   that belongs to the tests.
+
+   One thing was decided while building it and is worth saying here:
+   **the interpreter is not asynchronous.** The reference is, because it runs
+   on a page's one thread and everything it can reach is a promise. This crate
+   deliberately depends on nothing, and a future-returning evaluator would put
+   a runtime in the middle of the language. A host with asynchronous work --
+   which this tool has, since a scan takes minutes -- bridges at its own edge
+   instead.
+
+   Still to do here: **port more of the FieldKit suite.** About 270 checks
+   exist against the reference, they are a conformance suite for free, and the
+   fifty-odd carried across so far are the ones that describe the rules rather
+   than the built-in command set. A Rust implementation that passes the
+   JavaScript one's tests is the same language rather than a similar one, and
+   that claim is only as good as the number ported.
 4. The command registry, and a translation from a parsed call to the existing
    `Command` enum. At this point both front-ends work and neither has been
    removed.

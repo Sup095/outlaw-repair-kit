@@ -27,8 +27,14 @@
 
 pub mod ast;
 pub mod parse;
+pub mod run;
 pub mod token;
+pub mod value;
 
 pub use ast::{Expr, Literal, Stage, Stmt};
 pub use parse::{Problem, parse};
+pub use run::{
+    Call, Collected, Command, Fault, Output, Registration, Registry, check, run, run_as_guest,
+};
 pub use token::{Token, TokenKind, tokenize};
+pub use value::{Record, Value};
