@@ -106,7 +106,7 @@ already requires a runbook answer before a probe may ship. That is a large
 second project and it should not be smuggled into the first, but the first
 should not be designed in a way that forecloses it.
 
-## The decision this whole thing turns on
+## The decision this whole thing turned on
 
 FieldKit's CritterScript has a rule, written into `critterscript-net.js` and
 enforced by a test that fails if it is ever broken:
@@ -127,33 +127,60 @@ And the sentence that justifies the FieldKit rule is *more* true here, not less:
 a script is a thing somebody pastes from a chat window to see what it does, and
 the thing it does on this machine might be to edit a bootloader.
 
-Three ways to answer it, and this needs deciding before any grammar work:
+**Decided: the rule is removed.** It was never a rule about scripting. FieldKit
+is an HTML application that proxies through a server, so a command able to
+change something would have been a command reachable by anyone who could reach
+the page -- the restriction is a property of that deployment, not of the
+language. This tool is a program somebody installs and runs as themselves, and
+its whole purpose is to change things. Carrying the rule across would have been
+copying a fence without the field.
 
-1. **Two registries, and the boundary is a type.** Reading commands and changing
-   commands are separate sets, exactly as FieldKit separates them by file, with
-   a test on the boundary. A script may be all-reading, and an all-reading
-   script is safe to paste — which keeps the property that makes sharing a
-   script worth doing.
-2. **A changing command may not be piped into or out of.** The safety rails say
-   one change at a time, snapshot first, confirm. A pipeline is a sentence that
-   composes steps, and a change halfway along a sentence is a change that
-   happened while somebody was reading forward. Making `fix` a statement and
-   never a pipe stage costs nothing and keeps the rail visible.
-3. **Confirmation is part of the language, not part of the command.** `fix`
-   asking for a yes is a property of *this* command today; a marker on the
-   registration — the way `guestSafe` already is — makes it a property of the
-   category, and then a new changing command cannot be added without one.
+So changing commands are first-class in CritterScript here. `fix`, `set-key`,
+`boot`, and `processes --stop` are commands like any other, and a script may
+contain them.
 
-**Recommended: all three.** They are cheap, they compose, and each of them
-protects a rail that already exists in this tool and is currently protected by
-nothing but the shape of `clap`.
+What replaces the rule is not a smaller version of it. The sentence that
+justified it -- *a script is something somebody pastes from a chat window to
+see what it does* -- is more true here, not less, and the honest answer is that
+**no property of the language can make that safe**; only the rails already in
+this tool can, and their job is now to survive being reached from a script
+rather than only from a person typing.
+
+Two of the three ideas below are kept, because both were about those rails
+rather than about the prohibition:
+
+1. ~~**Two registries, and the boundary is a type.**~~ **Dropped with the
+   rule.** Splitting the commands in half only buys something if one half is
+   guaranteed harmless, and that guarantee is what was just given up. What
+   survives from it is the *marker*, in point 3 -- the same information without
+   the fiction that half the tool is safe to run unseen.
+2. **A changing command is a statement, not a pipe stage.** *Kept.* The rails
+   say one change at a time, snapshot first, confirm. A pipeline is a sentence
+   that composes steps, and a change halfway along a sentence is a change that
+   happened while somebody was still reading forward. `fix` neither takes a
+   pipe nor feeds one. This costs nothing -- nobody wants to pipe into `fix` --
+   and it keeps "one change at a time" visible in the grammar instead of only
+   in the implementation.
+3. **What a command changes is a property of its registration, checked in one
+   place.** *Kept, and it is the important one.* Today, `fix` asking for a yes
+   is a fact about `fix`; a new changing command can be added without one and
+   nothing notices. On the registration it becomes a fact about the category,
+   the check lives where `guestSafe` lives, and a command that changes the
+   machine without declaring so fails to register.
 
 `guestSafe` is the precedent and it ports directly. FieldKit already carries a
-per-command flag, checked in one place (`invoke`) that both the statement form
-and the bracket form go through — the comment there says two copies of that
-check is how the expression form ends up without it, which is exactly the bug
-that turns a read-only mode into a suggestion. This tool has read-only remote
-viewing and an elevation broker, and both want the same flag.
+per-command flag checked in one place -- `invoke`, which both the statement form
+and the bracket form go through -- and the comment there says plainly that two
+copies of that check is how the expression form ends up without it. That is
+exactly the bug that turns a read-only mode into a suggestion. This tool has
+read-only remote viewing and an elevation broker, and both want the same flag
+for the same reason.
+
+**Still to decide, and it is now the sharpest question here:** whether a
+confirmation asked from inside a script is a confirmation at all. A person
+running a five-line script is not reading the fourth line at the moment it
+asks. The sweep already answers this for itself -- it refuses to run without
+somebody at the keyboard -- and that answer may be the general one.
 
 ## What the terminal is today
 
@@ -356,7 +383,8 @@ whether preparation is real or speculative.
 ## Order of work
 
 1. The rest of the preparation above -- which is now item 3 alone.
-2. Decide the changing-commands question. Nothing else is safe to build first.
+2. ~~Decide the changing-commands question.~~ Decided -- the rule is removed,
+   and two rails replace it. See above.
 3. `ork-critter`: the grammar, a parser, an interpreter, and its refusals. No
    tool behaviour at all — it turns text into a value or into a complaint, and
    it is tested on its own. **Port the FieldKit test suite alongside it**: about
@@ -376,7 +404,12 @@ right up until step 7.
 
 ## Still open
 
-- **The changing-commands boundary.** Named above. Decide first.
+- **A confirmation asked from inside a script.** The changing-commands
+  question is answered; this is what is left of it. Somebody running a
+  five-line script is not reading line four at the moment it asks, so a `y/N`
+  in the middle of one may be a formality rather than a decision. The sweep
+  already refuses to run without a person at the keyboard, and that may be the
+  general answer rather than a special case.
 - **What happens to `--json`.** A flag on a language with no flags is a wart; a
   second way of saying it is a second thing to learn. Possibly the output form
   is part of the sentence — `scan | as json`, which is a pipe stage and needs no
