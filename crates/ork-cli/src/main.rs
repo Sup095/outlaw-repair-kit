@@ -48,8 +48,18 @@ pub struct Cli {
 }
 
 #[derive(Subcommand)]
+/// Every command, as the terminal declares them.
+///
+/// What each one *is* -- its name, its one-line summary, an example, and
+/// whether it can change the machine -- is in `ork_core::commands`, and the
+/// summaries here are read from there rather than written twice. This enum
+/// says what arguments each takes and nothing about what it means.
+///
+/// That split is the preparation for a second front-end: a value of this type
+/// is all anything downstream sees, so anything able to produce one can drive
+/// this tool. See `docs/proposals/critterscript.md`.
 enum Command {
-    /// Run a scan and report what is wrong.
+    #[command(about = ork_core::commands::help("scan"))]
     Scan {
         /// How thorough to be: quick, full, or deep.
         ///
@@ -73,6 +83,7 @@ enum Command {
     /// machine is now, and after that nothing is printed unless a problem
     /// appears, gets worse, or goes away. There is no time limit; press Ctrl-C
     /// to stop.
+    #[command(about = ork_core::commands::help("watch"))]
     Watch {
         /// How thorough each look should be. Quick by default, deliberately:
         /// a check heavy enough to be felt should be asked for, not arrive
@@ -88,7 +99,7 @@ enum Command {
         #[arg(long)]
         once: bool,
     },
-    /// Show what the watcher remembers, without watching.
+    #[command(about = ork_core::commands::help("watching"))]
     Watching,
     /// Work the machine hard on purpose, and see whether it gets anything wrong.
     ///
@@ -103,6 +114,7 @@ enum Command {
     /// changed and nothing is written. It stops itself if any part of the
     /// machine reaches the temperature that machine says is critical, and
     /// Ctrl-C stops it at any moment.
+    #[command(about = ork_core::commands::help("stress"))]
     Stress {
         /// How many minutes to run for. Not a limit on work that would
         /// otherwise continue -- it is the work.
@@ -130,20 +142,21 @@ enum Command {
         #[arg(long, short = 'y')]
         yes: bool,
     },
-    /// Show which model would be used, and why.
+    #[command(about = ork_core::commands::help("models"))]
     Models,
-    /// Show problems waiting to be worked through.
+    #[command(about = ork_core::commands::help("queue"))]
     Queue,
     /// Work through the triage queue.
     ///
     /// A dry run unless --apply is given. Even then, every change is
     /// confirmed individually before it happens.
+    #[command(about = ork_core::commands::help("fix"))]
     Fix {
         /// Allow changes to be made, after confirming each one.
         #[arg(long)]
         apply: bool,
     },
-    /// Show everything the tool has checked, found, attempted, and changed.
+    #[command(about = ork_core::commands::help("audit"))]
     Audit {
         /// How many entries to show.
         #[arg(long, default_value = "40")]
@@ -154,6 +167,7 @@ enum Command {
     /// Shows exactly what would be posted, with personal details removed, and
     /// gives you a link that opens the form already filled in. Nothing is ever
     /// sent for you.
+    #[command(about = ork_core::commands::help("report"))]
     Report {
         /// Open the prefilled issue form in a browser.
         #[arg(long)]
@@ -167,12 +181,13 @@ enum Command {
         #[arg(long)]
         clear: bool,
     },
-    /// Show where settings live and what they currently say.
+    #[command(about = ork_core::commands::help("config"))]
     Config,
     /// Store a credential in the system credential store.
     ///
     /// The value is read from standard input, never from an argument, so it
     /// does not end up in shell history.
+    #[command(about = ork_core::commands::help("set-key"))]
     SetKey {
         /// Which credential: `cloud` or `remote`.
         which: String,
@@ -186,16 +201,17 @@ enum Command {
     /// A linked machine can be asked to think about a problem and to say what
     /// its last scan found. It cannot be made to do anything: no command in
     /// the link changes the machine at the other end.
+    #[command(about = ork_core::commands::help("link"))]
     Link {
         #[command(subcommand)]
         action: Option<LinkAction>,
     },
-    /// Run the start-up screen on its own: self-test and update check.
+    #[command(about = ork_core::commands::help("boot"))]
     Boot,
-    /// List the checks this build knows how to run.
+    #[command(about = ork_core::commands::help("probes"))]
     Probes,
 
-    /// Show what is running, and what would happen to each.
+    /// Show what is running, and what a sweep would do to each.
     ///
     /// On its own it changes nothing -- it shows which programs a sweep would
     /// offer to stop, which it would hold back and why, and which it will
@@ -204,6 +220,7 @@ enum Command {
     /// `--stop` acts, after showing the list and asking. `--pin` and `--unpin`
     /// change a setting rather than the machine: a pinned program is never
     /// offered.
+    #[command(about = ork_core::commands::help("processes"))]
     Processes {
         /// Show every row rather than the heaviest few.
         #[arg(long)]
@@ -225,7 +242,7 @@ enum Command {
         #[arg(long, conflicts_with_all = ["pin", "unpin"])]
         stop: bool,
     },
-    /// Show what this tool detected about the machine it is running on.
+    #[command(about = ork_core::commands::help("host"))]
     Host,
     /// Read the manual, which is carried inside this program.
     ///
@@ -233,6 +250,7 @@ enum Command {
     /// window shows and the same ones in `docs/` -- compiled in, so they are
     /// readable on a machine that cannot reach the internet, which is a
     /// machine this tool expects to be run on.
+    #[command(about = ork_core::commands::help("docs"))]
     Docs {
         /// Which page, e.g. `commands`. Omit to list them.
         page: Option<String>,
@@ -1447,5 +1465,142 @@ mod the_seam {
             "the check must catch clap behind the parser, and must catch neither \
              the declaration nor the tests"
         );
+    }
+}
+
+#[cfg(test)]
+mod the_command_list {
+    //! The terminal's commands and the table in `ork_core::commands` are the
+    //! same set, and say the same things.
+    //!
+    //! This is the bridge, and it is deliberately the only test in this crate
+    //! that reaches for `clap` in order to learn something about the tool. The
+    //! table is what a second front-end reads and what the reference is
+    //! rendered from; `clap` is what parses today and will not always. While
+    //! both exist they must agree, and on the day `clap` goes, this file is
+    //! what gets deleted -- not the table.
+
+    use clap::CommandFactory;
+    use ork_core::commands;
+
+    fn declared() -> Vec<String> {
+        super::Cli::command()
+            .get_subcommands()
+            .map(|sub| sub.get_name().to_string())
+            .filter(|name| name != "help")
+            .collect()
+    }
+
+    #[test]
+    fn both_lists_were_actually_found() {
+        // Everything below compares two lists. Two empty ones agree perfectly.
+        assert!(declared().len() >= 17);
+        assert!(commands::ALL.len() >= 17);
+    }
+
+    #[test]
+    fn every_command_the_terminal_has_is_in_the_table() {
+        // A command missing from the table is a command a second front-end
+        // will not have, and nothing else would notice until somebody went
+        // looking for it there.
+        let missing: Vec<String> = declared()
+            .into_iter()
+            .filter(|name| commands::find(name).is_none())
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "these commands exist in the terminal and not in              ork_core::commands::ALL: {missing:?}"
+        );
+    }
+
+    #[test]
+    fn the_table_does_not_describe_a_command_that_is_not_there() {
+        let phantom: Vec<&str> = commands::ALL
+            .iter()
+            .map(|command| command.name)
+            .filter(|name| !declared().iter().any(|declared| declared == name))
+            .collect();
+        assert!(
+            phantom.is_empty(),
+            "the table describes commands this tool does not have: {phantom:?}"
+        );
+    }
+
+    #[test]
+    fn the_summary_in_a_list_is_the_summary_in_the_table() {
+        // `about` is read from the table, so this cannot drift while that
+        // holds -- and that is exactly why it is worth asserting: it is what
+        // says the wiring is still in place, rather than somebody having
+        // quietly written a literal back in.
+        for sub in super::Cli::command().get_subcommands() {
+            let name = sub.get_name();
+            if name == "help" {
+                continue;
+            }
+            let Some(entry) = commands::find(name) else {
+                continue; // reported by the test above
+            };
+            let about = sub.get_about().map(|about| about.to_string());
+            assert_eq!(
+                about.as_deref(),
+                Some(entry.help),
+                "`{name}` shows one summary in a list of commands and another                  in the table"
+            );
+        }
+    }
+
+    #[test]
+    fn the_long_help_opens_with_the_same_sentence() {
+        // The long help is a doc comment, because that is where the paragraphs
+        // are readable while writing them. Its first line repeats the summary,
+        // and a repeated sentence that nothing checks is a sentence that ends
+        // up saying something else.
+        for sub in super::Cli::command().get_subcommands() {
+            let name = sub.get_name();
+            if name == "help" {
+                continue;
+            }
+            let Some(entry) = commands::find(name) else {
+                continue;
+            };
+            let Some(long) = sub.get_long_about() else {
+                continue; // no detail: the summary is the whole of it
+            };
+            let long = long.to_string();
+            assert!(
+                long.starts_with(entry.help),
+                "`{name}` opens its long help with something other than its                  own summary:
+  table: {}
+  long:  {}",
+                entry.help,
+                long.lines().next().unwrap_or_default()
+            );
+        }
+    }
+
+    #[test]
+    fn every_example_in_the_table_is_one_this_program_accepts() {
+        // The table's examples are what a reference prints and what somebody
+        // copies. Parsed by the real parser, so an example that would be
+        // rejected fails the build rather than somebody's evening.
+        for entry in commands::ALL {
+            let words: Vec<&str> = entry.usage.split_whitespace().collect();
+            assert_eq!(words.first(), Some(&"outlaw"), "{}", entry.usage);
+            let parsed = <super::Cli as clap::Parser>::try_parse_from(&words);
+            assert!(
+                parsed.is_ok(),
+                "the example for `{}` is not something this program accepts:                  `{}`
+{}",
+                entry.name,
+                entry.usage,
+                parsed.err().map(|e| e.to_string()).unwrap_or_default()
+            );
+        }
+    }
+
+    #[test]
+    fn the_example_checker_would_notice_a_bad_one() {
+        let bad = <super::Cli as clap::Parser>::try_parse_from(["outlaw", "scan", "--nonesuch"]);
+        assert!(bad.is_err());
     }
 }

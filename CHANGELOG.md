@@ -35,6 +35,24 @@ The plan is in [the proposal](docs/proposals/critterscript.md), which has now
 been written against the language itself rather than against a description of
 it, and says plainly what has been decided and what has not.
 
+### Changed
+
+**Every command's name and summary now live in one place.**
+
+`ork_core::commands` holds each command's name, one-line summary, example,
+group, and what it can change. `clap` is given its summaries from that table
+rather than read for them, so a list of commands rendered anywhere is the same
+list. This is preparation for CritterScript, where a second front-end has to
+render the same reference; it also found a summary that had already drifted --
+`processes` was described one way in the terminal and another in the window.
+
+The long explanation of each command deliberately stayed in `docs/commands.md`,
+which is compiled into the binary and already the one place both front-ends
+read. What is checked is that every registered command has a section there, and
+that its long help opens with the table's sentence rather than a paraphrase.
+The examples are checked by being handed to the real parser, so one the program
+would reject fails the build.
+
 ### Added
 
 **Something can now be stopped.**

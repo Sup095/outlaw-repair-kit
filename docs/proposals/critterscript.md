@@ -359,11 +359,29 @@ whether preparation is real or speculative.
    be called by the window at all. All three now hand back what they decided;
    the terminal turns that into an exit code in one place, and a test fails the
    build if anything but `main` ever ends the process again.
-3. **Write down what each command *means*, once.** The descriptions currently
-   live in doc comments that `clap` reads. A second front-end needs the same
-   text, and two copies would drift. CritterScript's registry has a place for it
-   (`help`, `usage`, `group`), and `critter-ref.js` proves the pattern of
-   rendering documentation from the registry rather than beside it.
+3. ~~**Write down what each command *means*, once.**~~ Done --
+   `ork_core::commands` now holds every command's name, one-line summary,
+   example, group, and what it can change. `clap` is *given* its summaries from
+   that table rather than being read for them, so the list a second front-end
+   renders and the list the terminal prints cannot be different lists.
+
+   The long explanation deliberately did not move there. It belongs in
+   `docs/commands.md`, which is already compiled into the binary and already
+   the one place both front-ends get it from; a second copy of the prose in the
+   registry would have recreated the problem one level down. What is checked
+   instead is that every registered command *has* a section there, and that the
+   long help's opening sentence is the table's summary rather than a paraphrase
+   of it.
+
+   The examples are checked by being parsed by the real parser, so a `usage`
+   line the program would reject fails the build. Writing them turned up one
+   summary that had already drifted -- `processes` was described one way in the
+   terminal and another in the window.
+
+   One test in `ork-cli` now reaches for `clap` in order to learn something
+   about the tool, and it is the bridge: the two lists are the same set, and
+   say the same things. On the day `clap` goes, that file is what gets deleted
+   -- not the table.
 4. ~~**The manual's fenced commands should be checkable.**~~ Done — every fenced
    `outlaw` line in `docs/` is now parsed by the program itself. On the day the
    syntax changes, all of them are wrong at once, and this says so line by line.
@@ -382,7 +400,7 @@ whether preparation is real or speculative.
 
 ## Order of work
 
-1. The rest of the preparation above -- which is now item 3 alone.
+1. ~~The rest of the preparation above.~~ Done -- all five.
 2. ~~Decide the changing-commands question.~~ Decided -- the rule is removed,
    and two rails replace it. See above.
 3. `ork-critter`: the grammar, a parser, an interpreter, and its refusals. No
