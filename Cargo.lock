@@ -3979,6 +3979,9 @@ dependencies = [
 [[package]]
 name = "ork-critter"
 version = "0.12.0"
+dependencies = [
+ "serde_json",
+]
 
 [[package]]
 name = "ork-desktop"

@@ -11,3 +11,7 @@ description = "CritterScript: the language the tool is spoken to in."
 # Deliberately nothing of ours. See the note at the top of src/lib.rs: a parser
 # that can reach the tool is a parser whose tests can reach the tool.
 [dependencies]
+# For `json`, which is a language command rather than tool behaviour: reading
+# an answer that came back as JSON is what makes a pipeline worth writing at
+# all. Nothing of ours is here, and that is the rule -- see src/lib.rs.
+serde_json = { workspace = true }

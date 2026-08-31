@@ -78,10 +78,24 @@ impl Token {
 /// would be arithmetic leaking into a sentence somebody reads.
 pub(crate) fn number_shown(number: f64) -> String {
     if number.is_finite() && number.fract() == 0.0 && number.abs() < 1e15 {
-        format!("{}", number as i64)
-    } else {
-        format!("{number}")
+        return format!("{}", number as i64);
     }
+    if !number.is_finite() {
+        return format!("{number}");
+    }
+    // Rounded to six places, and never in exponent form. A third printed as
+    // 0.3333333333333333 is arithmetic showing through; printed as 3.33e-1 it
+    // is arithmetic showing off. Neither is what somebody reading a terminal
+    // wants, and six places is past anything this language is used to measure.
+    let rounded = (number * 1e6).round() / 1e6;
+    let mut text = format!("{rounded:.6}");
+    while text.ends_with('0') {
+        text.pop();
+    }
+    if text.ends_with('.') {
+        text.pop();
+    }
+    text
 }
 
 /// The operators, longest first.

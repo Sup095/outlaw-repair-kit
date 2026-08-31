@@ -26,12 +26,14 @@
 //! `ork-core` may depend on this later. This never depends on `ork-core`.
 
 pub mod ast;
+pub mod library;
 pub mod parse;
 pub mod run;
 pub mod token;
 pub mod value;
 
 pub use ast::{Expr, Literal, Stage, Stmt};
+pub use library::{add_standard, standard};
 pub use parse::{Problem, parse};
 pub use run::{
     Call, Collected, Command, Fault, Output, Registration, Registry, check, run, run_as_guest,
