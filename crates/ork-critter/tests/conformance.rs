@@ -633,7 +633,9 @@ fn elif_chains() {
         "other"
     );
     assert_eq!(
-        out("let x = 3\nif $x == 1\n p a\nelif $x == 2\n p b\nelif $x == 3\n p c\nelif $x == 4\n p d\nend"),
+        out(
+            "let x = 3\nif $x == 1\n p a\nelif $x == 2\n p b\nelif $x == 3\n p c\nelif $x == 4\n p d\nend"
+        ),
         "c"
     );
     assert_eq!(
@@ -645,14 +647,22 @@ fn elif_chains() {
     // every following statement into the else branch, so the rest of the
     // script ran only when the first condition was false. Nothing about that
     // is visible until a test looks past the `end`.
-    assert_eq!(out("if true\n p a\nelif true\n p b\nend\np after"), "a\nafter");
-    assert_eq!(out("if false\n p a\nelif false\n p b\nend\np after"), "after");
+    assert_eq!(
+        out("if true\n p a\nelif true\n p b\nend\np after"),
+        "a\nafter"
+    );
+    assert_eq!(
+        out("if false\n p a\nelif false\n p b\nend\np after"),
+        "after"
+    );
     assert_eq!(
         out("if false\n p a\nelif false\n p b\nelse\n p c\nend\np after"),
         "c\nafter"
     );
     assert_eq!(
-        out("for i in (range 3)\n if $i == 1\n  p one\n elif $i == 2\n  p two\n else\n  p many\n end\nend"),
+        out(
+            "for i in (range 3)\n if $i == 1\n  p one\n elif $i == 2\n  p two\n else\n  p many\n end\nend"
+        ),
         "one\ntwo\nmany"
     );
     assert!(
@@ -727,7 +737,10 @@ fn records_through_a_pipe() {
     );
     // A record is deliberately the shape JSON reads into, so this needs no
     // conversion step in the middle.
-    assert_eq!(out("json \"[{\\\"a\\\":1},{\\\"a\\\":2}]\" | pluck a | sum"), "3");
+    assert_eq!(
+        out("json \"[{\\\"a\\\":1},{\\\"a\\\":2}]\" | pluck a | sum"),
+        "3"
+    );
     assert_eq!(out("record a 1 | kind"), "a record");
     assert_eq!(out("list a | kind"), "a list");
     assert!(refuse("record name Ada | field nmae").contains("It has: name"));
@@ -736,7 +749,9 @@ fn records_through_a_pipe() {
 #[test]
 fn the_value_commands_the_pipe_made_necessary() {
     assert_eq!(
-        out("json \"[{\\\"n\\\":\\\"a\\\",\\\"ok\\\":true},{\\\"n\\\":\\\"b\\\",\\\"ok\\\":false}]\" | where ok false | pluck n | join ,"),
+        out(
+            "json \"[{\\\"n\\\":\\\"a\\\",\\\"ok\\\":true},{\\\"n\\\":\\\"b\\\",\\\"ok\\\":false}]\" | where ok false | pluck n | join ,"
+        ),
         "b"
     );
     assert_eq!(out("list a b c d | first"), "a");
@@ -794,7 +809,10 @@ fn digits_at_the_start_of_a_piece_mean_a_number() {
     // division and a glued negative both depend on a digit starting a number.
     // It is a thing the language has to say out loud and anything echoing a
     // timestamp has to quote around.
-    assert_eq!(out("p \"terminal 2026-08-21 15:04\""), "terminal 2026-08-21 15:04");
+    assert_eq!(
+        out("p \"terminal 2026-08-21 15:04\""),
+        "terminal 2026-08-21 15:04"
+    );
     assert_ne!(out("p 2026-08-21 15:04"), "2026-08-21 15:04");
     assert_eq!(out("p sum-up"), "sum-up");
     assert_eq!(out("p https://example.org/a"), "https://example.org/a");
